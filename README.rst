@@ -1,4 +1,6 @@
-# python-isal
+python-isal
+===========
+
 Python bindings for the [isa-l](https://github.com/intel/isa-l) library.
 
 The Intel Infrastructure Storage Acceleration Library (isa-l) implements several key 
