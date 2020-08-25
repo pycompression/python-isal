@@ -18,8 +18,29 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# cython: language_level=3
-
-_COMPRESS_LEVEL_FAST = ISAL_DEF_MIN_LEVEL
-_COMPRESS_LEVEL_TRADEOFF = 2
-_COMPRESS_LEVEL_BEST = ISAL_DEF_MAX_LEVEL
+# All isa-l headers are included in isa-l.h 
+cdef extern from "<isa-l.h>":
+    # isa-l.h
+    int ISAL_MAJOR_VERSION
+    int ISAL_MINOR_VERSION
+    int ISAL_PATCH_VERSION
+    
+    # isa-l/igzip_lib.h
+    int ISAL_DEF_MIN_LEVEL
+    int ISAL_DEF_MAX_LEVEL
+    int COMP_OK
+    int INVALID_FLUSH
+    int ISAL_INVALID_LEVEL
+    int ISAL_INVALID_LEVEL_BUFF
+    ctypedef enum isal_zstate_state:
+        pass
+    ctypedef enum isal_block_state:
+        pass 
+    ctypedef struct isal_gzip_header:
+        pass 
+    ctypedef struct isal_zstream:
+        pass 
+    ctypedef struct inflate_state:
+        pass
+    void isal_deflate_init(isal_zstream *stream);
+    int isal_deflate(isal_zstream *stream);

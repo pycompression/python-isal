@@ -20,8 +20,6 @@
 
 import _compression
 
-from .igzip_lib import MINIMUM_LEVEL, MAXIMUM_LEVEL
-
 class GzipFile(_compression.BaseStream):
     pass
 
