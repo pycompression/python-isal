@@ -20,3 +20,29 @@
 
 # cython: language_level=3
 
+from libc.stdint cimport uint64_t, uint32_t
+
+cimport cython
+cdef extern from "<isa-l/igzip_lib.h>":
+    int ISAL_DEF_MIN_LEVEL
+    int ISAL_DEF_MAX_LEVEL
+
+ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
+ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
+ISAL_DEFAULT_COMPRESSION = 2
+
+cdef extern from "<isa-l/crc.h>":
+    uint32_t crc32_gzip_refl(
+    uint32_t init_crc,          #!< initial CRC value, 32 bits
+    const unsigned char *buf, #!< buffer to calculate CRC on
+    uint64_t len                #!< buffer length in bytes (64-bit data)
+    )
+
+cdef _crc32(bytes data, unsigned int value = 0):
+    cdef uint64_t buffer_length = len(data)
+    cdef unsigned char* buf = data
+    cdef unsigned int result = crc32_gzip_refl(value, buf, buffer_length)
+    return result
+
+cpdef crc32(bytes data, unsigned int value = 0):
+    return _crc32(bytes, value)
