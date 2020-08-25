@@ -21,7 +21,7 @@
 # cython: language_level=3
 
 cdef extern from "<isa-l/crc.h>":
-    cpdef unsigned int crc32_gzip_refl(
+    cdef unsigned int crc32_gzip_refl(
     unsigned int init_crc,          #!< initial CRC value, 32 bits
     const unsigned char *buf, #!< buffer to calculate CRC on
     unsigned long len                #!< buffer length in bytes (64-bit data)

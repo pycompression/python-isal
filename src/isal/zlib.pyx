@@ -20,9 +20,11 @@
 
 # cython: language_level=3
 
-cimport crc
-cimport igzip_lib
-ISAL_BEST_SPEED = igzip_lib.ISAL_DEF_MIN_LEVEL
-ISAL_BEST_COMPRESSION = igzip_lib.ISAL_DEF_MAX_LEVEL
+from crc cimport crc32_gzip_refl
+from igzip_lib cimport ISAL_DEF_MIN_LEVEL, ISAL_DEF_MAX_LEVEL
+ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
+ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
 ISAL_DEFAULT_COMPRESSION = 2
 
+cpdef crc32(unsigned char* data, unsigned int value):
+    return crc32_gzip_refl(value, data, len(data))
