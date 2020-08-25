@@ -18,11 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-cdef extern from "<isa-l.h>":
-    # isa-l.h
-    int ISAL_MAJOR_VERSION
-    int ISAL_MINOR_VERSION
-    int ISAL_PATCH_VERSION
+from isal cimport ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, ISAL_PATCH_VERSION
 
 __version__ = "{0}.{1}.{2}".format(ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION,
                                    ISAL_PATCH_VERSION)

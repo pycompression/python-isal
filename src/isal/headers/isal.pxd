@@ -20,9 +20,8 @@
 
 # cython: language_level=3
 
-cimport crc
-cimport igzip_lib
-ISAL_BEST_SPEED = igzip_lib.ISAL_DEF_MIN_LEVEL
-ISAL_BEST_COMPRESSION = igzip_lib.ISAL_DEF_MAX_LEVEL
-ISAL_DEFAULT_COMPRESSION = 2
-
+cdef extern from "<isa-l.h>":
+    # isa-l.h
+    int ISAL_MAJOR_VERSION
+    int ISAL_MINOR_VERSION
+    int ISAL_PATCH_VERSION
