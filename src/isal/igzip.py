@@ -27,7 +27,8 @@ from . import isal_zlib
 
 class IGzipFile(gzip.GzipFile):
     def __init__(self, filename=None, mode=None,
-                 compresslevel=9, fileobj=None, mtime=None):
+                 compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
+                 fileobj=None, mtime=None):
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
 
         # Overwrite buffers and compress objects with isal equivalents.
