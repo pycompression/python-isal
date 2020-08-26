@@ -26,5 +26,5 @@ ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
 ISAL_DEFAULT_COMPRESSION = 2
 
-# cpdef crc32(unsigned char *data, unsigned int value):
-#     return crc32_gzip_refl(value, data, len(data))
+cpdef crc32(unsigned char *data, unsigned int value = 0):
+    return crc32_gzip_refl(value, data, len(data))
