@@ -36,6 +36,8 @@ setup(
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
+    include_package_data=True,
+    package_data = {'isal': ['*.pxd']},
     url="https://github.com/rhpvorderman/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
@@ -52,9 +54,8 @@ setup(
     setup_requires=["cython"],
     install_requires=[],
     ext_modules=[
-        Extension("isal._isal", ["src/isal/_isal.pyx"],
-                  include_dirs=["src/isal/headers"], libraries=["isal"]),
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
-                  include_dirs=["src/isal/headers"], libraries=["isal"])
+                  libraries=["isal"]),
+        Extension("isal._isal", ["src/isal/_isal.pyx"], libraries=["isal"]),
     ]
 )

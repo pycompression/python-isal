@@ -18,6 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+"""Similar to the stdlib gzip module. But using the Intel Storage Accelaration
+Library to speed up its methods."""
+
 import io
 
 # We import a copy of the gzip module so we can use that to define the classes
@@ -35,6 +38,7 @@ class IGzipFile(_gzip_copy.GzipFile):
     def __init__(self, filename=None, mode=None,
                  compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  fileobj=None, mtime=None):
+        if isal_zlib.ISAL_FAST_COMPRESSIONcompresslevel
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
 
         # Overwrite buffers and compress objects with isal equivalents.

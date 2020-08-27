@@ -18,10 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# cython: language_level=3
-
 cdef extern from "<isa-l.h>":
     # isa-l.h
     int ISAL_MAJOR_VERSION
     int ISAL_MINOR_VERSION
     int ISAL_PATCH_VERSION
+    int ISAL_VERSION

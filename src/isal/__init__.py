@@ -20,14 +20,7 @@
 
 import pkg_resources
 
-from . import igzip, isal_zlib
-from ._isal import __version__ as ISA_L_VERSION
+from ._isal import ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, \
+    ISAL_PATCH_VERSION, ISAL_VERSION
 
 __version__ = pkg_resources.get_distribution(__package__).version
-
-__all__ = [
-    "igzip",
-    "isal_zlib",
-    "ISA_L_VERSION",
-    "__version__"
-]
