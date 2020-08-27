@@ -82,11 +82,38 @@ cdef extern from "<isa-l/igzip_lib.h>":
     int ISAL_UNSOPPERTED_METHOD
     int ISAL_INCORRECT_CHECKSUM
 
-    # Compression structurs
+    # Compression structures
     int ISAL_DEF_MIN_LEVEL
     int ISAL_DEF_MAX_LEVEL
-    int COMP_OK
- 
+
+    int ISAL_DEF_LVL0_MIN
+    int ISAL_DEF_LVL0_SMALL
+    int ISAL_DEF_LVL0_MEDIUM
+    int ISAL_DEF_LVL0_LARGE
+    int ISAL_DEF_LVL0_EXTRA_LARGE
+    int ISAL_DEF_LVL0_DEFAULT
+
+    int ISAL_DEF_LVL1_MIN
+    int ISAL_DEF_LVL1_SMALL
+    int ISAL_DEF_LVL1_MEDIUM
+    int ISAL_DEF_LVL1_LARGE
+    int ISAL_DEF_LVL1_EXTRA_LARGE
+    int ISAL_DEF_LVL1_DEFAULT
+
+    int ISAL_DEF_LVL2_MIN
+    int ISAL_DEF_LVL2_SMALL
+    int ISAL_DEF_LVL2_MEDIUM
+    int ISAL_DEF_LVL2_LARGE
+    int ISAL_DEF_LVL2_EXTRA_LARGE
+    int ISAL_DEF_LVL2_DEFAULT
+
+    int ISAL_DEF_LVL3_MIN
+    int ISAL_DEF_LVL3_SMALL
+    int ISAL_DEF_LVL3_MEDIUM
+    int ISAL_DEF_LVL3_LARGE
+    int ISAL_DEF_LVL3_EXTRA_LARGE
+    int ISAL_DEF_LVL3_DEFAULT
+
     ctypedef enum isal_zstate_state:
         pass
     ctypedef enum isal_block_state:

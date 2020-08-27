@@ -29,8 +29,9 @@ from .igzip_lib cimport (ISAL_DEF_MIN_LEVEL,
                          ISAL_DEFLATE)
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
-ISAL_DEFAULT_COMPRESSION = 2
-
+ISAL_DEFAULT_COMPRESSION = -1
+DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
+DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
 
 class IsalError(Exception):
     pass
@@ -47,7 +48,7 @@ cpdef adler32(unsigned char *data, unsigned int value = 0):
 cpdef crc32(unsigned char *data, unsigned int value = 0):
     return crc32_gzip_refl(value, data, len(data))
 
-cpdef compress(unsigned char *data, int level =-1):
+cpdef compress(unsigned char *data, int level =ISAL_DEFAULT_COMPRESSION):
     if level == -1:
         level = ISAL_DEFAULT_COMPRESSION
     pass
@@ -56,18 +57,18 @@ cpdef compress(unsigned char *data, int level =-1):
 cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
                   int method=zlib.DEFLATED,
                   int wbits=ISAL_DEF_MAX_HIST_BITS,
-                  int memLevel,
-                  int strategy,
-                  unsigned char *zdict = None):
+                  int memLevel=DEF_MEM_LEVEL,
+                  int strategy=zlib.Z_DEFAULT_STRATEGY,
+                  zdict = None):
     pass 
 
 
 cpdef decompress(unsigned char *data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,
-                 Py_ssize_t bufsize,):
+                 Py_ssize_t bufsize=DEF_BUF_SIZE,):
     pass
 
 
 cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
-                    unsigned char *zdict = None):
+                    zdict = None):
     pass
