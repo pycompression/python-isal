@@ -38,7 +38,12 @@ class IGzipFile(_gzip_copy.GzipFile):
     def __init__(self, filename=None, mode=None,
                  compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  fileobj=None, mtime=None):
-        if isal_zlib.ISAL_FAST_COMPRESSIONcompresslevel
+        if not (isal_zlib.ISAL_BEST_SPEED < compresslevel
+                < isal_zlib.ISAL_BEST_COMPRESSION):
+            raise ValueError(
+                "Compression level should be between {0} and {1}.".format(
+                    isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION
+                ))
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
 
         # Overwrite buffers and compress objects with isal equivalents.
