@@ -21,7 +21,21 @@
 # cython: language_level=3
 
 cdef extern from "<isa-l/igzip_lib.h>":
+    # Deflate compression standard defines
+    int ISAL_DEF_MAX_HDR_SIZE
+    int ISAL_DEF_MAX_CODE_LEN
     int ISAL_DEF_HIST_SIZE  # Window size
+    int ISAL_DEF_MAX_HIST_BITS
+    int ISAL_DEF_MAX_MATCH
+    int ISAL_DEF_MIN_MATCH
+
+    int ISAL_DEF_LIT_SYMBOLS
+    int ISAL_DEF_LEN_SYMBOLS
+    int ISAL_DEF_DIST_SYMBOLS
+    int ISAL_DEF_LIT_LEN_SYMBOLS
+
+    # Max repeat length
+    int ISAL_LOOK_AHEAD
 
     # Flush flags
     int NO_FLUSH  # Defaults
