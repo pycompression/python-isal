@@ -42,8 +42,8 @@ if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
                      "Please contact the developers.")
 
 
-cpdef adler32(unsigned char *data, unsigned int value = 0):
-    raise NotImplementedError("Adler32 is not implemented in isal.")
+def adler32(data, value = 0):
+    zlib.adler32(data, value)
 
 cpdef crc32(unsigned char *data, unsigned int value = 0):
     return crc32_gzip_refl(value, data, len(data))
