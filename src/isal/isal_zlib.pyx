@@ -28,3 +28,9 @@ ISAL_DEFAULT_COMPRESSION = 2
 
 cpdef crc32(unsigned char *data, unsigned int value = 0):
     return crc32_gzip_refl(value, data, len(data))
+
+cpdef compress(unsigned char *data, int level =-1):
+    if level == -1:
+        level = ISAL_DEFAULT_COMPRESSION
+    pass
+
