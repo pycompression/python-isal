@@ -21,12 +21,58 @@
 # cython: language_level=3
 
 cdef extern from "<isa-l/igzip_lib.h>":
+    int ISAL_DEF_HIST_SIZE  # Window size
+
+    # Flush flags
+    int NO_FLUSH  # Defaults
+    int SYNC_FLUSH
+    int FULL_FLUSH
+
+    # Gzip flags
+    int IGZIP_DEFLATE  # Default
+    int IGZIP_GZIP
+    int IGZIP_GZIP_NO_HDR
+    int IGZIP_ZLIB
+    int IGZIP_ZLIB_NO_HDR
+
+    # Compression return values
+    int COMP_OK 
+    int INVALID_FLUSH
+    int INVALID_PARAM
+    int STATELESS_OVERFLOW
+    int ISAL_INVALID_OPERATION
+    int ISAL_INVALID_STATE 
+    int ISAL_INVALID_LEVEL 
+    int ISAL_INVALID_LEVEL_BUFF 
+
+    # Inflate flags
+    int ISAL_DEFLATE 
+    int ISAL_GZIP 
+    int ISAL_GZIP_NO_HDR
+    int ISAL_ZLIB
+    int ISAL_ZLIB_NO_HDR
+    int ISAL_ZLIB_NO_HDR_VER
+    int ISAL_GZIP_NO_HDR_VER
+
+    # Inflate return values
+    int ISAL_DECOMP_OK
+    int ISAL_END_INPUT
+    int ISAL_OUT_OVERFLOW
+    int ISAL_NAME_OVERFLOW
+    int ISAL_COMMENT_OVERFLOW
+    int ISAL_EXTRA_OVERFLOW
+    int ISAL_NEED_DICT
+    int ISAL_INVALID_BLOCK
+    int ISAL_INVALID_LOOKBACK
+    int ISAL_INVALID_WRAPPER
+    int ISAL_UNSOPPERTED_METHOD
+    int ISAL_INCORRECT_CHECKSUM
+
+    # Compression structurs
     int ISAL_DEF_MIN_LEVEL
     int ISAL_DEF_MAX_LEVEL
     int COMP_OK
-    int INVALID_FLUSH
-    int ISAL_INVALID_LEVEL
-    int ISAL_INVALID_LEVEL_BUFF
+ 
     ctypedef enum isal_zstate_state:
         pass
     ctypedef enum isal_block_state:
@@ -37,5 +83,5 @@ cdef extern from "<isa-l/igzip_lib.h>":
         pass
     ctypedef struct inflate_state:
         pass
-    void isal_deflate_init(isal_zstream *stream);
-    int isal_deflate(isal_zstream *stream);
+
+    # Compression functions
