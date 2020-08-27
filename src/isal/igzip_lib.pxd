@@ -59,6 +59,47 @@ cdef extern from "<isa-l/igzip_lib.h>":
     int ISAL_INVALID_LEVEL 
     int ISAL_INVALID_LEVEL_BUFF 
 
+    cdef enum isal_zstate_state:
+        ZSTATE_NEW_HDR  #!< Header to be written
+        ZSTATE_HDR,	#!< Header state
+        ZSTATE_CREATE_HDR  #!< Header to be created
+        ZSTATE_BODY,	#!< Body state
+        ZSTATE_FLUSH_READ_BUFFER  #!< Flush buffer
+        ZSTATE_FLUSH_ICF_BUFFER
+        ZSTATE_TYPE0_HDR  #! Type0 block header to be written
+        ZSTATE_TYPE0_BODY  #!< Type0 block body to be written
+        ZSTATE_SYNC_FLUSH  #!< Write sync flush block
+        ZSTATE_FLUSH_WRITE_BUFFER  #!< Flush bitbuf
+        ZSTATE_TRL,	#!< Trailer state
+        ZSTATE_END,	#!< End state
+        ZSTATE_TMP_NEW_HDR  #!< Temporary Header to be written
+        ZSTATE_TMP_HDR,	#!< Temporary Header state
+        ZSTATE_TMP_CREATE_HDR  #!< Temporary Header to be created state
+        ZSTATE_TMP_BODY  #!< Temporary Body state
+        ZSTATE_TMP_FLUSH_READ_BUFFER  #!< Flush buffer
+        ZSTATE_TMP_FLUSH_ICF_BUFFER
+        ZSTATE_TMP_TYPE0_HDR  #! Temporary Type0 block header to be written
+        ZSTATE_TMP_TYPE0_BODY  #!< Temporary Type0 block body to be written
+        ZSTATE_TMP_SYNC_FLUSH  #!< Write sync flush block
+        ZSTATE_TMP_FLUSH_WRITE_BUFFER  #!< Flush bitbuf
+        ZSTATE_TMP_TRL 	#!< Temporary Trailer state
+        ZSTATE_TMP_END	#!< Temporary End state
+
+    cdef enum isal_block_state:
+        ISAL_BLOCK_NEW_HDR,	# Just starting a new block */
+        ISAL_BLOCK_HDR,		# In the middle of reading in a block header */
+        ISAL_BLOCK_TYPE0,	# Decoding a type 0 block */
+        ISAL_BLOCK_CODED,	# Decoding a huffman coded block */
+        ISAL_BLOCK_INPUT_DONE,	# Decompression of input is completed */
+        ISAL_BLOCK_FINISH,	# Decompression of input is completed and all data has been flushed to output */
+        ISAL_GZIP_EXTRA_LEN,
+        ISAL_GZIP_EXTRA,
+        ISAL_GZIP_NAME,
+        ISAL_GZIP_COMMENT,
+        ISAL_GZIP_HCRC,
+        ISAL_ZLIB_DICT,
+        ISAL_CHECKSUM_CHECK,
+    
     # Inflate flags
     int ISAL_DEFLATE 
     int ISAL_GZIP 
@@ -113,16 +154,8 @@ cdef extern from "<isa-l/igzip_lib.h>":
     int ISAL_DEF_LVL3_LARGE
     int ISAL_DEF_LVL3_EXTRA_LARGE
     int ISAL_DEF_LVL3_DEFAULT
-
-    ctypedef enum isal_zstate_state:
-        pass
-    ctypedef enum isal_block_state:
-        pass
-    ctypedef struct isal_gzip_header:
-        pass
-    ctypedef struct isal_zstream:
-        pass
-    ctypedef struct inflate_state:
+    
+    cdef struct isal_zstream:
         pass
 
     # Compression functions
