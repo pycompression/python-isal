@@ -41,6 +41,7 @@ cdef extern from "<isa-l/igzip_lib.h>":
     int NO_FLUSH  # Defaults
     int SYNC_FLUSH
     int FULL_FLUSH
+    int FINISH_FLUSH
 
     # Gzip flags
     int IGZIP_DEFLATE  # Default
