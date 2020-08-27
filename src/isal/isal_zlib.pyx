@@ -24,6 +24,7 @@ import zlib
 
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
+from libc.stdint cimport UINT64_MAX
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
@@ -113,7 +114,10 @@ def adler32(data, value = 0):
     zlib.adler32(data, value)
 
 cpdef crc32(unsigned char *data, unsigned int value = 0):
-    return crc32_gzip_refl(value, data, len(data))
+    cdef Py_ssize_t length = len(data)
+    if length > UINT64_MAX:
+        raise ValueError("Data to big for crc32")
+    return crc32_gzip_refl(value, data, length)
 
 cpdef compress(unsigned char *data, int level =ISAL_DEFAULT_COMPRESSION):
     if level == -1:
@@ -142,23 +146,27 @@ cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
 
 
 cdef class Compress:
-    
-    cpdef compress(unisgned char *data):
+    cpdef compress(self, unsigned char *data):
         pass
     
-    cpdef flush(int mode=zlib.Z_FINISH):
+    cpdef flush(self, int mode=zlib.Z_FINISH):
         pass 
     
-    cpdef copy():
+    cpdef copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
 cdef class Decompress:
     cdef unsigned char *unused_data
     cdef unsigned char *unconsumed_tail
     cdef bint eof
+    cdef bint is_initialised
 
-    cpdef decompress(unsigned char *data, Py_ssize_t max_length):
+
+    cpdef decompress(self, unsigned char *data, Py_ssize_t max_length):
         pass
 
-    cpdef flush(Py_ssize_t length = DEF_BUF_SIZE):
+    cpdef flush(self, Py_ssize_t length = DEF_BUF_SIZE):
         pass
+
+    cpdef copy(self):
+        raise NotImplementedError("Copy not yet implemented for isal_zlib")
