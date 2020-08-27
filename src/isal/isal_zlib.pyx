@@ -23,10 +23,8 @@
 import zlib
 
 from .crc cimport crc32_gzip_refl
-from .igzip_lib cimport (ISAL_DEF_MIN_LEVEL, 
-                         ISAL_DEF_MAX_LEVEL,
-                         ISAL_DEF_MAX_HIST_BITS,
-                         ISAL_DEFLATE)
+from .igzip_lib cimport *
+
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
 ISAL_DEFAULT_COMPRESSION = 2
@@ -40,6 +38,75 @@ class IsalError(Exception):
 if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
     raise  IsalError("ISAL max window size no longer compatible with zlib. "
                      "Please contact the developers.")
+
+
+cdef int zlib_mem_level_to_isal(int compression_level, int mem_level):
+    """
+    Convert zlib memory levels to isal equivalents
+    """
+    if not (1 < mem_level < 9):
+        raise ValueError("Memory level must be between 1 and 9")
+    if not (ISAL_DEF_MIN_LEVEL < compression_level < ISAL_DEF_MAX_LEVEL):
+        raise ValueError("Invalid compression level.")
+
+    # If the mem_level is zlib default, return isal defaults. 
+    # Current zlib def level = 8. On isal the def level is large.
+    # Hence 7,8 return large. 9 returns extra large.
+    if mem_level == zlib.DEF_MEM_LEVEL:
+        if compression_level == 0:
+            return ISAL_DEF_LVL0_DEFAULT
+        elif compression_level == 1:
+            return ISAL_DEF_LVL1_DEFAULT
+        elif compression_level == 2:
+            return ISAL_DEF_LVL2_DEFAULT
+        elif compression_level == 3:
+            return ISAL_DEF_LVL3_DEFAULT
+    if mem_level == 1:
+        if compression_level == 0:
+            return ISAL_DEF_LVL0_MIN
+        elif compression_level == 1:
+            return ISAL_DEF_LVL1_MIN
+        elif compression_level == 2:
+            return ISAL_DEF_LVL2_MIN
+        elif compression_level == 3:
+            return ISAL_DEF_LVL3_MIN
+    elif mem_level in [2,3]:
+        if compression_level == 0:
+            return ISAL_DEF_LVL0_SMALL
+        elif compression_level == 1:
+            return ISAL_DEF_LVL1_SMALL
+        elif compression_level == 2:
+            return ISAL_DEF_LVL2_SMALL
+        elif compression_level == 3:
+            return ISAL_DEF_LVL3_SMALL
+    elif mem_level in [4,5,6]:
+        if compression_level == 0:
+            return ISAL_DEF_LVL0_MEDIUM
+        elif compression_level == 1:
+            return ISAL_DEF_LVL1_MEDIUM
+        elif compression_level == 2:
+            return ISAL_DEF_LVL2_MEDIUM
+        elif compression_level == 3:
+            return ISAL_DEF_LVL3_MEDIUM
+    elif mem_level in [7,8]:
+        if compression_level == 0:
+            return ISAL_DEF_LVL0_LARGE
+        elif compression_level == 1:
+            return ISAL_DEF_LVL1_LARGE
+        elif compression_level == 2:
+            return ISAL_DEF_LVL2_LARGE
+        elif compression_level == 3:
+            return ISAL_DEF_LVL3_LARGE
+    elif mem_level == 9:
+        if compression_level == 0:
+            return ISAL_DEF_LVL0_EXTRA_LARGE
+        elif compression_level == 1:
+            return ISAL_DEF_LVL1_EXTRA_LARGE
+        elif compression_level == 2:
+            return ISAL_DEF_LVL2_EXTRA_LARGE
+        elif compression_level == 3:
+            return ISAL_DEF_LVL3_EXTRA_LARGE
+    raise ValueError("Incorrect memory level or compression level.")
 
 
 def adler32(data, value = 0):
