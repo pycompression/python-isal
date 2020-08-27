@@ -18,34 +18,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import io
+"""
+A copy of the gzip module which does not use the same namespace, so its
+variables (such as 'zlib') can be replaced.
+"""
+import gzip
+import inspect
 
-# We import a copy of the gzip module so we can use that to define the classes
-# here and replace  the zlib module with the isal_zlib module. This way the
-# zlib module will not be replaced for the original zlib module. So IGzipFile
-# and gzip.GzipFile can be used in the same code.
-# Also this reuses as much code from the stdlib without copying it.
-from . import _gzip_copy
-from . import isal_zlib
-
-_gzip_copy.zlib = isal_zlib
-
-
-class IGzipFile(_gzip_copy.GzipFile):
-    def __init__(self, filename=None, mode=None,
-                 compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
-                 fileobj=None, mtime=None):
-        super().__init__(filename, mode, compresslevel, fileobj, mtime)
-
-        # Overwrite buffers and compress objects with isal equivalents.
-        if mode.startswith('r'):
-            raw = _IGzipReader(fileobj)
-            self._buffer = io.BufferedReader(raw)
-
-    def __repr__(self):
-        s = repr(self.fileobj)
-        return '<igzip ' + s[1:-1] + ' ' + hex(id(self)) + '>'
-
-
-class _IGzipReader(_gzip_copy._GzipReader):
-    pass
+exec(inspect.getsource(gzip))
