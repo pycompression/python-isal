@@ -139,3 +139,26 @@ cpdef decompress(unsigned char *data,
 cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
                     zdict = None):
     pass
+
+
+cdef class Compress:
+    
+    cpdef compress(unisgned char *data):
+        pass
+    
+    cpdef flush(int mode=zlib.Z_FINISH):
+        pass 
+    
+    cpdef copy():
+        raise NotImplementedError("Copy not yet implemented for isal_zlib")
+
+cdef class Decompress:
+    cdef unsigned char *unused_data
+    cdef unsigned char *unconsumed_tail
+    cdef bint eof
+
+    cpdef decompress(unsigned char *data, Py_ssize_t max_length):
+        pass
+
+    cpdef flush(Py_ssize_t length = DEF_BUF_SIZE):
+        pass
