@@ -166,11 +166,11 @@ cpdef crc32(data, unsigned long value = 0):
     return crc32_gzip_refl(value, data, length)
 
 cpdef compress(unsigned char *data, int level=ISAL_DEFAULT_COMPRESSION):
-    # if level == -1:
-    #     level = ISAL_DEFAULT_COMPRESSION
-    # cdef isal_zstream stream = {}
-    # isal_deflate_stateless_init(stream)
-    # stream["level"] = level 
+    if level == -1:
+        level = ISAL_DEFAULT_COMPRESSION
+    cdef isal_zstream stream = {}
+    cdef isal_zstream* stream_ptr
+    isal_deflate_stateless_init(stream_ptr)
     pass
 
 
