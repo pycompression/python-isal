@@ -324,3 +324,22 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  *         STATELESS_OVERFLOW (if output buffer will not fit output).
     #  */
     cdef int isal_deflate_stateless(isal_zstream *stream)
+
+    # Other functions
+
+    #     /**
+    #  * @brief Calculate Adler-32 checksum, runs appropriate version.
+    #  *
+    #  * This function determines what instruction sets are enabled and selects the
+    #  * appropriate version at runtime.
+    #  *
+    #  * @param init: initial Adler-32 value
+    #  * @param buf: buffer to calculate checksum on
+    #  * @param len: buffer length in bytes
+    #  *
+    #  * @returns 32-bit Adler-32 checksum
+    #  */
+
+    unsigned long isal_adler32(unsigned long init, 
+                               const unsigned char *buf, 
+                               unsigned long long len)

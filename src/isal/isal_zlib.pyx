@@ -153,13 +153,16 @@ cdef check_isal_deflate_rc(int rc):
     else:
         raise IsalError("Unknown Error")
 
-def adler32(data, value = 0):
-    zlib.adler32(data, value)
-
-cpdef crc32(unsigned char *data, unsigned int value = 0):
+cpdef adler32(unsigned char *data, unsigned long value = 0):
     cdef Py_ssize_t length = len(data)
     if length > UINT64_MAX:
-        raise ValueError("Data to big for crc32")
+        raise ValueError("Data too big for adler32")
+    return isal_adler32(value, data, length)
+
+cpdef crc32(unsigned char *data, unsigned long value = 0):
+    cdef Py_ssize_t length = len(data)
+    if length > UINT64_MAX:
+        raise ValueError("Data too big for crc32")
     return crc32_gzip_refl(value, data, length)
 
 cpdef compress(unsigned char *data, int level=ISAL_DEFAULT_COMPRESSION):
