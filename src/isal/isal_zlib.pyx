@@ -148,7 +148,7 @@ cdef check_isal_deflate_rc(int rc):
         raise IsalError("Invalid state")
     elif rc == ISAL_INVALID_LEVEL:
         raise IsalError("Invalid compression level.")
-    elif rc == ISAL_INVALID_LEVEL_BUFF:
+    elif rc == ISAL_INVALID_LEVEL_BUF:
         raise IsalError("Invalid buffer size for this compression level.")
     else:
         raise IsalError("Unknown Error")
@@ -162,9 +162,12 @@ cpdef crc32(unsigned char *data, unsigned int value = 0):
         raise ValueError("Data to big for crc32")
     return crc32_gzip_refl(value, data, length)
 
-cpdef compress(unsigned char *data, int level =ISAL_DEFAULT_COMPRESSION):
-    if level == -1:
-        level = ISAL_DEFAULT_COMPRESSION
+cpdef compress(unsigned char *data, int level=ISAL_DEFAULT_COMPRESSION):
+    # if level == -1:
+    #     level = ISAL_DEFAULT_COMPRESSION
+    # cdef isal_zstream stream = {}
+    # isal_deflate_stateless_init(stream)
+    # stream["level"] = level 
     pass
 
 

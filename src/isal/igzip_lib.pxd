@@ -62,7 +62,7 @@ cdef extern from "<isa-l/igzip_lib.h>":
     int ISAL_INVALID_OPERATION
     int ISAL_INVALID_STATE 
     int ISAL_INVALID_LEVEL 
-    int ISAL_INVALID_LEVEL_BUFF 
+    int ISAL_INVALID_LEVEL_BUF
 
     cdef enum isal_zstate_state:
         ZSTATE_NEW_HDR  #!< Header to be written
