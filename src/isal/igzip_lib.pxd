@@ -24,10 +24,10 @@ cdef extern from "<isa-l/igzip_lib.h>":
     # Deflate compression standard defines
     int ISAL_DEF_MAX_HDR_SIZE
     int ISAL_DEF_MAX_CODE_LEN
-    DEF IGZIP_K = 1024
-    DEF ISAL_DEF_HIST_SIZE = 32 * IGZIP_K
-    DEF ISAL_DEF_MAX_HIST_BITS = 15
-    DEF ISAL_DEF_MAX_MATCH = 258
+    int IGZIP_K
+    int ISAL_DEF_HIST_SIZE
+    int ISAL_DEF_MAX_HIST_BITS
+    int ISAL_DEF_MAX_MATCH
     int ISAL_DEF_MIN_MATCH
 
     int ISAL_DEF_LIT_SYMBOLS
@@ -36,10 +36,10 @@ cdef extern from "<isa-l/igzip_lib.h>":
     int ISAL_DEF_LIT_LEN_SYMBOLS
 
     # Deflate Implementation Specific Define
-    DEF IGZIP_HIST_SIZE = ISAL_DEF_HIST_SIZE
+    int IGZIP_HIST_SIZE
 
     # Max repeat length
-    DEF ISAL_LOOK_AHEAD = (ISAL_DEF_MAX_MATCH + 31) & 31
+    int ISAL_LOOK_AHEAD
 
     # Flush flags
     int NO_FLUSH  # Defaults
@@ -186,7 +186,8 @@ cdef extern from "<isa-l/igzip_lib.h>":
         unsigned long tmp_out_end  #!< temporary variable
         unsigned long b_bytes_valid  #!< number of valid bytes in buffer
         unsigned long b_bytes_processed  #!< number of bytes processed in buffer
-        unsigned char buffer[2 * IGZIP_HIST_SIZE + ISAL_LOOK_AHEAD]  #!< Internal buffer
+        # Below values give compile errors because they are dynamic in size
+        #unsigned char buffer[2 * IGZIP_HIST_SIZE + ISAL_LOOK_AHEAD]  #!< Internal buffer
             # Stream should be setup such that the head is cache aligned
-        unsigned int head[IGZIP_LVL0_HASH_SIZE]  #!< Hash array
+        #unsigned int head[IGZIP_LVL0_HASH_SIZE]  #!< Hash array
     # Compression functions
