@@ -133,6 +133,25 @@ cdef int zlib_mem_level_to_isal(int compression_level, int mem_level):
             return ISAL_DEF_LVL3_EXTRA_LARGE
     raise ValueError("Incorrect memory level or compression level.")
 
+cdef check_isal_deflate_rc(int rc):
+    if rc == COMP_OK:
+        return
+    elif rc == INVALID_FLUSH:
+        raise IsalError("Invalid flush type")
+    elif rc == INVALID_PARAM:
+        raise IsalError("Invalid parameter")
+    elif rc == STATELESS_OVERFLOW:
+        raise IsalError("Not enough room in output buffer")
+    elif rc == ISAL_INVALID_OPERATION:
+        raise IsalError("Invalid operation")
+    elif rc == ISAL_INVALID_STATE:
+        raise IsalError("Invalid state")
+    elif rc == ISAL_INVALID_LEVEL:
+        raise IsalError("Invalid compression level.")
+    elif rc == ISAL_INVALID_LEVEL_BUFF:
+        raise IsalError("Invalid buffer size for this compression level.")
+    else:
+        raise IsalError("Unknown Error")
 
 def adler32(data, value = 0):
     zlib.adler32(data, value)
