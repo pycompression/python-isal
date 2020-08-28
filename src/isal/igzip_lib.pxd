@@ -190,4 +190,137 @@ cdef extern from "<isa-l/igzip_lib.h>":
         #unsigned char buffer[2 * IGZIP_HIST_SIZE + ISAL_LOOK_AHEAD]  #!< Internal buffer
             # Stream should be setup such that the head is cache aligned
         #unsigned int head[IGZIP_LVL0_HASH_SIZE]  #!< Hash array
+
+    cdef struct isal_hufftables:
+        pass
+
+    cdef struct isal_zstream:
+        unsigned char *next_in  #!< Next input byte
+        unsigned long avail_in  #!< number of bytes available at next_in
+        unsigned long total_in_start  #!< total number of bytes read so far
+        unsigned char *next_out  #!< Next output byte
+        unsigned long avail_out  #!< number of bytes available at next_out
+        unsigned long total_out  #!< total number of bytes written so far
+        isal_hufftables *hufftables  #!< Huffman encoding used when compressing
+        unsigned long level  #!< Compression level to use
+        unsigned long level_buf_size  #!< Size of level_buf
+        unsigned char * level_buf  #!< User allocated buffer required for different compression levels
+        unsigned int end_of_stream  #!< non-zero if this is the last input buffer
+        unsigned int flush  #!< Flush type can be NO_FLUSH, SYNC_FLUSH or FULL_FLUSH
+        unsigned int gzip_flag  #!< Indicate if gzip compression is to be performed
+        unsigned int hist_bits  #!< Log base 2 of maximum lookback distance, 0 is use default
+        isal_zstate internal_state  #!< Internal state for this stream
+
     # Compression functions
+
+    #/**
+    #  * @brief Initialize compression stream data structure
+    #  *
+    #  * @param stream Structure holding state information on the compression streams.
+    #  * @returns none
+    #  */
+    cdef void isal_deflate_stateless_init(isal_zstream *stream)
+
+    #  /**
+    #  * @brief Set compression dictionary to use
+    #  *
+    #  * This function is to be called after isal_deflate_init, or after completing a
+    #  * SYNC_FLUSH or FULL_FLUSH and before the next call do isal_deflate. If the
+    #  * dictionary is longer than IGZIP_HIST_SIZE, only the last IGZIP_HIST_SIZE
+    #  * bytes will be used.
+    #  *
+    #  * @param stream Structure holding state information on the compression streams.
+    #  * @param dict: Array containing dictionary to use.
+    #  * @param dict_len: Length of dict.
+    #  * @returns COMP_OK,
+    #  *          ISAL_INVALID_STATE (dictionary could not be set)
+    #  */
+    cdef int isal_deflate_set_dict(isal_zstream *stream, 
+                                   unsigned char *dict,
+                                   unsigned long dict_len )
+
+
+    #/**
+    #  * @brief Fast data (deflate) compression for storage applications.
+    #  *
+    #  * The call to isal_deflate() will take data from the input buffer (updating
+    #  * next_in, avail_in and write a compressed stream to the output buffer
+    #  * (updating next_out and avail_out). The function returns when either the input
+    #  * buffer is empty or the output buffer is full.
+    #  *
+    #  * On entry to isal_deflate(), next_in points to an input buffer and avail_in
+    #  * indicates the length of that buffer. Similarly next_out points to an empty
+    #  * output buffer and avail_out indicates the size of that buffer.
+    #  *
+    #  * The fields total_in and total_out start at 0 and are updated by
+    #  * isal_deflate(). These reflect the total number of bytes read or written so far.
+    #  *
+    #  * When the last input buffer is passed in, signaled by setting the
+    #  * end_of_stream, the routine will complete compression at the end of the input
+    #  * buffer, as long as the output buffer is big enough.
+    #  *
+    #  * The compression level can be set by setting level to any value between
+    #  * ISAL_DEF_MIN_LEVEL and ISAL_DEF_MAX_LEVEL. When the compression level is
+    #  * ISAL_DEF_MIN_LEVEL, hufftables can be set to a table trained for the the
+    #  * specific data type being compressed to achieve better compression. When a
+    #  * higher compression level is desired, a larger generic memory buffer needs to
+    #  * be supplied by setting level_buf and level_buf_size to represent the chunk of
+    #  * memory. For level x, the suggest size for this buffer this buffer is
+    #  * ISAL_DEFL_LVLx_DEFAULT. The defines ISAL_DEFL_LVLx_MIN, ISAL_DEFL_LVLx_SMALL,
+    #  * ISAL_DEFL_LVLx_MEDIUM, ISAL_DEFL_LVLx_LARGE, and ISAL_DEFL_LVLx_EXTRA_LARGE
+    #  * are also provided as other suggested sizes.
+    #  *
+    #  * The equivalent of the zlib FLUSH_SYNC operation is currently supported.
+    #  * Flush types can be NO_FLUSH, SYNC_FLUSH or FULL_FLUSH. Default flush type is
+    #  * NO_FLUSH. A SYNC_ OR FULL_ flush will byte align the deflate block by
+    #  * appending an empty stored block once all input has been compressed, including
+    #  * the buffered input. Checking that the out_buffer is not empty or that
+    #  * internal_state.state = ZSTATE_NEW_HDR is sufficient to guarantee all input
+    #  * has been flushed. Additionally FULL_FLUSH will ensure look back history does
+    #  * not include previous blocks so new blocks are fully independent. Switching
+    #  * between flush types is supported.
+    #  *
+    #  * If a compression dictionary is required, the dictionary can be set calling
+    #  * isal_deflate_set_dictionary before calling isal_deflate.
+    #  *
+    #  * If the gzip_flag is set to IGZIP_GZIP, a generic gzip header and the gzip
+    #  * trailer are written around the deflate compressed data. If gzip_flag is set
+    #  * to IGZIP_GZIP_NO_HDR, then only the gzip trailer is written. A full-featured
+    #  * header is supported by the isal_write_{gzip,zlib}_header() functions.
+    #  *
+    #  * @param  stream Structure holding state information on the compression streams.
+    #  * @return COMP_OK (if everything is ok),
+    #  *         INVALID_FLUSH (if an invalid FLUSH is selected),
+    #  *         ISAL_INVALID_LEVEL (if an invalid compression level is selected),
+    #  *         ISAL_INVALID_LEVEL_BUF (if the level buffer is not large enough).
+    #  */
+    cdef int isal_deflate(isal_zstream *stream)
+
+    #/**
+    #  * @brief Fast data (deflate) stateless compression for storage applications.
+    #  *
+    #  * Stateless (one shot) compression routine with a similar interface to
+    #  * isal_deflate() but operates on entire input buffer at one time. Parameter
+    #  * avail_out must be large enough to fit the entire compressed output. Max
+    #  * expansion is limited to the input size plus the header size of a stored/raw
+    #  * block.
+    #  *
+    #  * When the compression level is set to 1, unlike in isal_deflate(), level_buf
+    #  * may be optionally set depending on what what performance is desired.
+    #  *
+    #  * For stateless the flush types NO_FLUSH and FULL_FLUSH are supported.
+    #  * FULL_FLUSH will byte align the output deflate block so additional blocks can
+    #  * be easily appended.
+    #  *
+    #  * If the gzip_flag is set to IGZIP_GZIP, a generic gzip header and the gzip
+    #  * trailer are written around the deflate compressed data. If gzip_flag is set
+    #  * to IGZIP_GZIP_NO_HDR, then only the gzip trailer is written.
+    #  *
+    #  * @param  stream Structure holding state information on the compression streams.
+    #  * @return COMP_OK (if everything is ok),
+    #  *         INVALID_FLUSH (if an invalid FLUSH is selected),
+    #  *         ISAL_INVALID_LEVEL (if an invalid compression level is selected),
+    #  *         ISAL_INVALID_LEVEL_BUF (if the level buffer is not large enough),
+    #  *         STATELESS_OVERFLOW (if output buffer will not fit output).
+    #  */
+    cdef int isal_deflate_stateless(isal_zstream *stream)
