@@ -18,9 +18,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import os
 from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
+
+EXTENSION_OPTS = {}
+
+# Make sure conda prefix is loaded if installed in a conda environment.
+CONDA_PREFIX = os.environ.get("CONDA_PREFIX")
+if CONDA_PREFIX:
+    EXTENSION_OPTS["include_dirs"] = [os.path.join(CONDA_PREFIX, "include")]
 
 setup(
     name="isal",
@@ -55,7 +63,8 @@ setup(
     install_requires=[],
     ext_modules=[
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
-                  libraries=["isal"]),
-        Extension("isal._isal", ["src/isal/_isal.pyx"], libraries=["isal"]),
+                  libraries=["isal"], **EXTENSION_OPTS),
+        Extension("isal._isal", ["src/isal/_isal.pyx"], 
+                  libraries=["isal"], **EXTENSION_OPTS),
     ]
 )
