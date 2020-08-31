@@ -24,8 +24,8 @@ import zlib
 
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
-from libc.stdint cimport UINT64_MAX
-from cpython cimport PyObject_GetBuffer,  Py_buffer
+from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
+from cpython cimport PyObject_GetBuffer,  Py_buffer, PyBUF_F_CONTIGUOUS
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
@@ -82,9 +82,14 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     if level == -1:
         level = ISAL_DEFAULT_COMPRESSION
 
-    cdef Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE
-    cdef isal_zstream stream
-    cdef isal_zstream * stream_ptr = &stream
+    cdef:
+        unsigned char *ibuf = data
+        Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE
+        int err, flush
+        isal_zstream stream
+        isal_zstream * stream_ptr = &stream
+
+    stream.next_in = ibuf
     isal_deflate_stateless_init(stream_ptr)
     stream.level = level
     isal_deflate_stateless(stream_ptr)
