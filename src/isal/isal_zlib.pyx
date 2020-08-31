@@ -25,6 +25,7 @@ import zlib
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX
+from cpython cimport PyObject_GetBuffer,  Py_buffer
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
@@ -65,6 +66,77 @@ if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
                      "Please contact the developers.")
 
 
+cpdef adler32(data, unsigned long value = 1):
+    cdef Py_ssize_t length = len(data)
+    if length > UINT64_MAX:
+        raise ValueError("Data too big for adler32")
+    return isal_adler32(value, data, length)
+
+cpdef crc32(data, unsigned long value = 0):
+    cdef Py_ssize_t length = len(data)
+    if length > UINT64_MAX:
+        raise ValueError("Data too big for crc32")
+    return crc32_gzip_refl(value, data, length)
+
+cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
+    if level == -1:
+        level = ISAL_DEFAULT_COMPRESSION
+
+    cdef Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE
+    cdef isal_zstream stream
+    cdef isal_zstream * stream_ptr = &stream
+    isal_deflate_stateless_init(stream_ptr)
+    stream.level = level
+    isal_deflate_stateless(stream_ptr)
+
+
+cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
+                  int method=zlib.DEFLATED,
+                  int wbits=ISAL_DEF_MAX_HIST_BITS,
+                  int memLevel=DEF_MEM_LEVEL,
+                  int strategy=zlib.Z_DEFAULT_STRATEGY,
+                  zdict = None):
+    pass 
+
+
+cpdef decompress(unsigned char *data,
+                 int wbits=ISAL_DEF_MAX_HIST_BITS,
+                 Py_ssize_t bufsize=DEF_BUF_SIZE,):
+    pass
+
+
+cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
+                    zdict = None):
+    pass
+
+
+cdef class Compress:
+    cpdef compress(self, unsigned char *data):
+        pass
+    
+    cpdef flush(self, int mode=zlib.Z_FINISH):
+        pass 
+    
+    cpdef copy(self):
+        raise NotImplementedError("Copy not yet implemented for isal_zlib")
+
+cdef class Decompress:
+    cdef unsigned char *unused_data
+    cdef unsigned char *unconsumed_tail
+    cdef bint eof
+    cdef bint is_initialised
+
+
+    cpdef decompress(self, unsigned char *data, Py_ssize_t max_length):
+        pass
+
+    cpdef flush(self, Py_ssize_t length = DEF_BUF_SIZE):
+        pass
+
+    cpdef copy(self):
+        raise NotImplementedError("Copy not yet implemented for isal_zlib")
+
+
 cdef int zlib_mem_level_to_isal(int compression_level, int mem_level):
     """
     Convert zlib memory levels to isal equivalents
@@ -74,7 +146,7 @@ cdef int zlib_mem_level_to_isal(int compression_level, int mem_level):
     if not (ISAL_DEF_MIN_LEVEL < compression_level < ISAL_DEF_MAX_LEVEL):
         raise ValueError("Invalid compression level.")
 
-    # If the mem_level is zlib default, return isal defaults. 
+    # If the mem_level is zlib default, return isal defaults.
     # Current zlib def level = 8. On isal the def level is large.
     # Hence 7,8 return large. 9 returns extra large.
     if mem_level == zlib.DEF_MEM_LEVEL:
@@ -152,70 +224,3 @@ cdef check_isal_deflate_rc(int rc):
         raise IsalError("Invalid buffer size for this compression level.")
     else:
         raise IsalError("Unknown Error")
-
-cpdef adler32(data, unsigned long value = 1):
-    cdef Py_ssize_t length = len(data)
-    if length > UINT64_MAX:
-        raise ValueError("Data too big for adler32")
-    return isal_adler32(value, data, length)
-
-cpdef crc32(data, unsigned long value = 0):
-    cdef Py_ssize_t length = len(data)
-    if length > UINT64_MAX:
-        raise ValueError("Data too big for crc32")
-    return crc32_gzip_refl(value, data, length)
-
-cpdef compress(unsigned char *data, int level=ISAL_DEFAULT_COMPRESSION):
-    if level == -1:
-        level = ISAL_DEFAULT_COMPRESSION
-    cdef isal_zstream stream = {}
-    cdef isal_zstream* stream_ptr
-    isal_deflate_stateless_init(stream_ptr)
-    pass
-
-
-cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
-                  int method=zlib.DEFLATED,
-                  int wbits=ISAL_DEF_MAX_HIST_BITS,
-                  int memLevel=DEF_MEM_LEVEL,
-                  int strategy=zlib.Z_DEFAULT_STRATEGY,
-                  zdict = None):
-    pass 
-
-
-cpdef decompress(unsigned char *data,
-                 int wbits=ISAL_DEF_MAX_HIST_BITS,
-                 Py_ssize_t bufsize=DEF_BUF_SIZE,):
-    pass
-
-
-cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
-                    zdict = None):
-    pass
-
-
-cdef class Compress:
-    cpdef compress(self, unsigned char *data):
-        pass
-    
-    cpdef flush(self, int mode=zlib.Z_FINISH):
-        pass 
-    
-    cpdef copy(self):
-        raise NotImplementedError("Copy not yet implemented for isal_zlib")
-
-cdef class Decompress:
-    cdef unsigned char *unused_data
-    cdef unsigned char *unconsumed_tail
-    cdef bint eof
-    cdef bint is_initialised
-
-
-    cpdef decompress(self, unsigned char *data, Py_ssize_t max_length):
-        pass
-
-    cpdef flush(self, Py_ssize_t length = DEF_BUF_SIZE):
-        pass
-
-    cpdef copy(self):
-        raise NotImplementedError("Copy not yet implemented for isal_zlib")
