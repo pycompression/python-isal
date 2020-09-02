@@ -44,7 +44,6 @@ setup(
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    include_package_data=True,
     package_data = {'isal': ['*.pxd']},
     url="https://github.com/rhpvorderman/python-isal",
     classifiers=[
