@@ -83,18 +83,17 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
         level = ISAL_DEFAULT_COMPRESSION
 
     cdef Py_ssize_t ibuflen = DEF_BUF_SIZE
-    cdef Py_ssize_t obuflen = DEF_BUF_SIZE
+    cdef unsigned long obuflen = DEF_BUF_SIZE
     cdef Py_ssize_t tot_length = len(data)
-    cdef Py_ssize_t start, stop
+    cdef long start, stop
     cdef isal_zstream stream
-
     cdef bytes ibuf
     cdef bytearray obuf = bytearray(obuflen)
     cdef long level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
     cdef bytearray level_buf = bytearray(level_buf_size)
     cdef list out = []
     cdef bint end_of_stream
-    cdef Py_ssize_t now_total_out, prev_total_out
+    cdef long now_total_out, prev_total_out
     isal_deflate_init(&stream)
     stream.level = level
     stream.level_buf = level_buf
@@ -102,14 +101,16 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     stream.next_out = obuf
     stream.avail_out = obuflen
     stream.gzip_flag = IGZIP_ZLIB
-    now_total_out = stream.total_out
+    stream.flush = ISAL_NO_FLUSH
+    now_total_out = 0
     for start in range(0, tot_length, ibuflen):
         stop = start+ibuflen
         ibuf = data[start: stop]
         stream.next_in = ibuf
         stream.avail_in = len(ibuf)
         end_of_stream = stop >= tot_length
-        stream.flush = ISAL_FULL_FLUSH if end_of_stream else ISAL_NO_FLUSH
+        if end_of_stream:
+            stream.flush = ISAL_FULL_FLUSH
         stream.end_of_stream = end_of_stream
         prev_total_out = now_total_out
         ret = isal_deflate(&stream)
