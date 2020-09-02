@@ -29,6 +29,7 @@ import pytest
 DATA_DIR = Path(__file__).parent / "data"
 DATA_FILE =  DATA_DIR / "512kb.txt"
 DATA_512KB = DATA_FILE.read_bytes()
+DATA_SIZES = [2**i for i in range(3,17)]
 # Create data  chunks from 8 KB until 64 KB.
 DATA_CHUNKS = [DATA_512KB[0:2**i] for i in range(3,17)]
 # 100 seeds generated with random.randint(0, 2**32-1)
@@ -37,15 +38,18 @@ SEEDS_FILE = DATA_DIR / "seeds.txt"
 SEEDS = [0, 1] + [int(seed) for seed in SEEDS_FILE.read_text().splitlines()[:20]]
 
 
-@pytest.mark.parametrize(["data", "value"], itertools.product(DATA_CHUNKS, SEEDS))
-def test_crc32(data, value):
+@pytest.mark.parametrize(["data_size", "value"], itertools.product(DATA_SIZES, SEEDS))
+def test_crc32(data_size, value):
+    data = DATA_512KB[:data_size]
     assert zlib.crc32(data, value) == isal_zlib.crc32(data, value)
 
 
-@pytest.mark.parametrize(["data", "value"], itertools.product(DATA_CHUNKS, SEEDS))
-def test_adler32(data, value):
+@pytest.mark.parametrize(["data_size", "value"], itertools.product(DATA_SIZES, SEEDS))
+def test_adler32(data_size, value):
+    data = DATA_512KB[:data_size]
     assert zlib.adler32(data, value) == isal_zlib.adler32(data, value)
 
-@pytest.mark.parametrize(["data", "level"], itertools.product(DATA_CHUNKS, range(4)))
-def test_compress(data, level):
+@pytest.mark.parametrize(["data_size", "level"], itertools.product(DATA_SIZES, range(4)))
+def test_compress(data_size, level):
+    data = DATA_512KB[:data_size]
     assert zlib.decompress(isal_zlib.compress(data, level=level)) == data

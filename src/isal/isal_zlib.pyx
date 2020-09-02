@@ -92,7 +92,6 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     cdef long level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
     cdef bytearray level_buf = bytearray(level_buf_size)
     cdef list out = []
-    cdef bint end_of_stream
     cdef long now_total_out, prev_total_out
     isal_deflate_init(&stream)
     stream.level = level
@@ -108,10 +107,9 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
         ibuf = data[start: stop]
         stream.next_in = ibuf
         stream.avail_in = len(ibuf)
-        end_of_stream = stop >= tot_length
-        if end_of_stream:
+        if stop >= tot_length:
             stream.flush = ISAL_FULL_FLUSH
-        stream.end_of_stream = end_of_stream
+            stream.end_of_stream = 1
         prev_total_out = now_total_out
         ret = isal_deflate(&stream)
         check_isal_deflate_rc(ret)
