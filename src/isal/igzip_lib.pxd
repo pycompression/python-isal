@@ -212,7 +212,13 @@ cdef extern from "<isa-l/igzip_lib.h>":
         isal_zstate internal_state  #!< Internal state for this stream
 
     # Compression functions
-
+    # /**
+    #  * @brief Initialize compression stream data structure
+    #  *
+    #  * @param stream Structure holding state information on the compression streams.
+    #  * @returns none
+    #  */
+    cdef void isal_deflate_init(isal_zstream *stream)
     #/**
     #  * @brief Initialize compression stream data structure
     #  *
