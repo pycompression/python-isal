@@ -86,21 +86,24 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     cdef Py_ssize_t obuflen = DEF_BUF_SIZE
     cdef int err, flush
     cdef isal_zstream stream
-    cdef isal_zstream * stream_ptr = &stream
     cdef bytes ibuf = data[0:ibuflen]
     cdef bytearray obuf = bytearray(obuflen)
 
+
+    level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
+    isal_deflate_init(&stream)
     stream.next_in = ibuf
     stream.avail_in = len(ibuf)
     stream.next_out = obuf
-    stream.avail_out = len(obuf)
+    stream.avail_out = obuflen
     stream.level = level
-    stream.level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
-    isal_deflate_stateless_init(stream_ptr)
+    cdef bytearray level_buf = bytearray(level_buf_size)
+    stream.level_buf = level_buf
+    stream.level_buf_size = level_buf_size
     stream.flush = ISAL_FULL_FLUSH
     stream.gzip_flag = IGZIP_ZLIB
     stream.end_of_stream = 1
-    ret = isal_deflate_stateless(stream_ptr)
+    ret = isal_deflate(&stream)
     check_isal_deflate_rc(ret)
     return bytes(obuf[:stream.total_out])
 
