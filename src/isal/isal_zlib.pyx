@@ -25,7 +25,7 @@ import zlib
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
-from cpython cimport PyObject_GetBuffer,  Py_buffer, PyBUF_F_CONTIGUOUS
+from cpython cimport PyObject_GetBuffer,  Py_buffer, PyBUF_SIMPLE, PyBUF_WRITABLE
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
@@ -82,18 +82,27 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     if level == -1:
         level = ISAL_DEFAULT_COMPRESSION
 
-    cdef:
-        unsigned char *ibuf = data
-        Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE
-        int err, flush
-        isal_zstream stream
-        isal_zstream * stream_ptr = &stream
+    cdef Py_ssize_t ibuflen = DEF_BUF_SIZE
+    cdef Py_ssize_t obuflen = DEF_BUF_SIZE
+    cdef int err, flush
+    cdef isal_zstream stream
+    cdef isal_zstream * stream_ptr = &stream
+    cdef bytes ibuf = data[0:ibuflen]
+    cdef bytearray obuf = bytearray(obuflen)
 
     stream.next_in = ibuf
-    isal_deflate_stateless_init(stream_ptr)
+    stream.avail_in = len(ibuf)
+    stream.next_out = obuf
+    stream.avail_out = len(obuf)
     stream.level = level
-    isal_deflate_stateless(stream_ptr)
-
+    stream.level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
+    isal_deflate_stateless_init(stream_ptr)
+    stream.flush = ISAL_FULL_FLUSH
+    stream.gzip_flag = IGZIP_ZLIB
+    stream.end_of_stream = 1
+    ret = isal_deflate_stateless(stream_ptr)
+    check_isal_deflate_rc(ret)
+    return bytes(obuf[:stream.total_out])
 
 cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
                   int method=zlib.DEFLATED,
@@ -148,7 +157,7 @@ cdef int zlib_mem_level_to_isal(int compression_level, int mem_level):
     """
     if not (1 < mem_level < 9):
         raise ValueError("Memory level must be between 1 and 9")
-    if not (ISAL_DEF_MIN_LEVEL < compression_level < ISAL_DEF_MAX_LEVEL):
+    if not (ISAL_DEF_MIN_LEVEL <= compression_level <= ISAL_DEF_MAX_LEVEL):
         raise ValueError("Invalid compression level.")
 
     # If the mem_level is zlib default, return isal defaults.
@@ -226,6 +235,6 @@ cdef check_isal_deflate_rc(int rc):
     elif rc == ISAL_INVALID_LEVEL:
         raise IsalError("Invalid compression level.")
     elif rc == ISAL_INVALID_LEVEL_BUF:
-        raise IsalError("Invalid buffer size for this compression level.")
+        raise IsalError("Level buffer too small.")
     else:
         raise IsalError("Unknown Error")
