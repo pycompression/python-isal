@@ -52,4 +52,5 @@ def test_adler32(data_size, value):
 @pytest.mark.parametrize(["data_size", "level"], itertools.product(DATA_SIZES, range(4)))
 def test_compress(data_size, level):
     data = DATA_512KB[:data_size]
-    assert zlib.decompress(isal_zlib.compress(data, level=level)) == data
+    compressed = isal_zlib.compress(data, level=level)
+    assert zlib.decompress(compressed) == data
