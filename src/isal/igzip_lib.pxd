@@ -211,6 +211,30 @@ cdef extern from "<isa-l/igzip_lib.h>":
         unsigned int hist_bits  #!< Log base 2 of maximum lookback distance, 0 is use default
         isal_zstate internal_state  #!< Internal state for this stream
 
+    # Inflate structures
+    cdef struct inflate_huff_code_large:
+        pass
+    cdef struct inflate_huff_code_small:
+        pass
+
+    cdef struct inflate_state:
+        unsigned char *next_out  #!< Next output byte
+        unsigned long avail_out  #!< number of bytes available at next_out
+        unsigned long total_out  #!< total number of bytes written so far
+        unsigned char *next_in  #!< Next input byte
+        unsigned long avail_in  #!< number of bytes available at next_in
+        unsigned long total_in_start  #!< total number of bytes read so far      
+        long read_in_length  #!< Bits in read_in
+        inflate_huff_code_large  lit_huff_code
+        inflate_huff_code_small  dist_huff_code
+        isal_block_state block_state
+        unsigned long dict_length
+        unsigned long bfinal
+        unsigned long crc_flag
+        unsigned long crc
+        unsigned long hist_bits
+        # Other members are omitted because they are not in use yet.
+
     # Compression functions
     # /**
     #  * @brief Initialize compression stream data structure
@@ -349,3 +373,84 @@ cdef extern from "<isa-l/igzip_lib.h>":
     unsigned long isal_adler32(unsigned long init, 
                                const unsigned char *buf, 
                                unsigned long long len)
+
+    ###########################
+    # Inflate functions
+    ###########################
+    # /**
+    #  * @brief Initialize decompression state data structure
+    #  *
+    #  * @param state Structure holding state information on the compression streams.
+    #  * @returns none
+    #  */
+    void isal_inflate_init(struct inflate_state *state)
+
+    # /**
+    #  * @brief Reinitialize decompression state data structure
+    #  *
+    #  * @param state Structure holding state information on the compression streams.
+    #  * @returns none
+    #  */
+    void isal_inflate_reset(struct inflate_state *state)
+
+    # /**
+    #  * @brief Set decompression dictionary to use
+    #  *
+    #  * This function is to be called after isal_inflate_init. If the dictionary is
+    #  * longer than IGZIP_HIST_SIZE, only the last IGZIP_HIST_SIZE bytes will be
+    #  * used.
+    #  *
+    #  * @param state: Structure holding state information on the decompression stream.
+    #  * @param dict: Array containing dictionary to use.
+    #  * @param dict_len: Length of dict.
+    #  * @returns COMP_OK,
+    #  *          ISAL_INVALID_STATE (dictionary could not be set)
+    #  */
+    int isal_inflate_set_dict(inflate_state *state, unsigned char *dict, unsigned long dict_len)
+
+    # /**
+    #  * @brief Fast data (deflate) decompression for storage applications.
+    #  *
+    #  * On entry to isal_inflate(), next_in points to an input buffer and avail_in
+    #  * indicates the length of that buffer. Similarly next_out points to an empty
+    #  * output buffer and avail_out indicates the size of that buffer.
+    #  *
+    #  * The field total_out starts at 0 and is updated by isal_inflate(). This
+    #  * reflects the total number of bytes written so far.
+    #  *
+    #  * The call to isal_inflate() will take data from the input buffer (updating
+    #  * next_in, avail_in and write a decompressed stream to the output buffer
+    #  * (updating next_out and avail_out). The function returns when the input buffer
+    #  * is empty, the output buffer is full, invalid data is found, or in the case of
+    #  * zlib formatted data if a dictionary is specified. The current state of the
+    #  * decompression on exit can be read from state->block-state.
+    #  *
+    #  * If the crc_flag is set to ISAL_GZIP_NO_HDR the gzip crc of the output is
+    #  * stored in state->crc. Alternatively, if the crc_flag is set to
+    #  * ISAL_ZLIB_NO_HDR the adler32 of the output is stored in state->crc (checksum
+    #  * may not be updated until decompression is complete). When the crc_flag is set
+    #  * to ISAL_GZIP_NO_HDR_VER or ISAL_ZLIB_NO_HDR_VER, the behavior is the same,
+    #  * except the checksum is verified with the checksum after immediately following
+    #  * the deflate data. If the crc_flag is set to ISAL_GZIP or ISAL_ZLIB, the
+    #  * gzip/zlib header is parsed, state->crc is set to the appropriate checksum,
+    #  * and the checksum is verified. If the crc_flag is set to ISAL_DEFLATE
+    #  * (default), then the data is treated as a raw deflate block.
+    #  *
+    #  * The element state->hist_bits has values from 0 to 15, where values of 1 to 15
+    #  * are the log base 2 size of the matching window and 0 is the default with
+    #  * maximum history size.
+    #  *
+    #  * If a dictionary is required, a call to isal_inflate_set_dict will set the
+    #  * dictionary.
+    #  *
+    #  * @param  state Structure holding state information on the compression streams.
+    #  * @return ISAL_DECOMP_OK (if everything is ok),
+    #  *         ISAL_INVALID_BLOCK,
+    #  *         ISAL_NEED_DICT,
+    #  *         ISAL_INVALID_SYMBOL,
+    #  *         ISAL_INVALID_LOOKBACK,
+    #  *         ISAL_INVALID_WRAPPER,
+    #  *         ISAL_UNSUPPORTED_METHOD,
+    #  *         ISAL_INCORRECT_CHECKSUM.
+    #  */
+    int isal_inflate(struct inflate_state *state)
