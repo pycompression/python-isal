@@ -383,7 +383,7 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  * @param state Structure holding state information on the compression streams.
     #  * @returns none
     #  */
-    void isal_inflate_init(struct inflate_state *state)
+    void isal_inflate_init(inflate_state *state)
 
     # /**
     #  * @brief Reinitialize decompression state data structure
@@ -391,7 +391,7 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  * @param state Structure holding state information on the compression streams.
     #  * @returns none
     #  */
-    void isal_inflate_reset(struct inflate_state *state)
+    void isal_inflate_reset(inflate_state *state)
 
     # /**
     #  * @brief Set decompression dictionary to use
@@ -453,4 +453,4 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  *         ISAL_UNSUPPORTED_METHOD,
     #  *         ISAL_INCORRECT_CHECKSUM.
     #  */
-    int isal_inflate(struct inflate_state *state)
+    int isal_inflate(inflate_state *state)
