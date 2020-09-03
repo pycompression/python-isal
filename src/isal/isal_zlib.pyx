@@ -190,44 +190,45 @@ cpdef decompress(data,
     cdef bytes ibuf
 
     # Initialise output buffer
-    cdef unsigned long obuflen = bufsize
-    cdef bytearray buffer = bytearray(bufsize)
-    cdef unsigned char * obuf = buffer
+    cdef unsigned long obuflen = DEF_BUF_SIZE
+    cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(obuflen * sizeof(char))
     out = []
     cdef int err
 
     # Implementation imitated from CPython's zlibmodule.c
-    while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
-        # This loop runs n times (at least twice). n-1 times to fill the input
-        # buffer with data. The nth time the input is empty. In that case
-        # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
-        ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-        ibuf = data[position: position + ibuflen]
-        position += ibuflen
-        stream.next_in = ibuf
-        remains -= ibuflen
-        stream.avail_in = ibuflen
+    try:
+        while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
+            # This loop runs n times (at least twice). n-1 times to fill the input
+            # buffer with data. The nth time the input is empty. In that case
+            # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
+            ibuflen = Py_ssize_t_min(remains, max_input_buffer)
+            ibuf = data[position: position + ibuflen]
+            position += ibuflen
+            stream.next_in = ibuf
+            remains -= ibuflen
+            stream.avail_in = ibuflen
 
-        # This loop reads all the input bytes. The check is at the end,
-        # because when the block state is not at FINISH, the function needs
-        # to be called again.
-        while True:
-            stream.next_out = obuf  # Reset output buffer.
-            stream.avail_out = obuflen
-            err = isal_inflate(&stream)
-            if err != ISAL_DECOMP_OK:
-                # There is some python interacting when possible exceptions
-                # Are raised. So we remain in pure C code if we check for
-                # COMP_OK first.
-                check_isal_inflate_rc(err)
-            # Instead of output buffer resizing as the zlibmodule.c example
-            # the data is appended to a list.
-            # TODO: Improve this with the buffer protocol.
-            out.append(obuf[:obuflen - stream.avail_out])
-            if stream.avail_in == 0:
-                break
-    return b"".join(out)
-
+            # This loop reads all the input bytes. The check is at the end,
+            # because when the block state is not at FINISH, the function needs
+            # to be called again.
+            while True:
+                stream.next_out = obuf  # Reset output buffer.
+                stream.avail_out = obuflen
+                err = isal_inflate(&stream)
+                if err != ISAL_DECOMP_OK:
+                    # There is some python interacting when possible exceptions
+                    # Are raised. So we remain in pure C code if we check for
+                    # COMP_OK first.
+                    check_isal_inflate_rc(err)
+                # Instead of output buffer resizing as the zlibmodule.c example
+                # the data is appended to a list.
+                # TODO: Improve this with the buffer protocol.
+                out.append(obuf[:obuflen - stream.avail_out])
+                if stream.avail_in == 0:
+                    break
+        return b"".join(out)
+    finally:
+        PyMem_Free(obuf)
 
 
 cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
