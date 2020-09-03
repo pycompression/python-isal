@@ -29,13 +29,11 @@ import pytest
 DATA_DIR = Path(__file__).parent / "data"
 DATA_FILE =  DATA_DIR / "512kb.txt"
 DATA_512KB = DATA_FILE.read_bytes()
-DATA_SIZES = [2**i for i in range(3,17)]
-# Create data  chunks from 8 KB until 64 KB.
-DATA_CHUNKS = [DATA_512KB[0:2**i] for i in range(3,17)]
+DATA_SIZES = [2**i for i in range(3,20)]
 # 100 seeds generated with random.randint(0, 2**32-1)
 SEEDS_FILE = DATA_DIR / "seeds.txt"
 # Create seeds 0, 1 and 20 seeds from the seeds file.
-SEEDS = [0, 1] + [int(seed) for seed in SEEDS_FILE.read_text().splitlines()[:20]]
+SEEDS = [0, 1] + [int(seed) for seed in SEEDS_FILE.read_text().splitlines()]
 
 
 @pytest.mark.parametrize(["data_size", "value"], itertools.product(DATA_SIZES, SEEDS))
