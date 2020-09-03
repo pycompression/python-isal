@@ -36,6 +36,7 @@ Z_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION
 
 DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
 DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
+cdef int DEF_MEM_LEVEL_I = DEF_MEM_LEVEL  # Can not be manipulated by user.
 MAX_WBITS = ISAL_DEF_MAX_HIST_BITS
 
 # Compression methods
@@ -78,19 +79,19 @@ cpdef crc32(data, unsigned long value = 0):
         raise ValueError("Data too big for crc32")
     return crc32_gzip_refl(value, data, length)
 
-cdef u_min(unsigned long long a, unsigned long long b):
+cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
     if a <= b:
         return a
     else:
         return b
 
-cpdef compress(data, level=ISAL_DEFAULT_COMPRESSION):
+cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     if level == zlib.Z_DEFAULT_COMPRESSION:
         level = ISAL_DEFAULT_COMPRESSION
 
     # Initialise stream
     cdef isal_zstream stream
-    level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
+    level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
     cdef bytearray level_buf = bytearray(level_buf_size)
     isal_deflate_init(&stream)
     stream.level = level
@@ -99,24 +100,27 @@ cpdef compress(data, level=ISAL_DEFAULT_COMPRESSION):
     stream.gzip_flag = IGZIP_ZLIB
 
     # Initialise output buffer
-    obuflen = DEF_BUF_SIZE
-    cdef bytearray obuf = bytearray(obuflen)
-    stream.next_out = obuf
-    stream.avail_out = obuflen
+    cdef unsigned long obuflen = DEF_BUF_SIZE
+    cdef bytearray buffer = bytearray(DEF_BUF_SIZE)
+    cdef unsigned char * obuf = buffer
 
     # initialise input
+    cdef Py_ssize_t max_input_buffer = UINT32_MAX
     cdef Py_ssize_t total_length = len(data)
     cdef Py_ssize_t remains = total_length
     cdef Py_ssize_t ibuflen = total_length
     cdef Py_ssize_t position = 0
-    cdef Py_ssize_t start, stop
     cdef bytes ibuf
 
     out = []
     cdef int err
 
+    # Implementation imitated from CPython's zlibmodule.c
     while stream.internal_state.state != ZSTATE_END or ibuflen !=0:
-        ibuflen = u_min(remains, UINT32_MAX)
+        # This loop runs n times (at least twice). n-1 times to fill the input
+        # buffer with data. The nth time the input is empty. In that case
+        # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
+        ibuflen = Py_ssize_t_min(remains, max_input_buffer)
         ibuf = data[position: position + ibuflen]
         position += ibuflen
         stream.next_in = ibuf
@@ -128,13 +132,16 @@ cpdef compress(data, level=ISAL_DEFAULT_COMPRESSION):
         else:
             stream.flush = NO_FLUSH
 
+        # This loop reads all the input bytes. The check is at the end,
+        # because when flush = FULL_FLUSH the input buffer is empty. But
+        # this loop still needs to run one time.
         while True:
+            stream.next_out = obuf  # Reset output buffer.
+            stream.avail_out = obuflen
             err = isal_deflate(&stream)
             check_isal_deflate_rc(err)
             total_bytes = obuflen - stream.avail_out
             out.append(obuf[:total_bytes])
-            stream.next_out = obuf
-            stream.avail_out = obuflen
             if stream.avail_in == 0:
                 break
     return b"".join(out)
@@ -199,7 +206,7 @@ cdef int zlib_mem_level_to_isal(int compression_level, int mem_level):
     # If the mem_level is zlib default, return isal defaults.
     # Current zlib def level = 8. On isal the def level is large.
     # Hence 7,8 return large. 9 returns extra large.
-    if mem_level == zlib.DEF_MEM_LEVEL:
+    if mem_level == DEF_MEM_LEVEL_I:
         if compression_level == 0:
             return ISAL_DEF_LVL0_DEFAULT
         elif compression_level == 1:
