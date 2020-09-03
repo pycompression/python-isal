@@ -141,6 +141,9 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
             err = isal_deflate(&stream)
             check_isal_deflate_rc(err)
             total_bytes = obuflen - stream.avail_out
+            # Instead of output buffer resizing as the zlibmodule.c example
+            # the data is appended to a list.
+            # TODO: Improve this with the buffer protocol.
             out.append(obuf[:total_bytes])
             if stream.avail_in == 0:
                 break
