@@ -157,14 +157,6 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     return b"".join(out)
 
 
-cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
-                  int method=zlib.DEFLATED,
-                  int wbits=ISAL_DEF_MAX_HIST_BITS,
-                  int memLevel=DEF_MEM_LEVEL,
-                  int strategy=zlib.Z_DEFAULT_STRATEGY,
-                  zdict = None):
-    pass 
-
 
 cpdef decompress(data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,
@@ -239,12 +231,22 @@ cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
     pass
 
 
+cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
+                  int method=DEFLATED,
+                  int wbits=ISAL_DEF_MAX_HIST_BITS,
+                  int memLevel=DEF_MEM_LEVEL,
+                  int strategy=zlib.Z_DEFAULT_STRATEGY,
+                  zdict = None):
+    return Compress.__new__(level, method, wbits, memLevel, strategy, zdict)
+
+
 cdef class Compress:
     cdef isal_zstream stream
     cdef bytearray level_buf
 
     def __cinit__(self,
                   int level = ISAL_DEFAULT_COMPRESSION,
+                  int method = DEFLATED
                   int wbits = ISAL_DEF_MAX_HIST_BITS,
                   int memLevel = DEF_MEM_LEVEL,
                   int strategy = Z_DEFAULT_STRATEGY,
@@ -272,12 +274,14 @@ cdef class Compress:
             err = isal_deflate_set_dict(&self.stream, zdict, zdict_length)
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
+        if level == zlib.Z_DEFAULT_COMPRESSION:
+            level = ISAL_DEFAULT_COMPRESSION
         self.stream.level = level
         self.stream.level_buf_size = zlib_mem_level_to_isal(level, memLevel)
         self.level_buf = bytearray(self.stream.level_buf_size)
         self.stream.level_buf = self.level_buf
 
-    def compress(self, unsigned char *data):
+    def compress(self, data):
         pass
     
     def flush(self, int mode=zlib.Z_FINISH):
