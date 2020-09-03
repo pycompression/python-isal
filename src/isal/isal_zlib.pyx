@@ -38,6 +38,7 @@ DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
 DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
 cdef int DEF_MEM_LEVEL_I = DEF_MEM_LEVEL  # Can not be manipulated by user.
 MAX_WBITS = ISAL_DEF_MAX_HIST_BITS
+ISAL_DEFAULT_HIST_BITS=0
 
 # Compression methods
 DEFLATED = zlib.DEFLATED
@@ -103,7 +104,8 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     cdef unsigned long obuflen = DEF_BUF_SIZE
     cdef bytearray buffer = bytearray(DEF_BUF_SIZE)
     cdef unsigned char * obuf = buffer
-
+    out = []
+    
     # initialise input
     cdef Py_ssize_t max_input_buffer = UINT32_MAX
     cdef Py_ssize_t total_length = len(data)
@@ -112,7 +114,7 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     cdef Py_ssize_t position = 0
     cdef bytes ibuf
 
-    out = []
+    # initialise helper variables
     cdef int err
 
     # Implementation imitated from CPython's zlibmodule.c
@@ -166,7 +168,68 @@ cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
 cpdef decompress(unsigned char *data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,
                  Py_ssize_t bufsize=DEF_BUF_SIZE,):
-    pass
+
+    if bufsize < 0:
+        raise ValueError("bufsize must be non-negative")
+    elif bufsize == 0:
+        bufsize = 1
+    if wbits > ISAL_DEF_MAX_HIST_BITS:
+        raise ValueError("Wbits can not be larger than {0}".format(
+            ISAL_DEF_MAX_HIST_BITS))
+   
+   
+    cdef inflate_state stream
+    isal_inflate_init(&stream)
+    stream.hist_bits = wbits
+    stream.crc_flag = ISAL_ZLIB
+    
+    # initialise input
+    cdef Py_ssize_t max_input_buffer = UINT32_MAX
+    cdef Py_ssize_t total_length = len(data)
+    cdef Py_ssize_t remains = total_length
+    cdef Py_ssize_t ibuflen = total_length
+    cdef Py_ssize_t position = 0
+    cdef bytes ibuf
+
+    # Initialise output buffer
+    cdef unsigned long obuflen = bufsize
+    cdef bytearray buffer = bytearray(bufsize)
+    cdef unsigned char * obuf = buffer
+    out = []
+    cdef int err
+
+    # Implementation imitated from CPython's zlibmodule.c
+    while stream.block_state != ISAL_BLOCK_FINISH or ibuflen != 0:
+        # This loop runs n times (at least twice). n-1 times to fill the input
+        # buffer with data. The nth time the input is empty. In that case
+        # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
+        ibuflen = Py_ssize_t_min(remains, max_input_buffer)
+        ibuf = data[position: position + ibuflen]
+        position += ibuflen
+        stream.next_in = ibuf
+        remains -= ibuflen
+        stream.avail_in = ibuflen
+
+        # This loop reads all the input bytes. The check is at the end,
+        # because when flush = FULL_FLUSH the input buffer is empty. But
+        # this loop still needs to run one time.
+        while stream.avail_in != 0:
+            stream.next_out = obuf  # Reset output buffer.
+            stream.avail_out = obuflen
+            err = isal_inflate(&stream)
+            if err != ISAL_DECOMP_OK:
+                # There is some python interacting when possible exceptions
+                # Are raised. So we remain in pure C code if we check for
+                # COMP_OK first.
+                check_isal_inflate_rc(err)
+            # Instead of output buffer resizing as the zlibmodule.c example
+            # the data is appended to a list.
+            # TODO: Improve this with the buffer protocol.
+            out.append(obuf[:obuflen - stream.avail_out])
+            if stream.avail_in == 0:
+                break
+    return b"".join(out)
+
 
 
 cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
@@ -292,18 +355,18 @@ cdef check_isal_deflate_rc(int rc):
 cdef check_isal_inflate_rc(int rc):
     if rc >= ISAL_DECOMP_OK:
         return
-    # if rc == ISAL_END_INPUT:
-    #     raise IsalError("End of input reached")
-    # if rc == ISAL_OUT_OVERFLOW:
-    #     raise IsalError("End of output reached")
-    # if rc == ISAL_NAME_OVERFLOW:
-    #     raise IsalError("End of gzip name buffer reached")
-    # if rc == ISAL_COMMENT_OVERFLOW:
-    #     raise IsalError("End of gzip name buffer reached")
-    # if rc == ISAL_EXTRA_OVERFLOW:
-    #     raise IsalError("End of extra buffer reached")
-    # if rc == ISAL_NEED_DICT:
-    #     raise IsalError("Dictionary needed to continue")
+    if rc == ISAL_END_INPUT:
+        raise IsalError("End of input reached")
+    if rc == ISAL_OUT_OVERFLOW:
+        raise IsalError("End of output reached")
+    if rc == ISAL_NAME_OVERFLOW:
+        raise IsalError("End of gzip name buffer reached")
+    if rc == ISAL_COMMENT_OVERFLOW:
+        raise IsalError("End of gzip name buffer reached")
+    if rc == ISAL_EXTRA_OVERFLOW:
+        raise IsalError("End of extra buffer reached")
+    if rc == ISAL_NEED_DICT:
+        raise IsalError("Dictionary needed to continue")
     if rc == ISAL_INVALID_BLOCK:
         raise IsalError("Invalid deflate block found")
     if rc == ISAL_INVALID_SYMBOL:

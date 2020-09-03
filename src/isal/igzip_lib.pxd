@@ -226,14 +226,14 @@ cdef extern from "<isa-l/igzip_lib.h>":
         unsigned long avail_in  #!< number of bytes available at next_in
         unsigned long total_in_start  #!< total number of bytes read so far      
         long read_in_length  #!< Bits in read_in
-        inflate_huff_code_large  lit_huff_code
-        inflate_huff_code_small  dist_huff_code
-        isal_block_state block_state
-        unsigned long dict_length
-        unsigned long bfinal
-        unsigned long crc_flag
-        unsigned long crc
-        unsigned long hist_bits
+        inflate_huff_code_large  lit_huff_code  #!< Structure for decoding lit/len symbols
+        inflate_huff_code_small  dist_huff_code  #!< Structure for decoding dist symbols
+        isal_block_state block_state  #!< Current decompression state
+        unsigned long dict_length  #!< Length of dictionary used
+        unsigned long bfinal  #!< Flag identifying final block
+        unsigned long crc_flag  #!< Flag identifying whether to track of crc
+        unsigned long crc  #!< Contains crc or adler32 of output if crc_flag is set
+        unsigned long hist_bits  #!< Log base 2 of maximum lookback distance
         # Other members are omitted because they are not in use yet.
 
     # Compression functions
