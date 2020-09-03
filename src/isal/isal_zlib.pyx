@@ -199,7 +199,8 @@ cpdef decompress(data,
     cdef int err
 
     # Implementation imitated from CPython's zlibmodule.c
-    while ibuflen != 0:
+    while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
+        print(stream.block_state, ibuflen)
         # This loop runs n times (at least twice). n-1 times to fill the input
         # buffer with data. The nth time the input is empty. In that case
         # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
@@ -210,7 +211,10 @@ cpdef decompress(data,
         remains -= ibuflen
         stream.avail_in = ibuflen
 
-        while stream.avail_in != 0:
+        # This loop reads all the input bytes. The check is at the end,
+        # because when the block state is not at FINISH, the function needs
+        # to be called again.
+        while True:
             stream.next_out = obuf  # Reset output buffer.
             stream.avail_out = obuflen
             err = isal_inflate(&stream)
@@ -223,6 +227,8 @@ cpdef decompress(data,
             # the data is appended to a list.
             # TODO: Improve this with the buffer protocol.
             out.append(obuf[:obuflen - stream.avail_out])
+            if stream.avail_in == 0:
+                break
     return b"".join(out)
 
 

@@ -73,4 +73,5 @@ def test_decompress_isal_zlib(data_size, level):
     data = DATA_512KB[:data_size]
     compressed = isal_zlib.compress(data, level=level)
     decompressed = isal_zlib.decompress(compressed)
+    print(len(decompressed))
     assert decompressed == data
