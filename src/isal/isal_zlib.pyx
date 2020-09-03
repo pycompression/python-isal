@@ -282,8 +282,23 @@ cdef class Compress:
         self.stream.level_buf = self.level_buf
 
     def compress(self, data):
-        pass
-    
+        cdef isal_zstream * stream = &self.stream
+        cdef Py_ssize_t ibuflen
+        cdef Py_ssize_t position = 0
+        cdef Py_ssize_t max_input_buffer = UINT32_MAX
+
+        stream.next_in = data
+
+        while self.stream.internal_state.state != ZSTATE_END or ibuflen !=0:
+            # This loop runs n times (at least twice). n-1 times to fill the input
+            # buffer with data. The nth time the input is empty. In that case
+            # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
+            ibuflen = Py_ssize_t_min(remains, max_input_buffer)
+            ibuf = data[position: position + ibuflen]
+            position += ibuflen
+            stream.next_in = ibuf
+            remains -= ibuflen
+            stream.avail_in = ibuflen
     def flush(self, int mode=zlib.Z_FINISH):
         pass 
     
