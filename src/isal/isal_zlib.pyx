@@ -78,48 +78,66 @@ cpdef crc32(data, unsigned long value = 0):
         raise ValueError("Data too big for crc32")
     return crc32_gzip_refl(value, data, length)
 
+cdef u_min(unsigned long long a, unsigned long long b):
+    if a <= b:
+        return a
+    else:
+        return b
+
 cpdef compress(data, level=ISAL_DEFAULT_COMPRESSION):
     if level == zlib.Z_DEFAULT_COMPRESSION:
         level = ISAL_DEFAULT_COMPRESSION
 
-    obuflen = DEF_BUF_SIZE
-    ibuflen = len(data)
-    cdef Py_ssize_t start, stop
+    # Initialise stream
     cdef isal_zstream stream
-    cdef bytes ibuf
-    cdef bytearray obuf = bytearray(obuflen)
-    cdef long level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
+    level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
     cdef bytearray level_buf = bytearray(level_buf_size)
-    cdef int err
     isal_deflate_init(&stream)
     stream.level = level
     stream.level_buf = level_buf
     stream.level_buf_size = level_buf_size
+    stream.gzip_flag = IGZIP_ZLIB
+
+    # Initialise output buffer
+    obuflen = DEF_BUF_SIZE
+    cdef bytearray obuf = bytearray(obuflen)
     stream.next_out = obuf
     stream.avail_out = obuflen
-    stream.gzip_flag = IGZIP_ZLIB
-    stream.flush = NO_FLUSH
-    for start in range(0, ibuflen, UINT32_MAX):
-        stop = start + UINT32_MAX
-        ibuf = data[start: stop]
+
+    # initialise input
+    cdef Py_ssize_t total_length = len(data)
+    cdef Py_ssize_t remains = total_length
+    cdef Py_ssize_t ibuflen = total_length
+    cdef Py_ssize_t position = 0
+    cdef Py_ssize_t start, stop
+    cdef bytes ibuf
+
+    out = []
+    cdef int err
+
+    while stream.internal_state.state != ZSTATE_END or ibuflen !=0:
+        ibuflen = u_min(remains, UINT32_MAX)
+        ibuf = data[position: position + ibuflen]
+        position += ibuflen
         stream.next_in = ibuf
-        stream.avail_in = len(ibuf)
-        if stop >= ibuflen:
+        remains -= ibuflen
+        stream.avail_in = ibuflen
+        if ibuflen == 0:
             stream.flush = FULL_FLUSH
             stream.end_of_stream = 1
+        else:
+            stream.flush = NO_FLUSH
 
         while True:
             err = isal_deflate(&stream)
-            if err == STATELESS_OVERFLOW:
-                obuf.extend(bytearray(obuflen))
-                obuflen *= 2
-                stream.next_out = obuf
-                stream.avail_out = obuflen
-            elif err == COMP_OK:
+            check_isal_deflate_rc(err)
+            total_bytes = obuflen - stream.avail_out
+            out.append(obuf[:total_bytes])
+            stream.next_out = obuf
+            stream.avail_out = obuflen
+            if stream.avail_in == 0:
                 break
-            else:
-                check_isal_deflate_rc(err)
-    return bytes(obuf[:stream.total_out])
+    return b"".join(out)
 
 
 cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
