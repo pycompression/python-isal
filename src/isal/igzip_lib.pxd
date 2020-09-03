@@ -224,7 +224,6 @@ cdef extern from "<isa-l/igzip_lib.h>":
         unsigned long total_out  #!< total number of bytes written so far
         unsigned char *next_in  #!< Next input byte
         unsigned long avail_in  #!< number of bytes available at next_in
-        unsigned long total_in_start  #!< total number of bytes read so far      
         long read_in_length  #!< Bits in read_in
         inflate_huff_code_large  lit_huff_code  #!< Structure for decoding lit/len symbols
         inflate_huff_code_small  dist_huff_code  #!< Structure for decoding dist symbols

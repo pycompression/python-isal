@@ -63,7 +63,8 @@ def test_compress(data_size, level):
 def test_decompress_zlib(data_size, level):
     data = DATA_512KB[:data_size]
     compressed = zlib.compress(data, level=level)
-    assert isal_zlib.decompress(compressed) == data
+    decompressed = isal_zlib.decompress(compressed)
+    assert decompressed == data
 
 
 @pytest.mark.parametrize(["data_size", "level"],
@@ -71,4 +72,5 @@ def test_decompress_zlib(data_size, level):
 def test_decompress_isal_zlib(data_size, level):
     data = DATA_512KB[:data_size]
     compressed = isal_zlib.compress(data, level=level)
-    assert isal_zlib.decompress(compressed) == data
+    decompressed = isal_zlib.decompress(compressed)
+    assert decompressed == data

@@ -165,7 +165,7 @@ cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
     pass 
 
 
-cpdef decompress(unsigned char *data,
+cpdef decompress(data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,
                  Py_ssize_t bufsize=DEF_BUF_SIZE,):
 
@@ -199,7 +199,7 @@ cpdef decompress(unsigned char *data,
     cdef int err
 
     # Implementation imitated from CPython's zlibmodule.c
-    while stream.block_state != ISAL_BLOCK_FINISH or ibuflen != 0:
+    while ibuflen != 0:
         # This loop runs n times (at least twice). n-1 times to fill the input
         # buffer with data. The nth time the input is empty. In that case
         # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
@@ -210,9 +210,6 @@ cpdef decompress(unsigned char *data,
         remains -= ibuflen
         stream.avail_in = ibuflen
 
-        # This loop reads all the input bytes. The check is at the end,
-        # because when flush = FULL_FLUSH the input buffer is empty. But
-        # this loop still needs to run one time.
         while stream.avail_in != 0:
             stream.next_out = obuf  # Reset output buffer.
             stream.avail_out = obuflen
@@ -226,8 +223,6 @@ cpdef decompress(unsigned char *data,
             # the data is appended to a list.
             # TODO: Improve this with the buffer protocol.
             out.append(obuf[:obuflen - stream.avail_out])
-            if stream.avail_in == 0:
-                break
     return b"".join(out)
 
 
