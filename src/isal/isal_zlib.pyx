@@ -139,7 +139,11 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
             stream.next_out = obuf  # Reset output buffer.
             stream.avail_out = obuflen
             err = isal_deflate(&stream)
-            check_isal_deflate_rc(err)
+            if err != COMP_OK:
+                # There is some python interacting when possible exceptions
+                # Are raised. So we remain in pure C code if we check for
+                # COMP_OK first.
+                check_isal_deflate_rc(err)
             total_bytes = obuflen - stream.avail_out
             # Instead of output buffer resizing as the zlibmodule.c example
             # the data is appended to a list.
@@ -284,3 +288,31 @@ cdef check_isal_deflate_rc(int rc):
         raise IsalError("Level buffer too small.")
     else:
         raise IsalError("Unknown Error")
+
+cdef check_isal_inflate_rc(int rc):
+    if rc >= ISAL_DECOMP_OK:
+        return
+    # if rc == ISAL_END_INPUT:
+    #     raise IsalError("End of input reached")
+    # if rc == ISAL_OUT_OVERFLOW:
+    #     raise IsalError("End of output reached")
+    # if rc == ISAL_NAME_OVERFLOW:
+    #     raise IsalError("End of gzip name buffer reached")
+    # if rc == ISAL_COMMENT_OVERFLOW:
+    #     raise IsalError("End of gzip name buffer reached")
+    # if rc == ISAL_EXTRA_OVERFLOW:
+    #     raise IsalError("End of extra buffer reached")
+    # if rc == ISAL_NEED_DICT:
+    #     raise IsalError("Dictionary needed to continue")
+    if rc == ISAL_INVALID_BLOCK:
+        raise IsalError("Invalid deflate block found")
+    if rc == ISAL_INVALID_SYMBOL:
+        raise IsalError("Invalid deflate symbol found")
+    if rc == ISAL_INVALID_LOOKBACK:
+        raise IsalError("Invalid lookback distance found")
+    if rc == ISAL_INVALID_WRAPPER:
+        raise IsalError("Invalid gzip/zlib wrapper found")
+    if rc == ISAL_UNSUPPORTED_METHOD:
+        raise IsalError("Gzip/zlib wrapper specifies unsupported compress method")
+    if rc == ISAL_INCORRECT_CHECKSUM:
+        raise IsalError("Incorrect checksum found")
