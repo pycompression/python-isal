@@ -198,7 +198,6 @@ cpdef decompress(data,
 
     # Implementation imitated from CPython's zlibmodule.c
     while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
-        print(stream.block_state, ibuflen)
         # This loop runs n times (at least twice). n-1 times to fill the input
         # buffer with data. The nth time the input is empty. In that case
         # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
