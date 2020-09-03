@@ -20,6 +20,7 @@
 
 # cython: language_level=3
 
+import warnings
 import zlib
 
 from .crc cimport crc32_gzip_refl
@@ -239,13 +240,50 @@ cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
 
 
 cdef class Compress:
-    cpdef compress(self, unsigned char *data):
+    cdef isal_zstream stream
+    cdef bytearray level_buf
+
+    def __cinit__(self,
+                  int level = ISAL_DEFAULT_COMPRESSION,
+                  int wbits = ISAL_DEF_MAX_HIST_BITS,
+                  int memLevel = DEF_MEM_LEVEL,
+                  int strategy = Z_DEFAULT_STRATEGY,
+                  zdict = None):
+        if strategy != Z_DEFAULT_STRATEGY:
+            warnings.warn("Only online strategy is supported when using "
+                          "isal_zlib. Using the default strategy.")
+        isal_deflate_init(&self.stream)
+        if 9 <= wbits <= 15:  # zlib headers and trailers on compressed stream
+            self.stream.hist_bits = wbits
+            self.gzip_flag = IGZIP_ZLIB
+        elif 25 <= wbits <= 31: # gzip headers and trailers on compressed stream
+            self.stream.hist_bits = wbits - 16
+            self.gzip_flag = IGZIP_GZIP
+        elif -15 <= wbits <= -9:  # raw compressed stream
+            self.stream.hist_bits = -wbits
+            self.gzip_flag = IGZIP_DEFLATE
+        else:
+            raise ValueError("Invalid wbits value")
+        cdef Py_ssize_t zdict_length
+        if zdict:
+            zdict_length = len(zdict)
+            if zdict_length > UINT32_MAX:
+                raise OverflowError("zdict length does not fit in an unsigned int")
+            err = isal_deflate_set_dict(&self.stream, zdict, zdict_length)
+            if err != COMP_OK:
+                check_isal_deflate_rc(err)
+        self.stream.level = level
+        self.stream.level_buf_size = zlib_mem_level_to_isal(level, memLevel)
+        self.level_buf = bytearray(self.stream.level_buf_size)
+        self.stream.level_buf = self.level_buf
+
+    def compress(self, unsigned char *data):
         pass
     
-    cpdef flush(self, int mode=zlib.Z_FINISH):
+    def flush(self, int mode=zlib.Z_FINISH):
         pass 
     
-    cpdef copy(self):
+    def copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
 cdef class Decompress:
