@@ -27,6 +27,7 @@ from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
 from cpython cimport PyObject_GetBuffer,  Py_buffer, PyBUF_SIMPLE, PyBUF_WRITABLE
+from cython cimport view
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
@@ -94,10 +95,12 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     # Initialise stream
     cdef isal_zstream stream
     level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
-    cdef bytearray level_buf = bytearray(level_buf_size)
+    if level_buf_size == 0:
+        level_buf_size = 1
+    cdef unsigned char[:] level_buf = view.array(shape=(level_buf_size,), itemsize=sizeof(char), format="B")
     isal_deflate_init(&stream)
     stream.level = level
-    stream.level_buf = level_buf
+    stream.level_buf = &level_buf[0]
     stream.level_buf_size = level_buf_size
     stream.gzip_flag = IGZIP_ZLIB
 
@@ -108,12 +111,12 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     out = []
     
     # initialise input
+    cdef const unsigned char[::1] mem_view = data
     cdef Py_ssize_t max_input_buffer = UINT32_MAX
     cdef Py_ssize_t total_length = len(data)
     cdef Py_ssize_t remains = total_length
     cdef Py_ssize_t ibuflen = total_length
     cdef Py_ssize_t position = 0
-    cdef bytes ibuf
 
     # initialise helper variables
     cdef int err
@@ -124,9 +127,9 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
         # buffer with data. The nth time the input is empty. In that case
         # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
         ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-        ibuf = data[position: position + ibuflen]
+        if position < total_length:
+            stream.next_in = &mem_view[position]
         position += ibuflen
-        stream.next_in = ibuf
         remains -= ibuflen
         stream.avail_in = ibuflen
         if ibuflen == 0:
