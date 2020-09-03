@@ -237,7 +237,7 @@ cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
                   int memLevel=DEF_MEM_LEVEL,
                   int strategy=zlib.Z_DEFAULT_STRATEGY,
                   zdict = None):
-    return Compress.__new__(level, method, wbits, memLevel, strategy, zdict)
+    return Compress.__new__(Compress, level, method, wbits, memLevel, strategy, zdict)
 
 
 cdef class Compress:
@@ -246,7 +246,7 @@ cdef class Compress:
 
     def __cinit__(self,
                   int level = ISAL_DEFAULT_COMPRESSION,
-                  int method = DEFLATED
+                  int method = DEFLATED,
                   int wbits = ISAL_DEF_MAX_HIST_BITS,
                   int memLevel = DEF_MEM_LEVEL,
                   int strategy = Z_DEFAULT_STRATEGY,
@@ -257,13 +257,13 @@ cdef class Compress:
         isal_deflate_init(&self.stream)
         if 9 <= wbits <= 15:  # zlib headers and trailers on compressed stream
             self.stream.hist_bits = wbits
-            self.gzip_flag = IGZIP_ZLIB
+            self.stream.gzip_flag = IGZIP_ZLIB
         elif 25 <= wbits <= 31: # gzip headers and trailers on compressed stream
             self.stream.hist_bits = wbits - 16
-            self.gzip_flag = IGZIP_GZIP
+            self.stream.gzip_flag = IGZIP_GZIP
         elif -15 <= wbits <= -9:  # raw compressed stream
             self.stream.hist_bits = -wbits
-            self.gzip_flag = IGZIP_DEFLATE
+            self.stream.gzip_flag = IGZIP_DEFLATE
         else:
             raise ValueError("Invalid wbits value")
         cdef Py_ssize_t zdict_length
