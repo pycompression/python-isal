@@ -115,18 +115,19 @@ cdef extern from "<isa-l/igzip_lib.h>":
     int ISAL_GZIP_NO_HDR_VER
 
     # Inflate return values
-    int ISAL_DECOMP_OK
-    int ISAL_END_INPUT
-    int ISAL_OUT_OVERFLOW
-    int ISAL_NAME_OVERFLOW
-    int ISAL_COMMENT_OVERFLOW
-    int ISAL_EXTRA_OVERFLOW
-    int ISAL_NEED_DICT
-    int ISAL_INVALID_BLOCK
-    int ISAL_INVALID_LOOKBACK
-    int ISAL_INVALID_WRAPPER
-    int ISAL_UNSOPPERTED_METHOD
-    int ISAL_INCORRECT_CHECKSUM
+    int ISAL_DECOMP_OK  # No errors encountered while decompressing
+    int ISAL_END_INPUT  # End of input reached
+    int ISAL_OUT_OVERFLOW  # End of output reached
+    int ISAL_NAME_OVERFLOW  # End of gzip name buffer reached
+    int ISAL_COMMENT_OVERFLOW  # End of gzip name buffer reached
+    int ISAL_EXTRA_OVERFLOW  # End of extra buffer reached
+    int ISAL_NEED_DICT  # Stream needs a dictionary to continue
+    int ISAL_INVALID_BLOCK  # Invalid deflate block found
+    int ISAL_INVALID_SYMBOL  # Invalid deflate symbol found
+    int ISAL_INVALID_LOOKBACK  # Invalid lookback distance found
+    int ISAL_INVALID_WRAPPER  # Invalid gzip/zlib wrapper found
+    int ISAL_UNSUPPORTED_METHOD  # Gzip/zlib wrapper specifies unsupported compress method
+    int ISAL_INCORRECT_CHECKSUM  # Incorrect checksum found
 
     # Compression structures
     int ISAL_DEF_MIN_LEVEL
