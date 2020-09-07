@@ -75,3 +75,12 @@ def test_decompress_isal_zlib(data_size, level):
     decompressed = isal_zlib.decompress(compressed)
     print(len(decompressed))
     assert decompressed == data
+
+
+@pytest.mark.parametrize(["data_size", "level"],
+                         itertools.product(DATA_SIZES, range(4)))
+def test_compress_compressobj(data_size, level):
+    data = DATA_512KB[:data_size]
+    compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level)
+    compressed = compressobj.compress(data) + compressobj.flush()
+    assert zlib.decompress(compressed) == data
