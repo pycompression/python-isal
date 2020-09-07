@@ -58,7 +58,7 @@ def benchmark(name: str,
                                           zlib_nanosecs,
                                           ratio))
 
-show_sizes()
+# show_sizes()
 
 benchmark("Compression", sizes,
           "isal_zlib.compress(data_block, 1)",
