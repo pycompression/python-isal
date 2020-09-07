@@ -109,12 +109,12 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     out = []
     
     # initialise input
-    cdef const unsigned char[::1] mem_view = data
     cdef Py_ssize_t max_input_buffer = UINT32_MAX
     cdef Py_ssize_t total_length = len(data)
     cdef Py_ssize_t remains = total_length
     cdef Py_ssize_t ibuflen = total_length
     cdef Py_ssize_t position = 0
+    cdef bytes ibuf
 
     # initialise helper variables
     cdef int err
@@ -126,9 +126,9 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
             # buffer with data. The nth time the input is empty. In that case
             # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
             ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-            if position < total_length:
-                stream.next_in = &mem_view[position]
+            ibuf = data[position: position + ibuflen]
             position += ibuflen
+            stream.next_in = ibuf
             remains -= ibuflen
             stream.avail_in = ibuflen
             if ibuflen == 0:
