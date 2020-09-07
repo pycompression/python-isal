@@ -245,7 +245,9 @@ cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
 
 cdef class Compress:
     cdef isal_zstream stream
-    cdef bytearray level_buf
+    cdef unsigned char * level_buf
+    cdef unsigned char * obuf
+    cdef unsigned long obuflen
 
     def __cinit__(self,
                   int level = ISAL_DEFAULT_COMPRESSION,
@@ -255,7 +257,7 @@ cdef class Compress:
                   int strategy = Z_DEFAULT_STRATEGY,
                   zdict = None):
         if strategy != Z_DEFAULT_STRATEGY:
-            warnings.warn("Only online strategy is supported when using "
+            warnings.warn("Only one strategy is supported when using "
                           "isal_zlib. Using the default strategy.")
         isal_deflate_init(&self.stream)
         if 9 <= wbits <= 15:  # zlib headers and trailers on compressed stream
@@ -281,8 +283,11 @@ cdef class Compress:
             level = ISAL_DEFAULT_COMPRESSION
         self.stream.level = level
         self.stream.level_buf_size = zlib_mem_level_to_isal(level, memLevel)
-        self.level_buf = bytearray(self.stream.level_buf_size)
+        self.level_buf = <unsigned char *>PyMem_Malloc(self.stream.level_buf_size * sizeof(char))
         self.stream.level_buf = self.level_buf
+
+        self.obluflen = DEF_BUF_SIZE
+        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
 
     def compress(self, data):
         cdef isal_zstream * stream = &self.stream
