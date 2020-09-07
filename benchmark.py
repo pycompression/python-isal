@@ -18,6 +18,26 @@ compressed_sizes = {name: zlib.compress(data_block)
                     for name, data_block in sizes.items()}
 
 
+def show_sizes():
+    print("zlib sizes")
+    print("name\t" + "\t".join(str(level) for level in range(-1,10)))
+    for name, data_block in sizes.items():
+        orig_size = max(len(data_block), 1)
+        rel_sizes = (
+            str(round(len(zlib.compress(data_block, level)) / orig_size, 3))
+            for level in range(-1, 10))
+        print(name + "\t" + "\t".join(rel_sizes))
+
+    print("isal sizes")
+    print("name\t" + "\t".join(str(level) for level in range(0, 4)))
+    for name, data_block in sizes.items():
+        orig_size = max(len(data_block), 1)
+        rel_sizes = (
+            str(round(len(isal_zlib.compress(data_block, level)) / orig_size, 3))
+            for level in range(0, 4))
+        print(name + "\t" + "\t".join(rel_sizes))
+
+
 def benchmark(name: str,
               names_and_data: Dict[str, bytes],
               isal_string: str,
@@ -38,9 +58,10 @@ def benchmark(name: str,
                                           zlib_nanosecs,
                                           ratio))
 
+show_sizes()
 
 benchmark("Compression", sizes,
-          "isal_zlib.compress(data_block)",
+          "isal_zlib.compress(data_block, 1)",
           "zlib.compress(data_block, 1)")
 
 benchmark("Decompression", compressed_sizes,
