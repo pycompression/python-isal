@@ -96,8 +96,6 @@ cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
     # Initialise stream
     cdef isal_zstream stream
     level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
-    if level_buf_size == 0:
-        level_buf_size = 1
     cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
     isal_deflate_init(&stream)
     stream.level = level
