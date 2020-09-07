@@ -290,25 +290,66 @@ cdef class Compress:
         self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
 
     def compress(self, data):
-        cdef isal_zstream * stream = &self.stream
-        cdef Py_ssize_t ibuflen
-        cdef Py_ssize_t position = 0
-        cdef Py_ssize_t max_input_buffer = UINT32_MAX
+        # Initialise stream
+        cdef isal_zstream stream = self.stream
+        stream.flush = NO_FLUSH
+        # Initialise output buffer
+        cdef unsigned char * obuf = self.obuf
+        cdef unsigned long obuflen = self.obuflen
+        out = []
 
+        # initialise input
+        cdef Py_ssize_t total_length = len(data)
+        if total_length > UINT32_MAX:
+            raise OverflowError("A maximum of 4 GB is allowed.")
         stream.next_in = data
+        stream.avail_in = total_length
 
-        while self.stream.internal_state.state != ZSTATE_END or ibuflen !=0:
-            # This loop runs n times (at least twice). n-1 times to fill the input
-            # buffer with data. The nth time the input is empty. In that case
-            # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
-            ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-            ibuf = data[position: position + ibuflen]
-            position += ibuflen
-            stream.next_in = ibuf
-            remains -= ibuflen
-            stream.avail_in = ibuflen
-    def flush(self, int mode=zlib.Z_FINISH):
-        pass 
+        # initialise helper variables
+        cdef int err
+
+        # This loop reads all the input bytes. If there are no input bytes
+        # anymore the output is written.
+        while stream.avail_in != 0:
+            stream.next_out = obuf  # Reset output buffer.
+            stream.avail_out = obuflen
+            err = isal_deflate(&stream)
+            if err != COMP_OK:
+                # There is some python interacting when possible exceptions
+                # Are raised. So we remain in pure C code if we check for
+                # COMP_OK first.
+                check_isal_deflate_rc(err)
+            total_bytes = obuflen - stream.avail_out
+            # Instead of output buffer resizing as the zlibmodule.c example
+            # the data is appended to a list.
+            # TODO: Improve this with the buffer protocol.
+            out.append(obuf[:total_bytes])
+        return b"".join(out)
+
+    def flush(self, int mode=FULL_FLUSH):
+        # Initialise stream
+        cdef isal_zstream stream = self.stream
+        stream.flush = FULL_FLUSH
+         # Initialise output buffer
+        cdef unsigned char * obuf = self.obuf
+        cdef unsigned long obuflen = self.obuflen
+        out = []
+       
+        while stream.internal_state.state != ZSTATE_END:
+            stream.next_out = obuf  # Reset output buffer.
+            stream.avail_out = obuflen
+            err = isal_deflate(&stream)
+            if err != COMP_OK:
+                # There is some python interacting when possible exceptions
+                # Are raised. So we remain in pure C code if we check for
+                # COMP_OK first.
+                check_isal_deflate_rc(err)
+            total_bytes = obuflen - stream.avail_out
+            # Instead of output buffer resizing as the zlibmodule.c example
+            # the data is appended to a list.
+            # TODO: Improve this with the buffer protocol.
+            out.append(obuf[:total_bytes])
+        return b"".join(out)
     
     def copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
