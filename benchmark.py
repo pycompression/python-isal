@@ -11,7 +11,9 @@ sizes: Dict[str, bytes] = {
     "1kb": data[:1024],
     "8kb": data[:8 * 1024],
     "16kb": data[:16 * 1024],
+    "32kb": data[:32 * 1024],
     "64kb": data[:64 * 1024],
+    "128kb": data[:128*1024],
     #"512kb": data[:512*1024]
 }
 compressed_sizes = {name: zlib.compress(data_block)
