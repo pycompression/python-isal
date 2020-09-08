@@ -101,10 +101,9 @@ def test_compress_compressobj(data_size, level, wbits, memLevel):
     if wbits in range(8, 16):
         # In case a zlib header is used, determine the wbits automatically.
         # For some reason it fails if wbits is set manually.
-        decompressobj = zlib.decompressobj(0)
+        decompressed = zlib.decompress(compressed, wbits=0)
     else:
-        decompressobj = zlib.decompressobj(wbits=wbits)
-    decompressed = decompressobj.decompress(compressed) + decompressobj.flush()
+        decompressed = zlib.decompress(compressed, wbits=wbits)
     assert data == decompressed
 
 
