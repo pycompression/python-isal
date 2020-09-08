@@ -361,11 +361,13 @@ cdef class Compress:
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
 cdef class Decompress:
-    unused_data = b""
-    unconsumed_tail = b""
-    eof = False
+    cdef public bytes unused_data
+    cdef public unconsumed_tail
+    cdef public bint eof
+    cdef bint is_initialised
     cdef inflate_state stream
     cdef unsigned char * obuf
+    cdef unsigned long obuflen
 
     def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
@@ -390,6 +392,10 @@ cdef class Decompress:
                 check_isal_deflate_rc(err)
         self.obuflen = DEF_BUF_SIZE
         self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
+        self.unused_data = b""
+        self.unconsumed_tail = b""
+        self.eof = 0
+        self.is_initialised = 1
 
     def __dealloc__(self):
         if self.obuf is not NULL:
@@ -445,7 +451,7 @@ cdef class Decompress:
         if self.stream.block_state == ISAL_BLOCK_FINISH:
             # The end of the compressed data has been reached. Store the
             # leftover input data in self->unused_data.
-            self.eof = True
+            self.eof = 1
             if self.stream.avail_in > 0:
                 self.unused_data = self.stream.next_in[:]
                 self.stream.avail_in = 0
@@ -457,7 +463,53 @@ cdef class Decompress:
         return b"".join(out)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
-        pass
+        if length <= 0:
+            raise ValueError("Length must be greater than 0")
+        if length > UINT32_MAX:
+            raise ValueError("Length should not be larger than 4GB.")
+        cdef Py_ssize_t ibuflen = len(self.unconsumed_tail)
+        if ibuflen > UINT32_MAX:
+            # This should never happen, because we check the input size in
+            # the decompress function as well.
+            raise IsalError("Unconsumed tail too large. Can not flush.")
+        self.stream.next_in = self.unconsumed_tail
+        self.stream.avail_in = ibuflen
+
+        out = []
+        cdef unsigned long obuflen = length
+        cdef unsigned char * obuf = <unsigned char *>PyMem_Malloc(obuflen * sizeof(char))
+
+        try:
+            while (self.stream.block_state != ISAL_BLOCK_FINISH
+                   and self.stream.avail_in !=0):
+                self.stream.next_out = obuf  # Reset output buffer.
+                self.stream.avail_out = obuflen
+                err = isal_inflate(&self.stream)
+                if err != ISAL_DECOMP_OK:
+                    # There is some python interacting when possible exceptions
+                    # Are raised. So we remain in pure C code if we check for
+                    # COMP_OK first.
+                    check_isal_inflate_rc(err)
+                # Instead of output buffer resizing as the zlibmodule.c example
+                # the data is appended to a list.
+                # TODO: Improve this with the buffer protocol.
+                out.append(obuf[:obuflen - self.stream.avail_out])
+            if self.stream.block_state == ISAL_BLOCK_FINISH:
+                # The end of the compressed data has been reached. Store the
+                # leftover input data in self->unused_data.
+                self.eof = 1
+                self.is_initialised = 0
+                if self.stream.avail_in > 0:
+                    self.unused_data = self.stream.next_in[:]
+                    self.stream.avail_in = 0
+            if self.stream.avail_in > 0 or self.unconsumed_tail:
+                # This code handles two distinct cases:
+                # 1. Output limit was reached. Save leftover input in unconsumed_tail.
+                # 2. All input data was consumed. Clear unconsumed_tail.
+                self.unconsumed_tail = self.stream.next_in[:]
+            return b"".join(out)
+        finally:
+            PyMem_Free(obuf)
 
     def copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
