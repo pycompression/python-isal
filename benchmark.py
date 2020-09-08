@@ -62,6 +62,14 @@ def benchmark(name: str,
 
 # show_sizes()
 
+benchmark("CRC32", sizes,
+          "isal_zlib.crc32(data_block)",
+          "zlib.crc32(data_block)")
+
+benchmark("Adler32", sizes,
+          "isal_zlib.adler32(data_block)",
+          "zlib.adler32(data_block)")
+
 benchmark("Compression", sizes,
           "isal_zlib.compress(data_block, 1)",
           "zlib.compress(data_block, 1)")
