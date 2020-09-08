@@ -36,6 +36,8 @@ ISAL_DEFAULT_COMPRESSION = 2
 Z_BEST_SPEED = ISAL_BEST_SPEED
 Z_BEST_COMPRESSION = ISAL_BEST_COMPRESSION
 Z_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION
+cdef int ISAL_DEFAULT_COMPRESSION_I = ISAL_DEFAULT_COMPRESSION
+cdef int ZLIB_DEFAULT_COMPRESSION_I = zlib.Z_DEFAULT_COMPRESSION
 
 DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
 DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
@@ -90,13 +92,14 @@ cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
     else:
         return b
 
-cpdef compress(data, int level=ISAL_DEFAULT_COMPRESSION):
-    if level == zlib.Z_DEFAULT_COMPRESSION:
-        level = ISAL_DEFAULT_COMPRESSION
+cpdef bytes compress(data,
+                     int level=ISAL_DEFAULT_COMPRESSION_I):
+    if level == ZLIB_DEFAULT_COMPRESSION_I:
+        level = ISAL_DEFAULT_COMPRESSION_I
 
     # Initialise stream
     cdef isal_zstream stream
-    level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
+    cdef int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
     cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
     isal_deflate_init(&stream)
     stream.level = level
@@ -167,8 +170,6 @@ cpdef decompress(data,
 
     if bufsize < 0:
         raise ValueError("bufsize must be non-negative")
-    elif bufsize == 0:
-        bufsize = 1
     if wbits > ISAL_DEF_MAX_HIST_BITS:
         raise ValueError("Wbits can not be larger than {0}".format(
             ISAL_DEF_MAX_HIST_BITS))
@@ -188,7 +189,7 @@ cpdef decompress(data,
     cdef bytes ibuf
 
     # Initialise output buffer
-    cdef unsigned long obuflen = DEF_BUF_SIZE
+    cdef unsigned long obuflen = bufsize
     cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(obuflen * sizeof(char))
     out = []
     cdef int err
@@ -196,9 +197,6 @@ cpdef decompress(data,
     # Implementation imitated from CPython's zlibmodule.c
     try:
         while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
-            # This loop runs n times (at least twice). n-1 times to fill the input
-            # buffer with data. The nth time the input is empty. In that case
-            # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
             ibuflen = Py_ssize_t_min(remains, max_input_buffer)
             ibuf = data[position: position + ibuflen]
             position += ibuflen
@@ -279,8 +277,8 @@ cdef class Compress:
             err = isal_deflate_set_dict(&self.stream, zdict, zdict_length)
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
-        if level == zlib.Z_DEFAULT_COMPRESSION:
-            level = ISAL_DEFAULT_COMPRESSION
+        if level == ZLIB_DEFAULT_COMPRESSION_I:
+            level = ISAL_DEFAULT_COMPRESSION_I
         self.stream.level = level
         self.stream.level_buf_size = zlib_mem_level_to_isal(level, memLevel)
         self.level_buf = <unsigned char *>PyMem_Malloc(self.stream.level_buf_size * sizeof(char))
