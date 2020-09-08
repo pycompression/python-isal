@@ -22,6 +22,7 @@
 Library to speed up its methods."""
 
 import io
+import os
 
 # We import a copy of the gzip module so we can use that to define the classes
 # here and replace  the zlib module with the isal_zlib module. This way the
@@ -32,6 +33,65 @@ from . import _gzip_copy
 from . import isal_zlib
 
 _gzip_copy.zlib = isal_zlib
+
+from ._gzip_copy import compress, decompress, main, BadGzipFile
+
+__all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
+
+
+_COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
+_COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
+_COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
+_gzip_copy._COMPRESS_LEVEL_FAST = _COMPRESS_LEVEL_FAST
+_gzip_copy.COMPRESS_LEVEL_TRADEOFF = _COMPRESS_LEVEL_TRADEOFF
+_gzip_copy._COMPRESS_LEVEL_BEST = _COMPRESS_LEVEL_BEST
+
+
+# The open method was copied from the python source with minor adjustments.
+def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
+         encoding=None, errors=None, newline=None):
+    """Open a gzip-compressed file in binary or text mode. This uses the isa-l
+    library for optimised speed.
+
+    The filename argument can be an actual filename (a str or bytes object), or
+    an existing file object to read from or write to.
+
+    The mode argument can be "r", "rb", "w", "wb", "x", "xb", "a" or "ab" for
+    binary mode, or "rt", "wt", "xt" or "at" for text mode. The default mode is
+    "rb", and the default compresslevel is 9.
+
+    For binary mode, this function is equivalent to the GzipFile constructor:
+    GzipFile(filename, mode, compresslevel). In this case, the encoding, errors
+    and newline arguments must not be provided.
+
+    For text mode, a GzipFile object is created, and wrapped in an
+    io.TextIOWrapper instance with the specified encoding, error handling
+    behavior, and line ending(s).
+
+    """
+    if "t" in mode:
+        if "b" in mode:
+            raise ValueError("Invalid mode: %r" % (mode,))
+    else:
+        if encoding is not None:
+            raise ValueError("Argument 'encoding' not supported in binary mode")
+        if errors is not None:
+            raise ValueError("Argument 'errors' not supported in binary mode")
+        if newline is not None:
+            raise ValueError("Argument 'newline' not supported in binary mode")
+
+    gz_mode = mode.replace("t", "")
+    if isinstance(filename, (str, bytes, os.PathLike)):
+        binary_file = IGzipFile(filename, gz_mode, compresslevel)
+    elif hasattr(filename, "read") or hasattr(filename, "write"):
+        binary_file = IGzipFile(None, gz_mode, compresslevel, filename)
+    else:
+        raise TypeError("filename must be a str or bytes object, or a file")
+
+    if "t" in mode:
+        return io.TextIOWrapper(binary_file, encoding, errors, newline)
+    else:
+        return binary_file
 
 
 class IGzipFile(_gzip_copy.GzipFile):
@@ -58,3 +118,7 @@ class IGzipFile(_gzip_copy.GzipFile):
 
 class _IGzipReader(_gzip_copy._GzipReader):
     pass
+
+
+if __name__ == '__main__':
+    main()
