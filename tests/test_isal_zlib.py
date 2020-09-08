@@ -36,6 +36,8 @@ SEEDS_FILE = DATA_DIR / "seeds.txt"
 # Create seeds 0, 1 and 20 seeds from the seeds file.
 SEEDS = [0, 1] + [int(seed) for seed in SEEDS_FILE.read_text().splitlines()]
 
+# Wbits for ZLIB compression, GZIP compression, and RAW compressed streams
+WBITS_RANGE = list(range(9, 16)) + list(range(25, 32)) + list(range(-15, -8))
 
 @pytest.mark.parametrize(["data_size", "value"],
                          itertools.product(DATA_SIZES, SEEDS))
@@ -80,35 +82,19 @@ def test_decompress_isal_zlib(data_size, level):
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
                          itertools.product(DATA_SIZES[-1:], range(4),
-                                           range(9, 16), range(1, 10)))
-def test_compress_compressobj_zlib(data_size, level, wbits, memLevel):
+                                           WBITS_RANGE, range(1, 10)))
+def test_compress_compressobj(data_size, level, wbits, memLevel):
     data = DATA_512KB[:data_size]
     compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level,
                                                             wbits=wbits,
                                                             memLevel=memLevel)
     compressed = compressobj.compress(data) + compressobj.flush()
-    assert zlib.decompress(compressed) == data
+    if wbits in range(8, 16):
+        # In case a zlib header is used, determine the wbits automatically.
+        # For some reason it fails if wbits is set manually.
+        decompressobj = zlib.decompressobj(0)
+    else:
+        decompressobj = zlib.decompressobj(wbits=wbits)
+    decompressed = decompressobj.decompress(compressed) + decompressobj.flush()
+    assert data == decompressed
 
-
-@pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product(DATA_SIZES[-1:], range(4),
-                                           range(25, 32), range(1, 10)))
-def test_compress_compressobj_gzip(data_size, level, wbits, memLevel):
-    data = DATA_512KB[:data_size]
-    compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level,
-                                                            wbits=wbits,
-                                                            memLevel=memLevel)
-    compressed = compressobj.compress(data) + compressobj.flush()
-    assert gzip.decompress(compressed) == data
-
-
-@pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product(DATA_SIZES[-1:], range(4),
-                                           range(-15, -8), range(1, 10)))
-def test_compress_compressobj_raw(data_size, level, wbits, memLevel):
-    data = DATA_512KB[:data_size]
-    compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level,
-                                                            wbits=wbits,
-                                                            memLevel=memLevel)
-    compressobj.compress(data) + compressobj.flush()
-    # TODO: Check the raw compressed stream
