@@ -171,7 +171,6 @@ cpdef decompress(data,
     if bufsize < 0:
         raise ValueError("bufsize must be non-negative")
    
-   
     cdef inflate_state stream
     isal_inflate_init(&stream)
 
@@ -187,7 +186,6 @@ cpdef decompress(data,
     else:
         raise ValueError("Invalid wbits value")
 
-    
     # initialise input
     cdef Py_ssize_t max_input_buffer = UINT32_MAX
     cdef Py_ssize_t total_length = len(data)
@@ -360,12 +358,43 @@ cdef class Compress:
     def copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
+
 cdef class Decompress:
+    cdef inflate_state stream
+    cdef unsigned char * obuf
+    cdef unsigned long obuflen
     cdef unsigned char *unused_data
     cdef unsigned char *unconsumed_tail
     cdef bint eof
-    cdef bint is_initialised
 
+    def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
+        isal_inflate_init(&self.stream)
+        if 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
+            self.stream.hist_bits = wbits
+            self.stream.gzip_flag = ISAL_ZLIB
+        elif 24 <= wbits <= 31:  # gzip headers and trailers on compressed stream
+            self.stream.hist_bits = wbits - 16
+            self.stream.gzip_flag = ISAL_GZIP
+        elif -15 <= wbits <= -8:  # raw compressed stream
+            self.stream.hist_bits = -wbits
+            self.stream.gzip_flag = ISAL_DEFLATE
+        else:
+            raise ValueError("Invalid wbits value")
+        cdef Py_ssize_t zdict_length
+        if zdict:
+            zdict_length = len(zdict)
+            if zdict_length > UINT32_MAX:
+                raise OverflowError("zdict length does not fit in an unsigned int")
+            err = isal_inflate_set_dict(&self.stream, zdict, zdict_length)
+            if err != COMP_OK:
+                check_isal_deflate_rc(err)
+        self.obuflen = DEF_BUF_SIZE
+        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
+        self.eof = 0
+
+    def __dealloc__(self):
+        if self.obuf is not NULL:
+            PyMem_Free(self.obuf)
 
     cpdef decompress(self, unsigned char *data, Py_ssize_t max_length):
         pass
