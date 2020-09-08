@@ -52,6 +52,8 @@ def benchmark(name: str,
     for name, data_block in names_and_data.items():
         isal_compressobj = isal_zlib.compressobj(level=1,wbits=-15)
         zlib_compressobj = zlib.compressobj(level=1, wbits=-15)
+        isal_decompressobj = isal_zlib.decompressobj()
+        zlib_decompressobj = zlib.decompressobj()
         timeit_kwargs = dict(globals=dict(**globals(), **locals()),
                              number=number)
         isal_time = timeit.timeit(isal_string, **timeit_kwargs)
@@ -98,5 +100,5 @@ if __name__ == "__main__":
                   "zlib_compressobj.compress(data_block)")
 
         benchmark("Object decompression", compressed_sizes,
-                  "isal_compressobj.decompress(data_block)",
-                  "zlib_compressobj.decompress(data_block)")
+                  "isal_decompressobj.decompress(data_block)",
+                  "zlib_decompressobj.decompress(data_block)")
