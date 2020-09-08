@@ -21,6 +21,7 @@
 """Similar to the stdlib gzip module. But using the Intel Storage Accelaration
 Library to speed up its methods."""
 
+import argparse
 import io
 import os
 
@@ -34,17 +35,14 @@ from . import isal_zlib
 
 _gzip_copy.zlib = isal_zlib
 
-from ._gzip_copy import compress, decompress, main, BadGzipFile
-
-__all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
-
-
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
-_gzip_copy._COMPRESS_LEVEL_FAST = _COMPRESS_LEVEL_FAST
-_gzip_copy.COMPRESS_LEVEL_TRADEOFF = _COMPRESS_LEVEL_TRADEOFF
-_gzip_copy._COMPRESS_LEVEL_BEST = _COMPRESS_LEVEL_BEST
+_BLOCK_SIZE = 64*1024
+
+from ._gzip_copy import compress, decompress, BadGzipFile
+
+__all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
 
 
 # The open method was copied from the python source with minor adjustments.
@@ -120,5 +118,51 @@ class _IGzipReader(_gzip_copy._GzipReader):
     pass
 
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser()
+    parser.description = (
+        "A simple command line interface for the igzip module. "
+        "Acts like igzip.")
+    parser.add_argument("file")
+    parser.add_argument("--fast", action="store_true",
+                        help="use fastest compression")
+    parser.add_argument("--best", action="store_true",
+                        help="use best compression")
+    parser.add_argument("-d", "--decompress", action="store_false",
+                        dest="compress",
+                        help="Decompress the file instead of compressing.")
+    args = parser.parse_args()
+
+    if args.fast:
+        compresslevel = _COMPRESS_LEVEL_FAST
+    elif args.best:
+        compresslevel = _COMPRESS_LEVEL_BEST
+    else:
+        compresslevel = _COMPRESS_LEVEL_TRADEOFF
+
+    if args.compress:
+        out_filename = args.file + ".gz"
+        with io.open(args.file, "rb") as in_file:
+            with open(out_filename, mode="rb", compresslevel=compresslevel
+                      ) as out_file:
+                while True:
+                    block = in_file.read(_BLOCK_SIZE)
+                    if block == b"":
+                        break
+                    out_file.write(block)
+    else:
+        base, extension = os.path.splitext(args.file)
+        if extension != ".gz":
+            raise ValueError("Can only decompress files with a .gz extension")
+        out_filename = base
+        with open(args.file, "rb") as in_file:
+            with io.open(out_filename, mode="rb") as out_file:
+                while True:
+                    block = in_file.read(_BLOCK_SIZE)
+                    if block == b"":
+                        break
+                    out_file.write(block)
+
+
+if __name__ == "__main__":
     main()
