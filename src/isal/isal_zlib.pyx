@@ -41,7 +41,7 @@ cdef int ZLIB_DEFAULT_COMPRESSION_I = zlib.Z_DEFAULT_COMPRESSION
 
 DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
 DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
-cdef int DEF_MEM_LEVEL_I = DEF_MEM_LEVEL  # Can not be manipulated by user.
+cdef int DEF_MEM_LEVEL_I = zlib.DEF_MEM_LEVEL # Can not be manipulated by user.
 MAX_WBITS = ISAL_DEF_MAX_HIST_BITS
 ISAL_DEFAULT_HIST_BITS=0
 
@@ -99,7 +99,7 @@ cpdef bytes compress(data,
 
     # Initialise stream
     cdef isal_zstream stream
-    cdef int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
+    cdef unsigned long level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
     cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
     isal_deflate_init(&stream)
     stream.level = level
@@ -363,11 +363,11 @@ cdef class Decompress:
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
 
-cdef int zlib_mem_level_to_isal(int compression_level, int mem_level):
+cdef zlib_mem_level_to_isal(int compression_level, int mem_level):
     """
     Convert zlib memory levels to isal equivalents
     """
-    if not (1 < mem_level < 9):
+    if not (1 <= mem_level <= 9):
         raise ValueError("Memory level must be between 1 and 9")
     if not (ISAL_DEF_MIN_LEVEL <= compression_level <= ISAL_DEF_MAX_LEVEL):
         raise ValueError("Invalid compression level.")

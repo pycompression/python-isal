@@ -18,6 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import gzip
 import itertools
 import zlib
 from pathlib import Path
@@ -77,10 +78,25 @@ def test_decompress_isal_zlib(data_size, level):
     assert decompressed == data
 
 
-@pytest.mark.parametrize(["data_size", "level"],
-                         itertools.product(DATA_SIZES, range(4)))
-def test_compress_compressobj(data_size, level):
+@pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
+                         itertools.product(DATA_SIZES, range(4),
+                                           range(9, 16), range(1, 10)))
+def test_compress_compressobj_zlib(data_size, level, wbits, memLevel):
     data = DATA_512KB[:data_size]
-    compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level)
+    compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level,
+                                                            wbits=wbits,
+                                                            memLevel=memLevel)
     compressed = compressobj.compress(data) + compressobj.flush()
     assert zlib.decompress(compressed) == data
+
+
+@pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
+                         itertools.product(DATA_SIZES, range(4),
+                                           range(25, 32), range(1, 10)))
+def test_compress_compressobj_gzip(data_size, level, wbits, memLevel):
+    data = DATA_512KB[:data_size]
+    compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level,
+                                                            wbits=wbits,
+                                                            memLevel=memLevel)
+    compressed = compressobj.compress(data) + compressobj.flush()
+    assert gzip.decompress(compressed) == data
