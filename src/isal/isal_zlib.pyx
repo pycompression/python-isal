@@ -234,8 +234,8 @@ cpdef decompress(data,
 
 
 cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
-                    zdict = None):
-    pass
+                  zdict = None):
+    return Decompress.__new__(Decompress, wbits, zdict)
 
 
 cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
@@ -360,7 +360,6 @@ cdef class Compress:
     def copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
-
 cdef class Decompress:
     cdef inflate_state stream
     cdef unsigned char * obuf
@@ -373,13 +372,13 @@ cdef class Decompress:
         isal_inflate_init(&self.stream)
         if 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
             self.stream.hist_bits = wbits
-            self.stream.gzip_flag = ISAL_ZLIB
+            self.stream.crc_flag = ISAL_ZLIB
         elif 24 <= wbits <= 31:  # gzip headers and trailers on compressed stream
             self.stream.hist_bits = wbits - 16
-            self.stream.gzip_flag = ISAL_GZIP
+            self.stream.crc_flag = ISAL_GZIP
         elif -15 <= wbits <= -8:  # raw compressed stream
             self.stream.hist_bits = -wbits
-            self.stream.gzip_flag = ISAL_DEFLATE
+            self.stream.crc_flag = ISAL_DEFLATE
         else:
             raise ValueError("Invalid wbits value")
         cdef Py_ssize_t zdict_length
