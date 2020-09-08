@@ -2,6 +2,8 @@ from typing import Dict
 import timeit
 from isal import isal_zlib
 import zlib
+
+import argparse
 pangram = b"The quick brown fox jumps over the lazy dog. "
 data = pangram * 23 * 1024  # Approx 1 MB
 sizes: Dict[str, bytes] = {
@@ -48,6 +50,8 @@ def benchmark(name: str,
     print(name)
     print("name\tisal\tzlib\tratio")
     for name, data_block in names_and_data.items():
+        isal_compressobj = isal_zlib.compressobj(level=1,wbits=-15)
+        zlib_compressobj = zlib.compressobj(level=1, wbits=-15)
         timeit_kwargs = dict(globals=dict(**globals(), **locals()),
                              number=number)
         isal_time = timeit.timeit(isal_string, **timeit_kwargs)
@@ -59,21 +63,40 @@ def benchmark(name: str,
                                           isal_nanosecs,
                                           zlib_nanosecs,
                                           ratio))
-
 # show_sizes()
 
-benchmark("CRC32", sizes,
-          "isal_zlib.crc32(data_block)",
-          "zlib.crc32(data_block)")
+def argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--all", action="store_true")
+    parser.add_argument("--checksums", action="store_true")
+    parser.add_argument("--functions", action="store_true")
+    parser.add_argument("--objects", action="store_true")
+    return parser
 
-benchmark("Adler32", sizes,
-          "isal_zlib.adler32(data_block)",
-          "zlib.adler32(data_block)")
+if __name__ == "__main__":
+    args = argument_parser().parse_args()
+    if args.checksums or args.all:
+        benchmark("CRC32", sizes,
+                  "isal_zlib.crc32(data_block)",
+                  "zlib.crc32(data_block)")
 
-benchmark("Compression", sizes,
-          "isal_zlib.compress(data_block, 1)",
-          "zlib.compress(data_block, 1)")
+        benchmark("Adler32", sizes,
+                  "isal_zlib.adler32(data_block)",
+                  "zlib.adler32(data_block)")
+    if args.functions or args.all:
+        benchmark("Compression", sizes,
+                  "isal_zlib.compress(data_block, 1)",
+                  "zlib.compress(data_block, 1)")
 
-benchmark("Decompression", compressed_sizes,
-          "isal_zlib.decompress(data_block)",
-          "zlib.decompress(data_block)")
+        benchmark("Decompression", compressed_sizes,
+                  "isal_zlib.decompress(data_block)",
+                  "zlib.decompress(data_block)")
+
+    if args.objects or args.all:
+        benchmark("Object compression", sizes,
+                  "isal_compressobj.compress(data_block)",
+                  "zlib_compressobj.compress(data_block)")
+
+        benchmark("Object decompression", compressed_sizes,
+                  "isal_compressobj.decompress(data_block)",
+                  "zlib_compressobj.decompress(data_block)")
