@@ -23,4 +23,16 @@ import pkg_resources
 from ._isal import ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, \
     ISAL_PATCH_VERSION, ISAL_VERSION
 
+from . import isal_zlib
+from . import isal_gzip
+
+__all__ = [
+    "ISAL_MAJOR_VERSION",
+    "ISAL_MINOR_VERSION",
+    "ISAL_PATCH_VERSION",
+    "ISAL_VERSION",
+    "isal_gzip",
+    "isal_zlib"
+]
+
 __version__ = pkg_resources.get_distribution(__package__).version
