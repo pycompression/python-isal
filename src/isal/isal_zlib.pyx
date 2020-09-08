@@ -170,15 +170,23 @@ cpdef decompress(data,
 
     if bufsize < 0:
         raise ValueError("bufsize must be non-negative")
-    if wbits > ISAL_DEF_MAX_HIST_BITS:
-        raise ValueError("Wbits can not be larger than {0}".format(
-            ISAL_DEF_MAX_HIST_BITS))
    
    
     cdef inflate_state stream
     isal_inflate_init(&stream)
-    stream.hist_bits = wbits
-    stream.crc_flag = ISAL_ZLIB
+
+    if 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
+        stream.hist_bits = wbits
+        stream.crc_flag = ISAL_ZLIB
+    elif 24 <= wbits <= 31:  # gzip headers and trailers on compressed stream
+        stream.hist_bits = wbits
+        stream.crc_flag = ISAL_GZIP
+    elif -15 <= wbits <= -8:  # raw compressed stream
+        stream.hist_bits = wbits
+        stream.crc_flag = ISAL_DEFLATE
+    else:
+        raise ValueError("Invalid wbits value")
+
     
     # initialise input
     cdef Py_ssize_t max_input_buffer = UINT32_MAX
