@@ -98,3 +98,14 @@ def test_compress_compressobj(data_size, level, wbits, memLevel):
     decompressed = decompressobj.decompress(compressed) + decompressobj.flush()
     assert data == decompressed
 
+
+@pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
+                         itertools.product(DATA_SIZES[-1:], range(4),
+                                           WBITS_RANGE, range(1, 10)))
+def test_compress_compressobj(data_size, level, wbits, memLevel):
+    data = DATA_512KB[:data_size]
+    compressobj = zlib.compressobj(level=level, wbits=wbits, memLevel=memLevel)
+    compressed = compressobj.compress(data) + compressobj.flush()
+    decompressobj = isal_zlib.decompressobj(wbits=wbits)
+    decompressed = decompressobj.decompress(compressed) + decompressobj.flush()
+    assert data == decompressed
