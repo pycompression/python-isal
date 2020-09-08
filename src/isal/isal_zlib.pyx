@@ -300,15 +300,17 @@ cdef class Compress:
             PyMem_Free(self.level_buf)
 
     def compress(self, data):
-        # Initialise stream
-        self.stream.flush = NO_FLUSH
-        self.stream.end_of_stream = 0
         # Initialise output buffer
         out = []
 
         # initialise input
         cdef Py_ssize_t total_length = len(data)
         if total_length > UINT32_MAX:
+            # Zlib allows a maximum of 64 KB (16-bit length) and python has
+            # integrated workarounds in order to compress up to 64 bits
+            # lengths. This comes at a cost however. Considering 4 GB should
+            # be ample for streaming applications, the workaround is not
+            # implemented here. (It is in the stand-alone compress function).
             raise OverflowError("A maximum of 4 GB is allowed.")
         self.stream.next_in = data
         self.stream.avail_in = total_length
@@ -396,13 +398,57 @@ cdef class Decompress:
         if self.obuf is not NULL:
             PyMem_Free(self.obuf)
 
-    cpdef decompress(self, unsigned char *data, Py_ssize_t max_length):
+    def decompress(self, data, Py_ssize_t max_length = UINT32_MAX):
+        # Initialise output buffer
+        out = []
+
+        cdef unsigned long hard_limit
+        if max_length > UINT32_MAX:
+            raise OverflowError("A maximum of 4 GB is allowed for the max "
+                                "length.")
+        elif max_length == 0:  # Zlib default
+            hard_limit = max_length
+        elif max_length < 0:
+            raise ValueError("max_length can not be smaller than 0")
+        else:
+            hard_limit = max_length
+
+        cdef Py_ssize_t total_length = len(data)
+        if total_length > UINT32_MAX:
+            # Zlib allows a maximum of 64 KB (16-bit length) and python has
+            # integrated workarounds in order to compress up to 64 bits
+            # lengths. This comes at a cost however. Considering 4 GB should
+            # be ample for streaming applications, the workaround is not
+            # implemented here. (It is in the stand-alone compress function).
+            raise OverflowError("A maximum of 4 GB is allowed.")
+        self.stream.next_in = data
+        self.stream.avail_in = total_length
+
+        cdef int err
+        # This loop reads all the input bytes. If there are no input bytes
+        # anymore the output is written.
+        while self.stream.avail_in != 0:
+            self.stream.next_out = self.obuf  # Reset output buffer.
+            if self.stream.total_out + self.obuflen > hard_limit:
+                self.stream.avail_out = hard_limit - self.stream.total_out
+            else:
+                self.stream.avail_out = self.obuflen
+            err = isal_inflate(&self.stream)
+            if err != ISAL_DECOMP_OK:
+                # There is some python interacting when possible exceptions
+                # Are raised. So we remain in pure C code if we check for
+                # COMP_OK first.
+                check_isal_inflate_rc(err)
+            # Instead of output buffer resizing as the zlibmodule.c example
+            # the data is appended to a list.
+            # TODO: Improve this with the buffer protocol.
+            out.append(self.obuf[:self.obuflen - self.stream.avail_out])
+        return b"".join(out)
+
+    def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
         pass
 
-    cpdef flush(self, Py_ssize_t length = DEF_BUF_SIZE):
-        pass
-
-    cpdef copy(self):
+    def copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
 
