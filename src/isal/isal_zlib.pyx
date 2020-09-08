@@ -287,6 +287,12 @@ cdef class Compress:
         self.obuflen = DEF_BUF_SIZE
         self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
 
+    def __dealloc__(self):
+        if self.obuf is not NULL:
+            PyMem_Free(self.obuf)
+        if self.level_buf is not NULL:
+            PyMem_Free(self.level_buf)
+
     def compress(self, data):
         # Initialise stream
         self.stream.flush = NO_FLUSH
