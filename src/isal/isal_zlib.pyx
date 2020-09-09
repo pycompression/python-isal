@@ -407,6 +407,7 @@ cdef class Decompress:
         self.stream.next_in = data
         self.stream.avail_in = total_length
         self.stream.avail_out = 0
+        cdef unsigned long prev_avail_out
         cdef int err
         # This loop reads all the input bytes. If there are no input bytes
         # anymore the output is written.
@@ -420,6 +421,7 @@ cdef class Decompress:
                 self.stream.avail_out =  max_length - total_bytes
             else:
                 self.stream.avail_out = self.obuflen
+            prev_avail_out = self.stream.avail_out
             err = isal_inflate(&self.stream)
             if err != ISAL_DECOMP_OK:
                 # There is some python interacting when possible exceptions
@@ -427,7 +429,7 @@ cdef class Decompress:
                 # COMP_OK first.
                 check_isal_inflate_rc(err)
             total_bytes += self.stream.avail_out
-            out.append(self.obuf[:self.obuflen - self.stream.avail_out])
+            out.append(self.obuf[:prev_avail_out - self.stream.avail_out])
             if self.stream.block_state == ISAL_BLOCK_FINISH:
                 break
         # Save unconsumed input implementation from zlibmodule.c
