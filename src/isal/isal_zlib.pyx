@@ -93,7 +93,8 @@ cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
         return b
 
 cpdef bytes compress(data,
-                     int level=ISAL_DEFAULT_COMPRESSION_I):
+                     int level=ISAL_DEFAULT_COMPRESSION_I,
+                     int wbits = ISAL_DEF_MAX_HIST_BITS):
     if level == ZLIB_DEFAULT_COMPRESSION_I:
         level = ISAL_DEFAULT_COMPRESSION_I
 
@@ -105,7 +106,9 @@ cpdef bytes compress(data,
     stream.level = level
     stream.level_buf = level_buf
     stream.level_buf_size = level_buf_size
-    stream.gzip_flag = IGZIP_ZLIB
+    wbits_to_flag_and_hist_bits_deflate(wbits,
+                                        &stream.hist_bits,
+                                        &stream.gzip_flag)
 
     # Initialise output buffer
     cdef unsigned long obuflen = DEF_BUF_SIZE
@@ -174,17 +177,9 @@ cpdef decompress(data,
     cdef inflate_state stream
     isal_inflate_init(&stream)
 
-    if 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
-        stream.hist_bits = wbits
-        stream.crc_flag = ISAL_ZLIB
-    elif 24 <= wbits <= 31:  # gzip headers and trailers on compressed stream
-        stream.hist_bits = wbits
-        stream.crc_flag = ISAL_GZIP
-    elif -15 <= wbits <= -8:  # raw compressed stream
-        stream.hist_bits = wbits
-        stream.crc_flag = ISAL_DEFLATE
-    else:
-        raise ValueError("Invalid wbits value")
+    wbits_to_flag_and_hist_bits_inflate(wbits,
+                                        &stream.hist_bits,
+                                        &stream.crc_flag)
 
     # initialise input
     cdef Py_ssize_t max_input_buffer = UINT32_MAX
@@ -264,17 +259,11 @@ cdef class Compress:
             warnings.warn("Only one strategy is supported when using "
                           "isal_zlib. Using the default strategy.")
         isal_deflate_init(&self.stream)
-        if 9 <= wbits <= 15:  # zlib headers and trailers on compressed stream
-            self.stream.hist_bits = wbits
-            self.stream.gzip_flag = IGZIP_ZLIB
-        elif 25 <= wbits <= 31: # gzip headers and trailers on compressed stream
-            self.stream.hist_bits = wbits - 16
-            self.stream.gzip_flag = IGZIP_GZIP
-        elif -15 <= wbits <= -9:  # raw compressed stream
-            self.stream.hist_bits = -wbits
-            self.stream.gzip_flag = IGZIP_DEFLATE
-        else:
-            raise ValueError("Invalid wbits value")
+
+        wbits_to_flag_and_hist_bits_deflate(wbits,
+                                            &self.stream.hist_bits,
+                                            &self.stream.gzip_flag)
+
         cdef Py_ssize_t zdict_length
         if zdict:
             zdict_length = len(zdict)
@@ -371,17 +360,11 @@ cdef class Decompress:
 
     def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
-        if 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
-            self.stream.hist_bits = wbits
-            self.stream.crc_flag = ISAL_ZLIB
-        elif 24 <= wbits <= 31:  # gzip headers and trailers on compressed stream
-            self.stream.hist_bits = wbits - 16
-            self.stream.crc_flag = ISAL_GZIP
-        elif -15 <= wbits <= -8:  # raw compressed stream
-            self.stream.hist_bits = -wbits
-            self.stream.crc_flag = ISAL_DEFLATE
-        else:
-            raise ValueError("Invalid wbits value")
+
+        wbits_to_flag_and_hist_bits_inflate(wbits,
+                                            &self.stream.hist_bits,
+                                            &self.stream.crc_flag)
+
         cdef Py_ssize_t zdict_length
         if zdict:
             zdict_length = len(zdict)
@@ -514,6 +497,37 @@ cdef class Decompress:
     def copy(self):
         raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
+
+cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
+                                         unsigned short * hist_bits,
+                                         unsigned short * gzip_flag):
+    if 9 <= wbits <= 15:  # zlib headers and trailers on compressed stream
+        hist_bits[0] = wbits
+        gzip_flag[0] = IGZIP_ZLIB
+    elif 25 <= wbits <= 31:  # gzip headers and trailers on compressed stream
+        hist_bits[0] = wbits - 16
+        gzip_flag[0] = IGZIP_GZIP
+    elif -15 <= wbits <= -9:  # raw compressed stream
+        hist_bits[0] = -wbits
+        gzip_flag[0] = IGZIP_DEFLATE
+    else:
+        raise ValueError("Invalid wbits value")
+
+
+cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
+                                         unsigned long * hist_bits,
+                                         unsigned long * crc_flag):
+    if 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
+        hist_bits[0] = wbits
+        crc_flag[0] = ISAL_ZLIB
+    elif 24 <= wbits <= 31:  # gzip headers and trailers on compressed stream
+        hist_bits[0] = wbits - 16
+        crc_flag[0] = ISAL_GZIP
+    elif -15 <= wbits <= -8:  # raw compressed stream
+        hist_bits[0] = -wbits
+        crc_flag[0] = ISAL_DEFLATE
+    else:
+        raise ValueError("Invalid wbits value")
 
 cdef zlib_mem_level_to_isal(int compression_level, int mem_level):
     """

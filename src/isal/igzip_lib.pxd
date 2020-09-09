@@ -206,10 +206,10 @@ cdef extern from "<isa-l/igzip_lib.h>":
         unsigned long level  #!< Compression level to use
         unsigned long level_buf_size  #!< Size of level_buf
         unsigned char * level_buf  #!< User allocated buffer required for different compression levels
-        unsigned int end_of_stream  #!< non-zero if this is the last input buffer
-        unsigned int flush  #!< Flush type can be NO_FLUSH, SYNC_FLUSH or FULL_FLUSH
-        unsigned int gzip_flag  #!< Indicate if gzip compression is to be performed
-        unsigned int hist_bits  #!< Log base 2 of maximum lookback distance, 0 is use default
+        unsigned short end_of_stream  #!< non-zero if this is the last input buffer
+        unsigned short flush  #!< Flush type can be NO_FLUSH, SYNC_FLUSH or FULL_FLUSH
+        unsigned short gzip_flag  #!< Indicate if gzip compression is to be performed
+        unsigned short hist_bits  #!< Log base 2 of maximum lookback distance, 0 is use default
         isal_zstate internal_state  #!< Internal state for this stream
 
     # Inflate structures
