@@ -1,11 +1,16 @@
-from typing import Dict
+from typing import Dict, Optional
 import timeit
-from isal import isal_zlib
+from isal import igzip, isal_zlib
 import zlib
-
+import gzip
+from pathlib import Path
 import argparse
-pangram = b"The quick brown fox jumps over the lazy dog. "
-data = pangram * 23 * 1024  # Approx 1 MB
+
+DATA_DIR = Path(__file__).parent / "tests"/ "data"
+COMPRESSED_FILE = DATA_DIR / "test.fastq.gz"
+with gzip.open(str(COMPRESSED_FILE), mode="rb") as file_h:
+    data = file_h.read()
+
 sizes: Dict[str, bytes] = {
     "0b": b"",
     "8b": data[:8],
@@ -15,12 +20,14 @@ sizes: Dict[str, bytes] = {
     "16kb": data[:16 * 1024],
     "32kb": data[:32 * 1024],
     "64kb": data[:64 * 1024],
-    "128kb": data[:128*1024],
+    #"128kb": data[:128*1024],
     #"512kb": data[:512*1024]
 }
 compressed_sizes = {name: zlib.compress(data_block)
                     for name, data_block in sizes.items()}
 
+compressed_sizes_gzip = {name: gzip.compress(data_block)
+                         for name, data_block in sizes.items()}
 
 def show_sizes():
     print("zlib sizes")
@@ -46,16 +53,13 @@ def benchmark(name: str,
               names_and_data: Dict[str, bytes],
               isal_string: str,
               zlib_string: str,
-              number: int = 10_000):
+              number: int = 10_000,
+              **kwargs):
     print(name)
     print("name\tisal\tzlib\tratio")
     for name, data_block in names_and_data.items():
-        isal_compressobj = isal_zlib.compressobj(level=1,wbits=-15)
-        zlib_compressobj = zlib.compressobj(level=1, wbits=-15)
-        isal_decompressobj = isal_zlib.decompressobj()
-        zlib_decompressobj = zlib.decompressobj()
         timeit_kwargs = dict(globals=dict(**globals(), **locals()),
-                             number=number)
+                             number=number, **kwargs)
         isal_time = timeit.timeit(isal_string, **timeit_kwargs)
         zlib_time = timeit.timeit(zlib_string, **timeit_kwargs)
         isal_nanosecs = round(isal_time * (1_000_000 / number), 2)
@@ -72,7 +76,7 @@ def argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--checksums", action="store_true")
     parser.add_argument("--functions", action="store_true")
-    parser.add_argument("--objects", action="store_true")
+    parser.add_argument("--gzip", action="store_true")
     return parser
 
 if __name__ == "__main__":
@@ -94,11 +98,11 @@ if __name__ == "__main__":
                   "isal_zlib.decompress(data_block)",
                   "zlib.decompress(data_block)")
 
-    if args.objects or args.all:
-        benchmark("Object compression", sizes,
-                  "isal_compressobj.compress(data_block)",
-                  "zlib_compressobj.compress(data_block)")
+    if args.gzip or args.all:
+        benchmark("Compression", sizes,
+                  "igzip.compress(data_block, 1)",
+                  "gzip.compress(data_block, 1)")
 
-        benchmark("Object decompression", compressed_sizes,
-                  "isal_decompressobj.decompress(data_block)",
-                  "zlib_decompressobj.decompress(data_block)")
+        benchmark("Decompression", compressed_sizes_gzip,
+                  "igzip.decompress(data_block)",
+                  "gzip.decompress(data_block)")
