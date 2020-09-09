@@ -408,6 +408,7 @@ cdef class Decompress:
         self.stream.avail_in = total_length
         self.stream.avail_out = 0
         cdef unsigned long prev_avail_out
+        cdef unsigned long bytes_written
         cdef int err
         # This loop reads all the input bytes. If there are no input bytes
         # anymore the output is written.
@@ -415,9 +416,9 @@ cdef class Decompress:
                or self.stream.avail_in != 0
                or self.stream.block_state != ISAL_BLOCK_FINISH):
             self.stream.next_out = self.obuf  # Reset output buffer.
-            if total_bytes > max_length:
+            if total_bytes >= max_length:
                 break
-            elif total_bytes + self.obuflen > max_length:
+            elif total_bytes + self.obuflen >= max_length:
                 self.stream.avail_out =  max_length - total_bytes
             else:
                 self.stream.avail_out = self.obuflen
@@ -428,8 +429,9 @@ cdef class Decompress:
                 # Are raised. So we remain in pure C code if we check for
                 # COMP_OK first.
                 check_isal_inflate_rc(err)
-            total_bytes += self.stream.avail_out
-            out.append(self.obuf[:prev_avail_out - self.stream.avail_out])
+            bytes_written = prev_avail_out - self.stream.avail_out
+            total_bytes += bytes_written
+            out.append(self.obuf[:bytes_written])
             if self.stream.block_state == ISAL_BLOCK_FINISH:
                 break
         # Save unconsumed input implementation from zlibmodule.c
@@ -438,7 +440,7 @@ cdef class Decompress:
             # leftover input data in self->unused_data.
             self.eof = 1
             if self.stream.avail_in > 0:
-                self.unused_data = self.stream.next_in[:]
+                self.unused_data = data[total_bytes:]
                 self.stream.avail_in = 0
         if self.stream.avail_in > 0 or self.unconsumed_tail:
             # This code handles two distinct cases:
@@ -452,14 +454,16 @@ cdef class Decompress:
             raise ValueError("Length must be greater than 0")
         if length > UINT32_MAX:
             raise ValueError("Length should not be larger than 4GB.")
-        cdef Py_ssize_t ibuflen = len(self.unconsumed_tail)
+        data = self.unconsumed_tail
+        cdef Py_ssize_t ibuflen = len(data)
         if ibuflen > UINT32_MAX:
             # This should never happen, because we check the input size in
             # the decompress function as well.
             raise IsalError("Unconsumed tail too large. Can not flush.")
-        self.stream.next_in = self.unconsumed_tail
+        self.stream.next_in = data
         self.stream.avail_in = ibuflen
-
+        cdef unsigned long total_bytes = 0
+        cdef unsigned long bytes_written
         out = []
         cdef unsigned long obuflen = length
         cdef unsigned char * obuf = <unsigned char *>PyMem_Malloc(obuflen * sizeof(char))
@@ -478,20 +482,22 @@ cdef class Decompress:
                 # Instead of output buffer resizing as the zlibmodule.c example
                 # the data is appended to a list.
                 # TODO: Improve this with the buffer protocol.
-                out.append(obuf[:obuflen - self.stream.avail_out])
+                bytes_written = obuflen - self.stream.avail_out
+                total_bytes += bytes_written
+                out.append(obuf[:bytes_written])
             if self.stream.block_state == ISAL_BLOCK_FINISH:
                 # The end of the compressed data has been reached. Store the
                 # leftover input data in self->unused_data.
                 self.eof = 1
                 self.is_initialised = 0
                 if self.stream.avail_in > 0:
-                    self.unused_data = self.stream.next_in[:]
+                    self.unused_data = data[total_bytes:]
                     self.stream.avail_in = 0
             if self.stream.avail_in > 0 or self.unconsumed_tail:
                 # This code handles two distinct cases:
                 # 1. Output limit was reached. Save leftover input in unconsumed_tail.
                 # 2. All input data was consumed. Clear unconsumed_tail.
-                self.unconsumed_tail = self.stream.next_in[:]
+                self.unconsumed_tail = data[total_bytes:]
             return b"".join(out)
         finally:
             PyMem_Free(obuf)

@@ -103,10 +103,10 @@ class IGzipFile(gzip.GzipFile):
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
         if hasattr(self, "compress"):
             self.compress = isal_zlib.compressobj(compresslevel,
-                                                    isal_zlib.DEFLATED,
-                                                    -isal_zlib.MAX_WBITS,
-                                                    isal_zlib.DEF_MEM_LEVEL,
-                                                    0)
+                                                  isal_zlib.DEFLATED,
+                                                  -isal_zlib.MAX_WBITS,
+                                                  isal_zlib.DEF_MEM_LEVEL,
+                                                  0)
         if self.mode == gzip.READ:
             raw = _IGzipReader(self.fileobj)
             self._buffer = io.BufferedReader(raw)

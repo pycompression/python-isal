@@ -119,6 +119,16 @@ def test_decompress_decompressobj(data_size, level, wbits, memLevel):
     decompressobj = isal_zlib.decompressobj(wbits=wbits)
     decompressed = decompressobj.decompress(compressed) + decompressobj.flush()
     assert data == decompressed
+    assert decompressobj.unused_data == b""
+    assert decompressobj.unconsumed_tail == b""
+
+
+def test_decompressobj_unconsumed_tail():
+    data = DATA[:128*1024]
+    compressed = zlib.compress(data)
+    decompressobj = isal_zlib.decompressobj()
+    output = decompressobj.decompress(compressed, 2048)
+    assert len(output) == 2048
 
 
 @pytest.mark.parametrize(["data_size", "level"],
