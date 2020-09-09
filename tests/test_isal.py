@@ -23,7 +23,7 @@ import itertools
 import zlib
 from pathlib import Path
 
-from isal import isal_zlib
+from isal import igzip, isal_zlib
 
 import pytest
 
@@ -117,3 +117,30 @@ def test_decompress_decompressobj(data_size, level, wbits, memLevel):
     decompressobj = isal_zlib.decompressobj(wbits=wbits)
     decompressed = decompressobj.decompress(compressed) + decompressobj.flush()
     assert data == decompressed
+
+
+@pytest.mark.parametrize(["data_size", "level"],
+                         itertools.product(DATA_SIZES, range(4)))
+def test_igzip_compress(data_size, level):
+    data = DATA_512KB[:data_size]
+    compressed = igzip.compress(data, compresslevel=level)
+    assert gzip.decompress(compressed) == data
+
+
+@pytest.mark.parametrize(["data_size", "level"],
+                         itertools.product(DATA_SIZES, range(10)))
+def test_decompress_gzip(data_size, level):
+    data = DATA_512KB[:data_size]
+    compressed = gzip.compress(data, compresslevel=level)
+    decompressed = igzip.decompress(compressed)
+    assert decompressed == data
+
+
+@pytest.mark.parametrize(["data_size", "level"],
+                         itertools.product(DATA_SIZES, range(4)))
+def test_decompress_igzip(data_size, level):
+    data = DATA_512KB[:data_size]
+    compressed = igzip.compress(data, compresslevel=level)
+    decompressed = igzip.decompress(compressed)
+    print(len(decompressed))
+    assert decompressed == data

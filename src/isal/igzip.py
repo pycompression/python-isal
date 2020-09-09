@@ -40,7 +40,7 @@ _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 _BLOCK_SIZE = 64*1024
 
-from ._gzip_copy import compress, decompress, BadGzipFile
+from ._gzip_copy import BadGzipFile
 
 __all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
 
@@ -96,26 +96,36 @@ class IGzipFile(_gzip_copy.GzipFile):
     def __init__(self, filename=None, mode=None,
                  compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  fileobj=None, mtime=None):
-        if not (isal_zlib.ISAL_BEST_SPEED < compresslevel
-                < isal_zlib.ISAL_BEST_COMPRESSION):
+        if not (isal_zlib.ISAL_BEST_SPEED <= compresslevel
+                <= isal_zlib.ISAL_BEST_COMPRESSION):
             raise ValueError(
                 "Compression level should be between {0} and {1}.".format(
                     isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION
                 ))
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
 
-        # Overwrite buffers and compress objects with isal equivalents.
-        if mode.startswith('r'):
-            raw = _IGzipReader(fileobj)
-            self._buffer = io.BufferedReader(raw)
-
     def __repr__(self):
         s = repr(self.fileobj)
         return '<igzip ' + s[1:-1] + ' ' + hex(id(self)) + '>'
 
 
-class _IGzipReader(_gzip_copy._GzipReader):
-    pass
+# Plagiarized from gzip.py from python's stdlib.
+def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
+    """Compress data in one shot and return the compressed string.
+    Optional argument is the compression level, in range of 0-3.
+    """
+    buf = io.BytesIO()
+    with IGzipFile(fileobj=buf, mode='wb', compresslevel=compresslevel, mtime=mtime) as f:
+        f.write(data)
+    return buf.getvalue()
+
+
+def decompress(data):
+    """Decompress a gzip compressed string in one shot.
+    Return the decompressed string.
+    """
+    # Use decompress here and set wbits such that gzip decompression is used.
+    return isal_zlib.decompress(data, wbits=isal_zlib.MAX_WBITS + 16)
 
 
 def main():
@@ -162,6 +172,8 @@ def main():
                     if block == b"":
                         break
                     out_file.write(block)
+
+
 
 
 if __name__ == "__main__":
