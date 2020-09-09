@@ -410,6 +410,7 @@ cdef class Decompress:
         cdef unsigned long prev_avail_out
         cdef unsigned long bytes_written
         cdef int err
+        cdef bint last_round = 0
         # This loop reads all the input bytes. If there are no input bytes
         # anymore the output is written.
         while (self.stream.avail_out == 0
@@ -420,6 +421,9 @@ cdef class Decompress:
                 break
             elif total_bytes + self.obuflen >= max_length:
                 self.stream.avail_out =  max_length - total_bytes
+                # The inflate process may not fill all available bytes so
+                # we make sure this is the last round.
+                last_round = 1
             else:
                 self.stream.avail_out = self.obuflen
             prev_avail_out = self.stream.avail_out
@@ -432,7 +436,7 @@ cdef class Decompress:
             bytes_written = prev_avail_out - self.stream.avail_out
             total_bytes += bytes_written
             out.append(self.obuf[:bytes_written])
-            if self.stream.block_state == ISAL_BLOCK_FINISH:
+            if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
                 break
         # Save unconsumed input implementation from zlibmodule.c
         if self.stream.block_state == ISAL_BLOCK_FINISH:
