@@ -30,17 +30,15 @@ import os
 # zlib module will not be replaced for the original zlib module. So IGzipFile
 # and gzip.GzipFile can be used in the same code.
 # Also this reuses as much code from the stdlib without copying it.
-from . import _gzip_copy
 from . import isal_zlib
-
-_gzip_copy.zlib = isal_zlib
 
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 _BLOCK_SIZE = 64*1024
 
-from ._gzip_copy import BadGzipFile
+import gzip
+from gzip import BadGzipFile
 
 __all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
 
@@ -92,7 +90,7 @@ def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
         return binary_file
 
 
-class IGzipFile(_gzip_copy.GzipFile):
+class IGzipFile(gzip.GzipFile):
     def __init__(self, filename=None, mode=None,
                  compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  fileobj=None, mtime=None):
@@ -103,11 +101,56 @@ class IGzipFile(_gzip_copy.GzipFile):
                     isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION
                 ))
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
+        if hasattr(self, "compress"):
+            self.compress = isal_zlib.compressobj(compresslevel,
+                                                    isal_zlib.DEFLATED,
+                                                    -isal_zlib.MAX_WBITS,
+                                                    isal_zlib.DEF_MEM_LEVEL,
+                                                    0)
+        if self.mode == gzip.READ:
+            raw = _IGzipReader(self.fileobj)
+            self._buffer = io.BufferedReader(raw)
 
     def __repr__(self):
         s = repr(self.fileobj)
         return '<igzip ' + s[1:-1] + ' ' + hex(id(self)) + '>'
 
+    def flush(self, zlib_mode=isal_zlib.Z_SYNC_FLUSH):
+        super().flush(zlib_mode)
+
+    def write(self,data):
+        self._check_not_closed()
+        if self.mode != gzip.WRITE:
+            import errno
+            raise OSError(errno.EBADF, "write() on read-only IGzipFile object")
+
+        if self.fileobj is None:
+            raise ValueError("write() on closed IGzipFile object")
+
+        if isinstance(data, bytes):
+            length = len(data)
+        else:
+            # accept any data that supports the buffer protocol
+            data = memoryview(data)
+            length = data.nbytes
+
+        if length > 0:
+            self.fileobj.write(self.compress.compress(data))
+            self.size += length
+            self.crc = isal_zlib.crc32(data, self.crc)
+            self.offset += length
+        return length
+
+
+class _IGzipReader(gzip._GzipReader):
+    def __init__(self, fp):
+        super().__init__(fp)
+        self._decompfactory = isal_zlib.decompressobj
+        self._decompressor = self._decompfactory(**self._decomp_args)
+
+    def _add_read_data(self, data):
+        self._crc = isal_zlib.crc32(data, self._crc)
+        self._stream_size += len(data)
 
 # Plagiarized from gzip.py from python's stdlib.
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
@@ -124,8 +167,8 @@ def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    # Use decompress here and set wbits such that gzip decompression is used.
-    return isal_zlib.decompress(data, wbits=isal_zlib.MAX_WBITS + 16)
+    with IGzipFile(fileobj=io.BytesIO(data), mode="rb") as f:
+        return f.read()
 
 
 def main():
