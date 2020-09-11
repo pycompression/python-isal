@@ -45,7 +45,7 @@ setup(
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    package_data = {'isal': ['*.pxd']},
+    package_data={'isal': ['*.pxd']},
     url="https://github.com/rhpvorderman/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
@@ -64,7 +64,7 @@ setup(
     ext_modules=[
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
                   libraries=["isal"], **EXTENSION_OPTS),
-        Extension("isal._isal", ["src/isal/_isal.pyx"], 
+        Extension("isal._isal", ["src/isal/_isal.pyx"],
                   libraries=["isal"], **EXTENSION_OPTS),
     ]
 )

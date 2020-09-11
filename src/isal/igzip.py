@@ -22,33 +22,28 @@
 Library to speed up its methods."""
 
 import argparse
+import gzip
 import io
 import os
+from gzip import BadGzipFile
+
 import _compression
 
-# We import a copy of the gzip module so we can use that to define the classes
-# here and replace  the zlib module with the isal_zlib module. This way the
-# zlib module will not be replaced for the original zlib module. So IGzipFile
-# and gzip.GzipFile can be used in the same code.
-# Also this reuses as much code from the stdlib without copying it.
 from . import isal_zlib
+
+__all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
 
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 _BLOCK_SIZE = 64*1024
 
-import gzip
-from gzip import BadGzipFile
-
-__all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
-
 
 # The open method was copied from the python source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
          encoding=None, errors=None, newline=None):
     """Open a gzip-compressed file in binary or text mode. This uses the isa-l
-    library for optimised speed.
+    library for optimized speed.
 
     The filename argument can be an actual filename (a str or bytes object), or
     an existing file object to read from or write to.
@@ -71,7 +66,8 @@ def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
             raise ValueError("Invalid mode: %r" % (mode,))
     else:
         if encoding is not None:
-            raise ValueError("Argument 'encoding' not supported in binary mode")
+            raise ValueError(
+                "Argument 'encoding' not supported in binary mode")
         if errors is not None:
             raise ValueError("Argument 'errors' not supported in binary mode")
         if newline is not None:
@@ -119,7 +115,7 @@ class IGzipFile(gzip.GzipFile):
     def flush(self, zlib_mode=isal_zlib.Z_SYNC_FLUSH):
         super().flush(zlib_mode)
 
-    def write(self,data):
+    def write(self, data):
         self._check_not_closed()
         if self.mode != gzip.WRITE:
             import errno
@@ -153,7 +149,6 @@ class _IGzipReader(_compression.DecompressReader):
         super().__init__(fp, isal_zlib.decompressobj,
                          wbits=16 + isal_zlib.MAX_WBITS)
 
-    
 
 # Plagiarized from gzip.py from python's stdlib.
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
@@ -161,7 +156,8 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     Optional argument is the compression level, in range of 0-3.
     """
     buf = io.BytesIO()
-    with IGzipFile(fileobj=buf, mode='wb', compresslevel=compresslevel, mtime=mtime) as f:
+    with IGzipFile(fileobj=buf, mode='wb',
+                   compresslevel=compresslevel, mtime=mtime) as f:
         f.write(data)
     return buf.getvalue()
 
@@ -218,8 +214,6 @@ def main():
                     if block == b"":
                         break
                     out_file.write(block)
-
-
 
 
 if __name__ == "__main__":

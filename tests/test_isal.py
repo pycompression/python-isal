@@ -41,6 +41,7 @@ SEEDS = [0, 1] + [int(seed) for seed in SEEDS_FILE.read_text().splitlines()]
 # Wbits for ZLIB compression, GZIP compression, and RAW compressed streams
 WBITS_RANGE = list(range(9, 16)) + list(range(25, 32)) + list(range(-15, -8))
 
+
 @pytest.mark.parametrize(["data_size", "value"],
                          itertools.product(DATA_SIZES, SEEDS))
 def test_crc32(data_size, value):
@@ -71,8 +72,9 @@ def test_decompress_zlib(data_size, level):
     decompressed = isal_zlib.decompress(compressed)
     assert decompressed == data
 
+
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product([128* 1024], range(4),
+                         itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))
 def test_decompress_wbits(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
@@ -80,6 +82,7 @@ def test_decompress_wbits(data_size, level, wbits, memLevel):
     compressed = compressobj.compress(data) + compressobj.flush()
     decompressed = isal_zlib.decompress(compressed, wbits=wbits)
     assert data == decompressed
+
 
 @pytest.mark.parametrize(["data_size", "level"],
                          itertools.product(DATA_SIZES, range(4)))
@@ -92,7 +95,7 @@ def test_decompress_isal_zlib(data_size, level):
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product([128* 1024], range(4),
+                         itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))
 def test_compress_compressobj(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
@@ -110,7 +113,7 @@ def test_compress_compressobj(data_size, level, wbits, memLevel):
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product([128* 1024], range(4),
+                         itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))
 def test_decompress_decompressobj(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
