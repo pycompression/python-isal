@@ -353,6 +353,7 @@ cdef class Decompress:
     cdef public bytes unused_data
     cdef public unconsumed_tail
     cdef public bint eof
+    cdef public bint needs_input
     cdef bint is_initialised
     cdef inflate_state stream
     cdef unsigned char * obuf
@@ -379,6 +380,7 @@ cdef class Decompress:
         self.unconsumed_tail = b""
         self.eof = 0
         self.is_initialised = 1
+        self.needs_input = 1
 
     def __dealloc__(self):
         if self.obuf is not NULL:
@@ -396,6 +398,8 @@ cdef class Decompress:
         elif max_length < 0:
             raise ValueError("max_length can not be smaller than 0")
 
+        if data == b"":
+            data = self.unconsumed_tail
         cdef Py_ssize_t total_length = len(data)
         if total_length > UINT32_MAX:
             # Zlib allows a maximum of 64 KB (16-bit length) and python has
@@ -454,6 +458,7 @@ cdef class Decompress:
             # 2. All input data was consumed. Clear unconsumed_tail.
             unused_bytes = self.stream.avail_in
             self.unconsumed_tail = data[-unused_bytes:]
+            self.needs_input = 0 if unused_bytes > 0 else 1
         return b"".join(out)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):

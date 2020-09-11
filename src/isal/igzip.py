@@ -24,6 +24,7 @@ Library to speed up its methods."""
 import argparse
 import io
 import os
+import _compression
 
 # We import a copy of the gzip module so we can use that to define the classes
 # here and replace  the zlib module with the isal_zlib module. This way the
@@ -142,15 +143,12 @@ class IGzipFile(gzip.GzipFile):
         return length
 
 
-class _IGzipReader(gzip._GzipReader):
+class _IGzipReader(_compression.DecompressReader):
     def __init__(self, fp):
-        super().__init__(fp)
-        self._decompfactory = isal_zlib.decompressobj
-        self._decompressor = self._decompfactory(**self._decomp_args)
+        super().__init__(fp, isal_zlib.decompressobj,
+                         wbits=16 + isal_zlib.MAX_WBITS)
 
-    def _add_read_data(self, data):
-        self._crc = isal_zlib.crc32(data, self._crc)
-        self._stream_size += len(data)
+    
 
 # Plagiarized from gzip.py from python's stdlib.
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
