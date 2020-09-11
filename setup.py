@@ -23,12 +23,17 @@ from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
 
-EXTENSION_OPTS = {}
+EXTENSION_OPTS = dict(compiler_directives={})
 
 # Make sure conda prefix is loaded if installed in a conda environment.
 CONDA_PREFIX = os.environ.get("CONDA_PREFIX")
 if CONDA_PREFIX:
     EXTENSION_OPTS["include_dirs"] = [os.path.join(CONDA_PREFIX, "include")]
+
+CYTHON_COVERAGE=os.environ.get("CYTHON_COVERAGE", False)
+if CYTHON_COVERAGE:
+    EXTENSION_OPTS["compiler_directives"]["linetrace"] = True
+    EXTENSION_OPTS["define_macros"] = [("CYTHON_TRACE", 1)]
 
 setup(
     name="isal",
@@ -45,7 +50,7 @@ setup(
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    package_data={'isal': ['*.pxd']},
+    package_data={'isal': ['*.pxd', '*.pyx']},
     url="https://github.com/rhpvorderman/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
