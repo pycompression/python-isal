@@ -5,7 +5,7 @@ import zlib
 from pathlib import Path
 from typing import Dict
 
-from isal import isal_zlib
+from isal import igzip, isal_zlib  # noqa: F401 used in timeit strings
 
 DATA_DIR = Path(__file__).parent / "tests" / "data"
 COMPRESSED_FILE = DATA_DIR / "test.fastq.gz"

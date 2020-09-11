@@ -166,8 +166,7 @@ def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    with IGzipFile(fileobj=io.BytesIO(data), mode="rb") as f:
-        return f.read()
+    return isal_zlib.decompress(data, wbits=16 + isal_zlib.MAX_WBITS)
 
 
 def main():
