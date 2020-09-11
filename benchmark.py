@@ -1,12 +1,13 @@
-from typing import Dict, Optional
-import timeit
-from isal import igzip, isal_zlib
-import zlib
-import gzip
-from pathlib import Path
 import argparse
+import gzip
+import timeit
+import zlib
+from pathlib import Path
+from typing import Dict
 
-DATA_DIR = Path(__file__).parent / "tests"/ "data"
+from isal import isal_zlib
+
+DATA_DIR = Path(__file__).parent / "tests" / "data"
 COMPRESSED_FILE = DATA_DIR / "test.fastq.gz"
 with gzip.open(str(COMPRESSED_FILE), mode="rb") as file_h:
     data = file_h.read()
@@ -20,8 +21,8 @@ sizes: Dict[str, bytes] = {
     "16kb": data[:16 * 1024],
     "32kb": data[:32 * 1024],
     "64kb": data[:64 * 1024],
-    #"128kb": data[:128*1024],
-    #"512kb": data[:512*1024]
+    # "128kb": data[:128*1024],
+    # "512kb": data[:512*1024]
 }
 compressed_sizes = {name: zlib.compress(data_block)
                     for name, data_block in sizes.items()}
@@ -29,9 +30,10 @@ compressed_sizes = {name: zlib.compress(data_block)
 compressed_sizes_gzip = {name: gzip.compress(data_block)
                          for name, data_block in sizes.items()}
 
+
 def show_sizes():
     print("zlib sizes")
-    print("name\t" + "\t".join(str(level) for level in range(-1,10)))
+    print("name\t" + "\t".join(str(level) for level in range(-1, 10)))
     for name, data_block in sizes.items():
         orig_size = max(len(data_block), 1)
         rel_sizes = (
@@ -44,7 +46,8 @@ def show_sizes():
     for name, data_block in sizes.items():
         orig_size = max(len(data_block), 1)
         rel_sizes = (
-            str(round(len(isal_zlib.compress(data_block, level)) / orig_size, 3))
+            str(round(len(isal_zlib.compress(data_block, level)) / orig_size,
+                      3))
             for level in range(0, 4))
         print(name + "\t" + "\t".join(rel_sizes))
 
@@ -69,6 +72,8 @@ def benchmark(name: str,
                                           isal_nanosecs,
                                           zlib_nanosecs,
                                           ratio))
+
+
 # show_sizes()
 
 def argument_parser() -> argparse.ArgumentParser:
@@ -78,6 +83,7 @@ def argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--functions", action="store_true")
     parser.add_argument("--gzip", action="store_true")
     return parser
+
 
 if __name__ == "__main__":
     args = argument_parser().parse_args()
