@@ -143,6 +143,11 @@ class IGzipFile(gzip.GzipFile):
         return length
 
 
+# The gzip._GzipReader does all sorts of complex stuff. While using the
+# standard DecompressReader by _compression relies more on the C implementation
+# side of things. It is much simpler. Gzip header interpretation and gzip
+# checksum checking is already implemented in the isa-l library. So no need
+# to do so in pure python.
 class _IGzipReader(_compression.DecompressReader):
     def __init__(self, fp):
         super().__init__(fp, isal_zlib.decompressobj,
