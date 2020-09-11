@@ -409,6 +409,7 @@ cdef class Decompress:
         self.stream.avail_out = 0
         cdef unsigned long prev_avail_out
         cdef unsigned long bytes_written
+        cdef Py_ssize_t unused_bytes
         cdef int err
         cdef bint last_round = 0
         # This loop reads all the input bytes. If there are no input bytes
@@ -444,13 +445,15 @@ cdef class Decompress:
             # leftover input data in self->unused_data.
             self.eof = 1
             if self.stream.avail_in > 0:
-                self.unused_data = data[total_bytes:]
+                unused_bytes = self.stream.avail_in
+                self.unused_data = data[-unused_bytes:]
                 self.stream.avail_in = 0
         if self.stream.avail_in > 0 or self.unconsumed_tail:
             # This code handles two distinct cases:
             # 1. Output limit was reached. Save leftover input in unconsumed_tail.
             # 2. All input data was consumed. Clear unconsumed_tail.
-            self.unconsumed_tail = data[total_bytes:]
+            unused_bytes = self.stream.avail_in
+            self.unconsumed_tail = data[-unused_bytes:]
         return b"".join(out)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
@@ -471,6 +474,7 @@ cdef class Decompress:
         out = []
         cdef unsigned long obuflen = length
         cdef unsigned char * obuf = <unsigned char *>PyMem_Malloc(obuflen * sizeof(char))
+        cdef Py_ssize_t unused_bytes
 
         try:
             while (self.stream.block_state != ISAL_BLOCK_FINISH
@@ -495,13 +499,14 @@ cdef class Decompress:
                 self.eof = 1
                 self.is_initialised = 0
                 if self.stream.avail_in > 0:
-                    self.unused_data = data[total_bytes:]
-                    self.stream.avail_in = 0
+                    unused_bytes = self.stream.avail_in
+                    self.unused_data = data[-unused_bytes:]
             if self.stream.avail_in > 0 or self.unconsumed_tail:
                 # This code handles two distinct cases:
                 # 1. Output limit was reached. Save leftover input in unconsumed_tail.
                 # 2. All input data was consumed. Clear unconsumed_tail.
-                self.unconsumed_tail = data[total_bytes:]
+                unused_bytes = self.stream.avail_in
+                self.unconsumed_tail = data[-unused_bytes:]
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
