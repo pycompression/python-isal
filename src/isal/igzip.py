@@ -25,13 +25,12 @@ import argparse
 import gzip
 import io
 import os
-from gzip import BadGzipFile
 
 import _compression
 
 from . import isal_zlib
 
-__all__ = ["BadGzipFile", "IGzipFile", "open", "compress", "decompress"]
+__all__ = ["IGzipFile", "open", "compress", "decompress"]
 
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
