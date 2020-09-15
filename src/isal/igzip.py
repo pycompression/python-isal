@@ -231,21 +231,30 @@ def main():
         "A simple command line interface for the igzip module. "
         "Acts like igzip.")
     parser.add_argument("file")
-    parser.add_argument("--fast", action="store_true",
-                        help="use fastest compression")
-    parser.add_argument("--best", action="store_true",
-                        help="use best compression")
-    parser.add_argument("-d", "--decompress", action="store_false",
-                        dest="compress",
-                        help="Decompress the file instead of compressing.")
+    compress_group = parser.add_mutually_exclusive_group()
+    compress_group.add_argument(
+        "-0", "--fast", action="store_const", dest="compresslevel",
+        const=_COMPRESS_LEVEL_FAST,
+        help="use compression level 0 (fastest)")
+    compress_group.add_argument(
+        "-1", action="store_const", dest="compresslevel",
+        const=1,
+        help="use compression level 1")
+    compress_group.add_argument(
+        "-2", action="store_const", dest="compresslevel",
+        const=2,
+        help="use compression level 2 (default)")
+    compress_group.add_argument(
+        "-3", "--best", action="store_const", dest="compresslevel",
+        const=_COMPRESS_LEVEL_BEST,
+        help="use compression level 3 (best)")
+    compress_group.add_argument(
+        "-d", "--decompress", action="store_false",
+        dest="compress",
+        help="Decompress the file instead of compressing.")
     args = parser.parse_args()
 
-    if args.fast:
-        compresslevel = _COMPRESS_LEVEL_FAST
-    elif args.best:
-        compresslevel = _COMPRESS_LEVEL_BEST
-    else:
-        compresslevel = _COMPRESS_LEVEL_TRADEOFF
+    compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 
     if args.compress:
         out_filename = args.file + ".gz"
