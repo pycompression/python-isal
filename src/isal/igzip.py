@@ -40,6 +40,7 @@ _BLOCK_SIZE = 64*1024
 
 BUFFER_SIZE = _compression.BUFFER_SIZE
 
+
 # The open method was copied from the python source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
          encoding=None, errors=None, newline=None):
@@ -167,7 +168,7 @@ class _IGzipReader(_compression.DecompressReader):
         while True:
             if self._decompressor.eof:
                 buf = (self._decompressor.unused_data or
-                            self._fp.read(BUFFER_SIZE))
+                       self._fp.read(BUFFER_SIZE))
                 if not buf:
                     break
                 # Continue to next stream.
@@ -212,18 +213,12 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
 
 
 # Unlike stdlib, do not use the roundabout way of doing this via a file.
-# def decompress(data):
-#     """Decompress a gzip compressed string in one shot.
-#     Return the decompressed string.
-#     """
-#     return isal_zlib.decompress(data, wbits=16 + isal_zlib.MAX_WBITS)
-
 def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    with IGzipFile(fileobj=io.BytesIO(data)) as f:
-        return f.read()
+    return isal_zlib.decompress(data, wbits=16 + isal_zlib.MAX_WBITS)
+
 
 def main():
     parser = argparse.ArgumentParser()
