@@ -38,6 +38,7 @@ _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 _BLOCK_SIZE = 64*1024
 
+BUFFER_SIZE = _compression.BUFFER_SIZE
 
 # The open method was copied from the python source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
@@ -146,8 +147,56 @@ class IGzipFile(gzip.GzipFile):
 # to do so in pure python.
 class _IGzipReader(_compression.DecompressReader):
     def __init__(self, fp):
-        super().__init__(fp, isal_zlib.decompressobj,
+        super().__init__(gzip._PaddedFile(fp), isal_zlib.decompressobj,
+                         trailing_error=isal_zlib.IsalError,
                          wbits=16 + isal_zlib.MAX_WBITS)
+
+    # Created by mixing and matching gzip._GzipReader and
+    # _compression.DecompressReader
+    def read(self, size=-1):
+        if size < 0:
+            return self.readall()
+        # size=0 is special because decompress(max_length=0) is not supported
+        if not size:
+            return b""
+
+        # For certain input data, a single
+        # call to decompress() may not return
+        # any data. In this case, retry until we get some data or reach EOF.
+        uncompress = b""
+        while True:
+            if self._decompressor.eof:
+                buf = (self._decompressor.unused_data or
+                            self._fp.read(BUFFER_SIZE))
+                if not buf:
+                    break
+                # Continue to next stream.
+                self._decompressor = self._decomp_factory(
+                    **self._decomp_args)
+                try:
+                    uncompress = self._decompressor.decompress(buf, size)
+                except self._trailing_error:
+                    # Trailing data isn't a valid compressed stream; ignore it.
+                    break
+            else:
+                # Read a chunk of data from the file
+                buf = self._fp.read(BUFFER_SIZE)
+                uncompress = self._decompressor.decompress(buf, size)
+            if self._decompressor.unconsumed_tail != b"":
+                self._fp.prepend(self._decompressor.unconsumed_tail)
+            elif self._decompressor.unused_data != b"":
+                # Prepend the already read bytes to the fileobj so they can
+                # be seen by _read_eof() and _read_gzip_header()
+                self._fp.prepend(self._decompressor.unused_data)
+
+            if uncompress != b"":
+                break
+            if buf == b"":
+                raise EOFError("Compressed file ended before the "
+                               "end-of-stream marker was reached")
+
+        self._pos += len(uncompress)
+        return uncompress
 
 
 # Plagiarized from gzip.py from python's stdlib.
@@ -162,12 +211,19 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     return buf.getvalue()
 
 
+# Unlike stdlib, do not use the roundabout way of doing this via a file.
+# def decompress(data):
+#     """Decompress a gzip compressed string in one shot.
+#     Return the decompressed string.
+#     """
+#     return isal_zlib.decompress(data, wbits=16 + isal_zlib.MAX_WBITS)
+
 def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    return isal_zlib.decompress(data, wbits=16 + isal_zlib.MAX_WBITS)
-
+    with IGzipFile(fileobj=io.BytesIO(data)) as f:
+        return f.read()
 
 def main():
     parser = argparse.ArgumentParser()
