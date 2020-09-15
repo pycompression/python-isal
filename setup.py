@@ -55,15 +55,15 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Cython",
         "Development Status :: 3 - Alpha",
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: MIT License",
     ],
-    python_requires=">=3.5",  # Because we use type annotation.
+    python_requires=">=3.6",
     setup_requires=["cython"],
     install_requires=[],
     ext_modules=[
