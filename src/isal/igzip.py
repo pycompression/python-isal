@@ -22,6 +22,7 @@
 Library to speed up its methods."""
 
 import argparse
+import functools
 import gzip
 import io
 import os
@@ -192,26 +193,22 @@ def main():
 
     if args.compress:
         out_filename = args.file + ".gz"
-        with io.open(args.file, "rb") as in_file:
-            with open(out_filename, mode="rb", compresslevel=compresslevel
-                      ) as out_file:
-                while True:
-                    block = in_file.read(_BLOCK_SIZE)
-                    if block == b"":
-                        break
-                    out_file.write(block)
+        out_open = functools.partial(open, compresslevel=compresslevel)
+        in_open = io.open
     else:
         base, extension = os.path.splitext(args.file)
         if extension != ".gz":
             raise ValueError("Can only decompress files with a .gz extension")
         out_filename = base
-        with open(args.file, "rb") as in_file:
-            with io.open(out_filename, mode="rb") as out_file:
-                while True:
-                    block = in_file.read(_BLOCK_SIZE)
-                    if block == b"":
-                        break
-                    out_file.write(block)
+        out_open = io.open
+        in_open = open
+    with in_open(args.file, "rb") as in_file:
+        with out_open(out_filename, "wb") as out_file:
+            while True:
+                block = in_file.read(_BLOCK_SIZE)
+                if block == b"":
+                    break
+                out_file.write(block)
 
 
 if __name__ == "__main__":
