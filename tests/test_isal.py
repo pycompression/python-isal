@@ -99,9 +99,9 @@ def test_decompress_isal_zlib(data_size, level):
                                            WBITS_RANGE, range(1, 10)))
 def test_compress_compressobj(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
-    compressobj: isal_zlib.Compress = isal_zlib.compressobj(level=level,
-                                                            wbits=wbits,
-                                                            memLevel=memLevel)
+    compressobj = isal_zlib.compressobj(level=level,
+                                        wbits=wbits,
+                                        memLevel=memLevel)
     compressed = compressobj.compress(data) + compressobj.flush()
     if wbits in range(8, 16):
         # In case a zlib header is used, determine the wbits automatically.

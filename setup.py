@@ -30,7 +30,7 @@ CONDA_PREFIX = os.environ.get("CONDA_PREFIX")
 if CONDA_PREFIX:
     EXTENSION_OPTS["include_dirs"] = [os.path.join(CONDA_PREFIX, "include")]
 
-CYTHON_COVERAGE=os.environ.get("CYTHON_COVERAGE", False)
+CYTHON_COVERAGE = os.environ.get("CYTHON_COVERAGE", False)
 if CYTHON_COVERAGE:
     EXTENSION_OPTS["compiler_directives"]["linetrace"] = True
     EXTENSION_OPTS["define_macros"] = [("CYTHON_TRACE", 1)]
