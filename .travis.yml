@@ -2,7 +2,7 @@ language: python
 dist: focal
 
 install:
-  - sudo apt-get update && sudo apt-get install -y libisal2
+  - sudo apt-get update && sudo apt-get install -y libisal-dev
   - pip install tox
 
 python: 3.6  # Use the oldest supported version of python as default.
