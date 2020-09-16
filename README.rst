@@ -1,11 +1,17 @@
 python-isal
 ===========
 
-Python bindings for the `isa-l <https://github.com/intel/isa-l>`_ library.
+Faster zlib and gzip compatible compression and decompression.
 
-The Intel Infrastructure Storage Acceleration Library (isa-l) implements several key 
-algorithms in `assembly language <https://en.wikipedia.org/wiki/Assembly_language>`_.
-This includes the DEFLATE algorithm which is used in ``gzip``.
+This package provides Python bindings for the `isa-l
+<https://github.com/intel/isa-l>`_ library. The Intel Infrastructure Storage
+Acceleration Library (isa-l) implements several key algorithms in `assembly
+language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
+a variety of functions to provide zlib/gzip-compatible compression.
+
+``python-isal`` provides the bindings by offering an ``isal_zlib`` and
+``igzip`` module which are usable as drop-in replacements for the ``zlib``
+and ``gzip`` modules from the stdlib (with some minor exceptions, see below).
 
 Installation
 ------------
