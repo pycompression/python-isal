@@ -352,9 +352,8 @@ cdef class Compress:
 
 cdef class Decompress:
     cdef public bytes unused_data
-    cdef public unconsumed_tail
+    cdef public bytes unconsumed_tail
     cdef public bint eof
-    cdef public bint needs_input
     cdef bint is_initialised
     cdef inflate_state stream
     cdef unsigned char * obuf
@@ -381,7 +380,6 @@ cdef class Decompress:
         self.unconsumed_tail = b""
         self.eof = 0
         self.is_initialised = 1
-        self.needs_input = 1
 
     def __dealloc__(self):
         if self.obuf is not NULL:
@@ -420,8 +418,7 @@ cdef class Decompress:
         # This loop reads all the input bytes. If there are no input bytes
         # anymore the output is written.
         while (self.stream.avail_out == 0
-               or self.stream.avail_in != 0
-               or self.stream.block_state != ISAL_BLOCK_FINISH):
+               or self.stream.avail_in != 0):
             self.stream.next_out = self.obuf  # Reset output buffer.
             if total_bytes >= max_length:
                 break
@@ -458,8 +455,10 @@ cdef class Decompress:
             # 1. Output limit was reached. Save leftover input in unconsumed_tail.
             # 2. All input data was consumed. Clear unconsumed_tail.
             unused_bytes = self.stream.avail_in
-            self.unconsumed_tail = data[-unused_bytes:]
-            self.needs_input = 0 if unused_bytes > 0 else 1
+            if unused_bytes == 0:
+                self.unconsumed_tail = b""
+            else:
+                self.unconsumed_tail = data[-unused_bytes:]
         return b"".join(out)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
@@ -467,7 +466,7 @@ cdef class Decompress:
             raise ValueError("Length must be greater than 0")
         if length > UINT32_MAX:
             raise ValueError("Length should not be larger than 4GB.")
-        data = self.unconsumed_tail
+        data = self.unconsumed_tail[:]
         cdef Py_ssize_t ibuflen = len(data)
         if ibuflen > UINT32_MAX:
             # This should never happen, because we check the input size in

@@ -1,3 +1,3 @@
 
 ### Checklist
-- [ ] Pull request details were added to CHANHELOG.rst
+- [ ] Pull request details were added to CHANGELOG.rst

@@ -9,6 +9,7 @@ Changelog
 
 version 0.1.0-dev
 -----------------
++ Added a working gzip app using ``python -m isal.igzip``
 + Add test suite that tests all possible settings for functions on the
   isal_zlib module.
 + Create igzip module which implements all gzip functions and methods.
