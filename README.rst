@@ -1,7 +1,8 @@
 python-isal
 ===========
 
-Faster zlib and gzip compatible compression and decompression.
+Faster zlib and gzip compatible compression and decompression
+by providing python bindings for the isa-l library.
 
 This package provides Python bindings for the `isa-l
 <https://github.com/intel/isa-l>`_ library. The Intel Infrastructure Storage
