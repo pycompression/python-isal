@@ -27,9 +27,7 @@ import zlib
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
-from cpython cimport PyObject_GetBuffer,  Py_buffer, PyBUF_SIMPLE, PyBUF_WRITABLE
-from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
-from cython cimport view
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
