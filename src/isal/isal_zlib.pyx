@@ -373,19 +373,13 @@ cdef class Decompress:
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
         self.obuflen = DEF_BUF_SIZE
-        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
         self.unused_data = b""
         self.unconsumed_tail = b""
         self.eof = 0
         self.is_initialised = 1
 
-    def __dealloc__(self):
-        if self.obuf is not NULL:
-            PyMem_Free(self.obuf)
-
     def decompress(self, data, Py_ssize_t max_length = 0):
-        # Initialise output buffer
-        out = []
+   
         cdef Py_ssize_t total_bytes = 0
         if max_length > UINT32_MAX:
             raise OverflowError("A maximum of 4 GB is allowed for the max "
@@ -395,8 +389,6 @@ cdef class Decompress:
         elif max_length < 0:
             raise ValueError("max_length can not be smaller than 0")
 
-        if data == b"":
-            data = self.unconsumed_tail
         cdef Py_ssize_t total_length = len(data)
         if total_length > UINT32_MAX:
             # Zlib allows a maximum of 64 KB (16-bit length) and python has
@@ -412,52 +404,60 @@ cdef class Decompress:
         cdef unsigned long bytes_written
         cdef Py_ssize_t unused_bytes
         cdef int err
+        
+        # Initialise output buffer
+        cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(self.obuflen * sizeof(char))
+        out = []
+
         cdef bint last_round = 0
-        # This loop reads all the input bytes. If there are no input bytes
-        # anymore the output is written.
-        while (self.stream.avail_out == 0
-               or self.stream.avail_in != 0):
-            self.stream.next_out = self.obuf  # Reset output buffer.
-            if total_bytes >= max_length:
-                break
-            elif total_bytes + self.obuflen >= max_length:
-                self.stream.avail_out =  max_length - total_bytes
-                # The inflate process may not fill all available bytes so
-                # we make sure this is the last round.
-                last_round = 1
-            else:
-                self.stream.avail_out = self.obuflen
-            prev_avail_out = self.stream.avail_out
-            err = isal_inflate(&self.stream)
-            if err != ISAL_DECOMP_OK:
-                # There is some python interacting when possible exceptions
-                # Are raised. So we remain in pure C code if we check for
-                # COMP_OK first.
-                check_isal_inflate_rc(err)
-            bytes_written = prev_avail_out - self.stream.avail_out
-            total_bytes += bytes_written
-            out.append(self.obuf[:bytes_written])
-            if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
-                break
-        # Save unconsumed input implementation from zlibmodule.c
-        if self.stream.block_state == ISAL_BLOCK_FINISH:
-            # The end of the compressed data has been reached. Store the
-            # leftover input data in self->unused_data.
-            self.eof = 1
-            if self.stream.avail_in > 0:
+        try:
+            # This loop reads all the input bytes. If there are no input bytes
+            # anymore the output is written.
+            while (self.stream.avail_out == 0
+                   or self.stream.avail_in != 0):
+                self.stream.next_out = obuf  # Reset output buffer.
+                if total_bytes >= max_length:
+                    break
+                elif total_bytes + self.obuflen >= max_length:
+                    self.stream.avail_out =  max_length - total_bytes
+                    # The inflate process may not fill all available bytes so
+                    # we make sure this is the last round.
+                    last_round = 1
+                else:
+                    self.stream.avail_out = self.obuflen
+                prev_avail_out = self.stream.avail_out
+                err = isal_inflate(&self.stream)
+                if err != ISAL_DECOMP_OK:
+                    # There is some python interacting when possible exceptions
+                    # Are raised. So we remain in pure C code if we check for
+                    # COMP_OK first.
+                    check_isal_inflate_rc(err)
+                bytes_written = prev_avail_out - self.stream.avail_out
+                total_bytes += bytes_written
+                out.append(obuf[:bytes_written])
+                if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
+                    break
+            # Save unconsumed input implementation from zlibmodule.c
+            if self.stream.block_state == ISAL_BLOCK_FINISH:
+                # The end of the compressed data has been reached. Store the
+                # leftover input data in self->unused_data.
+                self.eof = 1
+                if self.stream.avail_in > 0:
+                    unused_bytes = self.stream.avail_in
+                    self.unused_data = data[-unused_bytes:]
+                    self.stream.avail_in = 0
+            if self.stream.avail_in > 0 or self.unconsumed_tail:
+                # This code handles two distinct cases:
+                # 1. Output limit was reached. Save leftover input in unconsumed_tail.
+                # 2. All input data was consumed. Clear unconsumed_tail.
                 unused_bytes = self.stream.avail_in
-                self.unused_data = data[-unused_bytes:]
-                self.stream.avail_in = 0
-        if self.stream.avail_in > 0 or self.unconsumed_tail:
-            # This code handles two distinct cases:
-            # 1. Output limit was reached. Save leftover input in unconsumed_tail.
-            # 2. All input data was consumed. Clear unconsumed_tail.
-            unused_bytes = self.stream.avail_in
-            if unused_bytes == 0:
-                self.unconsumed_tail = b""
-            else:
-                self.unconsumed_tail = data[-unused_bytes:]
-        return b"".join(out)
+                if unused_bytes == 0:
+                    self.unconsumed_tail = b""
+                else:
+                    self.unconsumed_tail = data[-unused_bytes:]
+            return b"".join(out)
+        finally:
+            PyMem_Free(obuf)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
         if length <= 0:
