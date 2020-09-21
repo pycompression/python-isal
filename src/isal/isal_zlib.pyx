@@ -108,9 +108,9 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
     stream.avail_in = unsigned_long_min(<unsigned long>remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
 
-cpdef bytes compress(data,
-                     int level=ISAL_DEFAULT_COMPRESSION_I,
-                     int wbits = ISAL_DEF_MAX_HIST_BITS):
+def compress(data,
+             int level=ISAL_DEFAULT_COMPRESSION_I,
+             int wbits = ISAL_DEF_MAX_HIST_BITS):
     if level == ZLIB_DEFAULT_COMPRESSION_I:
         level = ISAL_DEFAULT_COMPRESSION_I
 
