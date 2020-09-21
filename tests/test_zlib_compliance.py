@@ -207,7 +207,7 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
         # A useful error message is given
         x = isal_zlib.compress(HAMLET_SCENE)
         self.assertRaisesRegex(isal_zlib.error,
-            "Error -5 while decompressing data: incomplete or truncated stream",
+            "incomplete or truncated stream",
             isal_zlib.decompress, x[:-1])
 
     # Memory use of the following functions takes into account overallocation

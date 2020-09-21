@@ -199,7 +199,7 @@ cpdef decompress(data,
 
     # Implementation imitated from CPython's zlibmodule.c
     try:
-        while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
+        while ibuflen != 0 and stream.block_state != ISAL_BLOCK_FINISH:
             ibuflen = Py_ssize_t_min(remains, max_input_buffer)
             ibuf = data[position: position + ibuflen]
             position += ibuflen
@@ -225,6 +225,8 @@ cpdef decompress(data,
                 out.append(obuf[:obuflen - stream.avail_out])
                 if stream.avail_in == 0:
                     break
+        if stream.block_state != ISAL_BLOCK_FINISH:
+            raise IsalError("incomplete or truncated stream")
         return b"".join(out)
     finally:
         PyMem_Free(obuf)
