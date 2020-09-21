@@ -33,8 +33,9 @@ if CONDA_PREFIX:
 setup(
     name="isal",
     version="0.1.0-dev",
-    description="Faster zlib and gzip compatible compression and decompression "
-                "by providing python bindings for the isa-l library.",
+    description="Faster zlib and gzip compatible compression and "
+                "decompression by providing python bindings for the isa-l "
+                "library.",
     author="Leiden University Medical Center",
     author_email="r.h.p.vorderman@lumc.nl",  # A placeholder for now
     long_description=Path("README.rst").read_text(),
