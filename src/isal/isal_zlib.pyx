@@ -351,9 +351,6 @@ cdef class Compress:
             # TODO: Improve this with the buffer protocol.
             out.append(self.obuf[:self.obuflen - self.stream.avail_out])
         return b"".join(out)
-    
-    def copy(self):
-        raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
 cdef class Decompress:
     cdef public bytes unused_data
@@ -520,10 +517,6 @@ cdef class Decompress:
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
-
-    def copy(self):
-        raise NotImplementedError("Copy not yet implemented for isal_zlib")
-
 
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
