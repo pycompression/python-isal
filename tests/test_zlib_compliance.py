@@ -11,7 +11,7 @@ Changes made:
 
 
 """
-
+import os
 import unittest
 from test import support
 import binascii
@@ -150,7 +150,12 @@ class BaseCompressTestCase(object):
         # Generate 10 MiB worth of random, and expand it by repeating it.
         # The assumption is that isal_zlib's memory is not big enough to exploit
         # such spread out redundancy.
-        data = random.randbytes(_1M * 10)
+        if hasattr(random, "randbytes"):  # Available from 3.9
+            data = random.randbytes(_1M * 10)
+        elif hasattr(os, "urandom"):
+            data = os.urandom(_1M * 10)
+        else:  # Test as defined in 3.6 branch of cpython as fallback.
+            data = b'x' * _1M * 10
         data = data * (size // len(data) + 1)
         try:
             compress_func(data)
