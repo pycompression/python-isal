@@ -64,8 +64,11 @@ Z_SYNC_FLUSH=ISAL_SYNC_FLUSH
 Z_FULL_FLUSH=ISAL_FULL_FLUSH
 Z_FINISH=ISAL_FULL_FLUSH
 
-class IsalError(Exception):
+class IsalError(OSError):
     pass
+
+# Add error for compatibility
+error = IsalError
 
 
 if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
