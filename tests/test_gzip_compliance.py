@@ -1,6 +1,6 @@
 """Test script for the igzip module.
 
-Adapted from test_igzip.py in CPython's lib/test directory.
+Adapted from test_gzip.py in CPython's lib/test directory.
 Python software license applies:
 https://github.com/python/cpython/blob/master/LICENSE
 
