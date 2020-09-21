@@ -223,6 +223,10 @@ cpdef decompress(data,
                 out.append(obuf[:obuflen - stream.avail_out])
                 if stream.avail_in == 0:
                     break
+
+            # When nothing was written, stop.
+            if stream.avail_out == obuflen:
+                break
         if stream.block_state != ISAL_BLOCK_FINISH:
             raise IsalError("incomplete or truncated stream")
         return b"".join(out)
