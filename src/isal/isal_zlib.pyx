@@ -94,6 +94,20 @@ cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
     else:
         return b
 
+ctypedef fused stream_or_state:
+    isal_zstream
+    inflate_state
+
+cdef unsigned long unsigned_long_min(unsigned long a, unsigned long b):
+    if a <= b:
+        return a
+    else:
+        return b
+
+cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
+    stream.avail_in = unsigned_long_min(<unsigned long>remains[0], UINT32_MAX)
+    remains[0] -= stream.avail_in
+
 cpdef bytes compress(data,
                      int level=ISAL_DEFAULT_COMPRESSION_I,
                      int wbits = ISAL_DEF_MAX_HIST_BITS):
@@ -118,12 +132,9 @@ cpdef bytes compress(data,
     out = []
     
     # initialise input
-    cdef Py_ssize_t max_input_buffer = UINT32_MAX
-    cdef Py_ssize_t total_length = len(data)
-    cdef Py_ssize_t remains = total_length
-    cdef Py_ssize_t ibuflen = total_length
-    cdef Py_ssize_t position = 0
-    cdef bytes ibuf
+    cdef Py_ssize_t ibuflen = len(data)
+    cdef unsigned char * ibuf = data
+    stream.next_in = ibuf
 
     # initialise helper variables
     cdef int err
@@ -134,12 +145,7 @@ cpdef bytes compress(data,
             # This loop runs n times (at least twice). n-1 times to fill the input
             # buffer with data. The nth time the input is empty. In that case
             # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
-            ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-            ibuf = data[position: position + ibuflen]
-            position += ibuflen
-            stream.next_in = ibuf
-            remains -= ibuflen
-            stream.avail_in = ibuflen
+            arrange_input_buffer(&stream, &ibuflen)
             if ibuflen == 0:
                 stream.flush = FULL_FLUSH
                 stream.end_of_stream = 1
@@ -184,12 +190,9 @@ cpdef decompress(data,
                                         &stream.crc_flag)
 
     # initialise input
-    cdef Py_ssize_t max_input_buffer = UINT32_MAX
-    cdef Py_ssize_t total_length = len(data)
-    cdef Py_ssize_t remains = total_length
-    cdef Py_ssize_t ibuflen = total_length
-    cdef Py_ssize_t position = 0
-    cdef bytes ibuf
+    cdef Py_ssize_t ibuflen = len(data)
+    cdef unsigned char * ibuf = data
+    stream.next_in = ibuf
 
     # Initialise output buffer
     cdef unsigned long obuflen = bufsize
@@ -199,13 +202,8 @@ cpdef decompress(data,
 
     # Implementation imitated from CPython's zlibmodule.c
     try:
-        while ibuflen != 0 and stream.block_state != ISAL_BLOCK_FINISH:
-            ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-            ibuf = data[position: position + ibuflen]
-            position += ibuflen
-            stream.next_in = ibuf
-            remains -= ibuflen
-            stream.avail_in = ibuflen
+        while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
+            arrange_input_buffer(&stream, &ibuflen)
 
             # This loop reads all the input bytes. The check is at the end,
             # because when the block state is not at FINISH, the function needs
