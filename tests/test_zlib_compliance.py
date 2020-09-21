@@ -382,7 +382,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco = isal_zlib.decompressobj()
         bufs = []
         cb = combuf
-        while cb:
+        while not dco.eof:
             #max_length = 1 + len(cb)//10
             chunk = dco.decompress(cb, dcx)
             self.assertFalse(len(chunk) > dcx,
