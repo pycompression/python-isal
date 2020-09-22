@@ -29,6 +29,9 @@ from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
+cdef extern from "<Python.h>":
+    const Py_ssize_t PY_SSIZE_T_MAX
+
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
 ISAL_DEFAULT_COMPRESSION = 2
@@ -382,6 +385,28 @@ cdef class Decompress:
         self.eof = 0
         self.is_initialised = 1
 
+    cdef save_unconsumed_input(self, object data):
+        cdef Py_ssize_t old_size, new_size, left_size, offset
+        cdef unsigned char * data_ptr
+        if self.stream.block_state == ISAL_BLOCK_FINISH:
+            if self.stream.avail_in > 0:
+                old_size = len(self.unused_data)
+                data_ptr = data
+                left_size = data_ptr + len(data) - self.stream.next_in
+                offset = self.stream.next_in - data_ptr
+                if offset < 0:
+                    raise Exception()
+                if left_size > (PY_SSIZE_T_MAX - old_size):
+                    raise MemoryError()
+                self.unused_data += data[offset:]
+        if self.stream.avail_in > 0 or self.unconsumed_tail:
+            data_ptr = data
+            left_size = data_ptr + len(data) - self.stream.next_in
+            offset = self.stream.next_in - data_ptr
+            if offset < 0:
+                raise Exception()
+            self.unconsumed_tail = data[offset:]
+
     def decompress(self, data, Py_ssize_t max_length = 0):
    
         cdef Py_ssize_t total_bytes = 0
@@ -441,24 +466,7 @@ cdef class Decompress:
                 out.append(obuf[:bytes_written])
                 if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
                     break
-            # Save unconsumed input implementation from zlibmodule.c
-            if self.stream.block_state == ISAL_BLOCK_FINISH:
-                # The end of the compressed data has been reached. Store the
-                # leftover input data in self->unused_data.
-                self.eof = 1
-                if self.stream.avail_in > 0:
-                    unused_bytes = self.stream.avail_in
-                    self.unused_data = data[-unused_bytes:]
-                    self.stream.avail_in = 0
-            if self.stream.avail_in > 0 or self.unconsumed_tail:
-                # This code handles two distinct cases:
-                # 1. Output limit was reached. Save leftover input in unconsumed_tail.
-                # 2. All input data was consumed. Clear unconsumed_tail.
-                unused_bytes = self.stream.avail_in
-                if unused_bytes == 0:
-                    self.unconsumed_tail = b""
-                else:
-                    self.unconsumed_tail = data[-unused_bytes:]
+            self.save_unconsumed_input(data)
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
@@ -500,20 +508,7 @@ cdef class Decompress:
                 bytes_written = obuflen - self.stream.avail_out
                 total_bytes += bytes_written
                 out.append(obuf[:bytes_written])
-            if self.stream.block_state == ISAL_BLOCK_FINISH:
-                # The end of the compressed data has been reached. Store the
-                # leftover input data in self->unused_data.
-                self.eof = 1
-                self.is_initialised = 0
-                if self.stream.avail_in > 0:
-                    unused_bytes = self.stream.avail_in
-                    self.unused_data = data[-unused_bytes:]
-            if self.stream.avail_in > 0 or self.unconsumed_tail:
-                # This code handles two distinct cases:
-                # 1. Output limit was reached. Save leftover input in unconsumed_tail.
-                # 2. All input data was consumed. Clear unconsumed_tail.
-                unused_bytes = self.stream.avail_in
-                self.unconsumed_tail = data[-unused_bytes:]
+            self.save_unconsumed_input(data)
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
