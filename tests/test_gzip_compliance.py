@@ -456,7 +456,7 @@ class TestGzip(BaseTest):
     def test_igzip_BadGzipFile_exception(self):
         self.assertTrue(issubclass(igzip.BadGzipFile, OSError))
 
-    def test_bad_igzip_file(self):
+    def test_bad_gzip_file(self):
         with open(self.filename, 'wb') as file:
             file.write(data1 * 50)
         with igzip.IGzipFile(self.filename, 'r') as file:
@@ -555,7 +555,7 @@ class TestGzip(BaseTest):
 
     def test_decompress_limited(self):
         """Decompressed data buffering should be limited"""
-        bomb = igzip.compress(b'\0' * int(2e6), compresslevel=9)
+        bomb = igzip.compress(b'\0' * int(2e6), compresslevel=3)
         self.assertLess(len(bomb), io.DEFAULT_BUFFER_SIZE)
 
         bomb = io.BytesIO(bomb)
@@ -569,7 +569,7 @@ class TestGzip(BaseTest):
 
     def test_compress(self):
         for data in [data1, data2]:
-            for args in [(), (1,), (6,), (9,)]:
+            for args in [(), (1,), (2,), (3,), (0,)]:
                 datac = igzip.compress(data, *args)
                 self.assertEqual(type(datac), bytes)
                 with igzip.IGzipFile(fileobj=io.BytesIO(datac), mode="rb") as f:

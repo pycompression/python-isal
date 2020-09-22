@@ -31,7 +31,7 @@ import _compression
 
 from . import isal_zlib
 
-__all__ = ["IGzipFile", "open", "compress", "decompress"]
+__all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
@@ -39,6 +39,9 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 _BLOCK_SIZE = 64*1024
 
 BUFFER_SIZE = _compression.BUFFER_SIZE
+
+class BadGzipFile(OSError):
+    pass
 
 
 # The open method was copied from the python source with minor adjustments.
