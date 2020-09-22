@@ -521,10 +521,7 @@ cdef class Decompress:
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
                                          unsigned short * gzip_flag):
-    if wbits == 0:
-        hist_bits[0] = 0
-        gzip_flag[0] = IGZIP_ZLIB
-    elif 9 <= wbits <= 15:  # zlib headers and trailers on compressed stream
+    if 9 <= wbits <= 15:  # zlib headers and trailers on compressed stream
         hist_bits[0] = wbits
         gzip_flag[0] = IGZIP_ZLIB
     elif 25 <= wbits <= 31:  # gzip headers and trailers on compressed stream
