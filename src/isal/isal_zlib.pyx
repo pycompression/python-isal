@@ -389,6 +389,7 @@ cdef class Decompress:
         cdef Py_ssize_t old_size, new_size, left_size, offset
         cdef unsigned char * data_ptr
         if self.stream.block_state == ISAL_BLOCK_FINISH:
+            self.eof = 1
             if self.stream.avail_in > 0:
                 old_size = len(self.unused_data)
                 data_ptr = data
