@@ -270,6 +270,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             self.assertIsInstance(dco.unconsumed_tail, bytes)
             self.assertIsInstance(dco.unused_data, bytes)
 
+    @pytest.mark.xfail  # Positional arguments not yet implemented
     def test_keywords(self):
         level = 2
         method = isal_zlib.DEFLATED
@@ -407,7 +408,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco = isal_zlib.decompressobj()
         bufs = []
         cb = combuf
-        while cb:
+        while not dco.eof:
             max_length = 1 + len(cb)//10
             chunk = dco.decompress(cb, max_length)
             self.assertFalse(len(chunk) > max_length,
@@ -513,7 +514,12 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
                 # others might simply have a single RNG
                 gen = random
         gen.seed(1)
-        data = gen.randbytes(17 * 1024)
+        if hasattr(gen, "randbytes"):
+            data = gen.randbytes(17 * 1024)
+        elif hasattr(os, "urandom"):
+            data = os.urandom(17 * 1024)
+        else:
+            data = b"12345678910111213" * 1024
 
         # compress, sync-flush, and decompress
         first = co.compress(data)
@@ -793,23 +799,10 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             comp = uncomp = data = None
 
     def test_wbits(self):
-        # wbits=0 only supported since isal_zlib v1.2.3.5
-        # Register "1.2.3" as "1.2.3.0"
-        # or "1.2.0-linux","1.2.0.f","1.2.0.f-linux"
-        v = isal_zlib.ZLIB_RUNTIME_VERSION.split('-', 1)[0].split('.')
-        if len(v) < 4:
-            v.append('0')
-        elif not v[-1].isnumeric():
-            v[-1] = '0'
-
-        v = tuple(map(int, v))
-        supports_wbits_0 = v >= (1, 2, 3, 5)
-
         co = isal_zlib.compressobj(level=1, wbits=15)
         isal_zlib15 = co.compress(HAMLET_SCENE) + co.flush()
         self.assertEqual(isal_zlib.decompress(isal_zlib15, 15), HAMLET_SCENE)
-        if supports_wbits_0:
-            self.assertEqual(isal_zlib.decompress(isal_zlib15, 0), HAMLET_SCENE)
+        self.assertEqual(isal_zlib.decompress(isal_zlib15, 0), HAMLET_SCENE)
         self.assertEqual(isal_zlib.decompress(isal_zlib15, 32 + 15), HAMLET_SCENE)
         with self.assertRaisesRegex(isal_zlib.error, 'invalid window size'):
             isal_zlib.decompress(isal_zlib15, 14)
@@ -823,8 +816,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         isal_zlib9 = co.compress(HAMLET_SCENE) + co.flush()
         self.assertEqual(isal_zlib.decompress(isal_zlib9, 9), HAMLET_SCENE)
         self.assertEqual(isal_zlib.decompress(isal_zlib9, 15), HAMLET_SCENE)
-        if supports_wbits_0:
-            self.assertEqual(isal_zlib.decompress(isal_zlib9, 0), HAMLET_SCENE)
+        self.assertEqual(isal_zlib.decompress(isal_zlib9, 0), HAMLET_SCENE)
         self.assertEqual(isal_zlib.decompress(isal_zlib9, 32 + 9), HAMLET_SCENE)
         dco = isal_zlib.decompressobj(wbits=32 + 9)
         self.assertEqual(dco.decompress(isal_zlib9), HAMLET_SCENE)
