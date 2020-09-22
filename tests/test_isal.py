@@ -159,3 +159,16 @@ def test_decompress_igzip(data_size, level):
     decompressed = igzip.decompress(compressed)
     print(len(decompressed))
     assert decompressed == data
+
+
+@pytest.mark.parametrize(["unused_size", "wbits"],
+                         itertools.product(range(1,27), [-15, 15, 31]))
+def test_unused_data(unused_size, wbits):
+    unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
+    compressor = zlib.compressobj(wbits=wbits)
+    data = b"A meaningful sentence stardts with a capital and ends with a."
+    compressed = compressor.compress(data) + compressor.flush()
+    decompressor = isal_zlib.decompressobj(wbits=wbits)
+    result = decompressor.decompress(compressed + unused_data)
+    assert result == data
+    assert decompressor.unused_data == unused_data
