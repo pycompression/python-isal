@@ -205,10 +205,10 @@ class TestGzip(BaseTest):
         # Bug #1074261 was triggered when reading a file that contained
         # many, many members.  Create such a file and verify that reading it
         # works.
-        with igzip.IGzipFile(self.filename, 'wb', 9) as f:
+        with igzip.IGzipFile(self.filename, 'wb') as f:
             f.write(b'a')
         for i in range(0, 200):
-            with igzip.IGzipFile(self.filename, "ab", 9) as f: # append
+            with igzip.IGzipFile(self.filename, "ab") as f: # append
                 f.write(b'a')
 
         # Try reading the file
