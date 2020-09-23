@@ -30,7 +30,7 @@ from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cpython.buffer cimport PyBUF_READ, PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, \
     PyBuffer_Release
-
+from cpython.bytes cimport PyBytes_FromStringAndSize
 
 
 cdef extern from "<Python.h>":
@@ -413,28 +413,22 @@ cdef class Decompress:
         self.eof = 0
         self.is_initialised = 1
 
-    cdef save_unconsumed_input(self, object data):
-        cdef Py_ssize_t old_size, new_size, left_size, offset
-        cdef unsigned char * data_ptr
+    cdef save_unconsumed_input(self, Py_buffer *data):
+        cdef Py_ssize_t old_size, new_size, left_size
+        cdef bytes new_data
         if self.stream.block_state == ISAL_BLOCK_FINISH:
             self.eof = 1
             if self.stream.avail_in > 0:
                 old_size = len(self.unused_data)
-                data_ptr = data
-                left_size = data_ptr + len(data) - self.stream.next_in
-                offset = self.stream.next_in - data_ptr
-                if offset < 0:
-                    raise Exception()
+                left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
                 if left_size > (PY_SSIZE_T_MAX - old_size):
                     raise MemoryError()
-                self.unused_data += data[offset:]
+                new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
+                self.unused_data += new_data
         if self.stream.avail_in > 0 or self.unconsumed_tail:
-            data_ptr = data
-            left_size = data_ptr + len(data) - self.stream.next_in
-            offset = self.stream.next_in - data_ptr
-            if offset < 0:
-                raise Exception()
-            self.unconsumed_tail = data[offset:]
+            left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
+            new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
+            self.unconsumed_tail = new_data
 
     def decompress(self, data, Py_ssize_t max_length = 0):
    
@@ -494,7 +488,7 @@ cdef class Decompress:
                     out.append(obuf[:bytes_written])
                     if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
                         break
-            self.save_unconsumed_input(data)
+            self.save_unconsumed_input(buffer)
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
@@ -505,14 +499,14 @@ cdef class Decompress:
             raise ValueError("Length must be greater than 0")
         if length > UINT32_MAX:
             raise ValueError("Length should not be larger than 4GB.")
-        data = self.unconsumed_tail[:]
-        cdef Py_ssize_t ibuflen = len(data)
-        if ibuflen > UINT32_MAX:
-            # This should never happen, because we check the input size in
-            # the decompress function as well.
-            raise IsalError("Unconsumed tail too large. Can not flush.")
-        self.stream.next_in = data
-        self.stream.avail_in = ibuflen
+        cdef Py_buffer buffer_data
+        cdef Py_buffer* buffer = &buffer_data
+        if PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+            raise TypeError("Failed to get buffer")
+        cdef Py_ssize_t ibuflen = buffer.len
+        cdef unsigned char * ibuf = <unsigned char*>buffer.buf
+        self.stream.next_in = ibuf
+
         cdef unsigned long total_bytes = 0
         cdef unsigned long bytes_written
         out = []
@@ -521,23 +515,24 @@ cdef class Decompress:
         cdef Py_ssize_t unused_bytes
 
         try:
-            while (self.stream.block_state != ISAL_BLOCK_FINISH
-                   and self.stream.avail_in !=0):
-                self.stream.next_out = obuf  # Reset output buffer.
-                self.stream.avail_out = obuflen
-                err = isal_inflate(&self.stream)
-                if err != ISAL_DECOMP_OK:
-                    # There is some python interacting when possible exceptions
-                    # Are raised. So we remain in pure C code if we check for
-                    # COMP_OK first.
-                    check_isal_inflate_rc(err)
-                # Instead of output buffer resizing as the zlibmodule.c example
-                # the data is appended to a list.
-                # TODO: Improve this with the buffer protocol.
-                bytes_written = obuflen - self.stream.avail_out
-                total_bytes += bytes_written
-                out.append(obuf[:bytes_written])
-            self.save_unconsumed_input(data)
+            while self.stream.block_state != ISAL_BLOCK_FINISH and ibuflen !=0:
+                arrange_input_buffer(&self.stream, &ibuflen)
+                while (self.stream.block_state != ISAL_BLOCK_FINISH):
+                    self.stream.next_out = obuf  # Reset output buffer.
+                    self.stream.avail_out = obuflen
+                    err = isal_inflate(&self.stream)
+                    if err != ISAL_DECOMP_OK:
+                        # There is some python interacting when possible exceptions
+                        # Are raised. So we remain in pure C code if we check for
+                        # COMP_OK first.
+                        check_isal_inflate_rc(err)
+                    # Instead of output buffer resizing as the zlibmodule.c example
+                    # the data is appended to a list.
+                    # TODO: Improve this with the buffer protocol.
+                    bytes_written = obuflen - self.stream.avail_out
+                    total_bytes += bytes_written
+                    out.append(obuf[:bytes_written])
+            self.save_unconsumed_input(buffer)
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
