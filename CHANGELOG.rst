@@ -9,6 +9,8 @@ Changelog
 
 version 0.1.0-dev
 -----------------
++ Add compliance tests from CPython to ensure isal_zlib and igzip are validated
+  to the same standards as the zlib and gzip modules.
 + Added a working gzip app using ``python -m isal.igzip``
 + Add test suite that tests all possible settings for functions on the
   isal_zlib module.
