@@ -433,11 +433,8 @@ cdef class Decompress:
     def decompress(self, data, Py_ssize_t max_length = 0):
    
         cdef Py_ssize_t total_bytes = 0
-        if max_length > UINT32_MAX:
-            raise OverflowError("A maximum of 4 GB is allowed for the max "
-                                "length.")
-        elif max_length == 0:  # Zlib default
-            max_length = UINT32_MAX
+        if max_length == 0:
+            max_length = PY_SSIZE_T_MAX
         elif max_length < 0:
             raise ValueError("max_length can not be smaller than 0")
 
