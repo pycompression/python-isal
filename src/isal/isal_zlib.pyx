@@ -28,6 +28,13 @@ from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from cpython.buffer cimport PyBUF_READ, PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, \
+    PyBuffer_Release
+from cpython.bytes cimport PyBytes_FromStringAndSize
+
+
+cdef extern from "<Python.h>":
+    const Py_ssize_t PY_SSIZE_T_MAX
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
@@ -64,8 +71,11 @@ Z_SYNC_FLUSH=ISAL_SYNC_FLUSH
 Z_FULL_FLUSH=ISAL_FULL_FLUSH
 Z_FINISH=ISAL_FULL_FLUSH
 
-class IsalError(Exception):
+class IsalError(OSError):
     pass
+
+# Add error for compatibility
+error = IsalError
 
 
 if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
@@ -74,16 +84,28 @@ if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
 
 
 cpdef adler32(data, unsigned long value = 1):
-    cdef Py_ssize_t length = len(data)
-    if length > UINT64_MAX:
-        raise ValueError("Data too big for adler32")
-    return isal_adler32(value, data, length)
+    cdef Py_buffer buffer_data
+    cdef Py_buffer* buffer = &buffer_data
+    if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+        raise TypeError("Failed to get buffer")
+    try:
+        if buffer.len > UINT64_MAX:
+            raise ValueError("Data too big for adler32")
+        return isal_adler32(value, <unsigned char*>buffer.buf, buffer.len)
+    finally:
+        PyBuffer_Release(buffer)
 
 cpdef crc32(data, unsigned long value = 0):
-    cdef Py_ssize_t length = len(data)
-    if length > UINT64_MAX:
-        raise ValueError("Data too big for crc32")
-    return crc32_gzip_refl(value, data, length)
+    cdef Py_buffer buffer_data
+    cdef Py_buffer* buffer = &buffer_data
+    if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+        raise TypeError("Failed to get buffer")
+    try:
+        if buffer.len > UINT64_MAX:
+            raise ValueError("Data too big for adler32")
+        return crc32_gzip_refl(value, <unsigned char*>buffer.buf, buffer.len)
+    finally:
+        PyBuffer_Release(buffer)
 
 cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
     if a <= b:
@@ -91,9 +113,23 @@ cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
     else:
         return b
 
-cpdef bytes compress(data,
-                     int level=ISAL_DEFAULT_COMPRESSION_I,
-                     int wbits = ISAL_DEF_MAX_HIST_BITS):
+ctypedef fused stream_or_state:
+    isal_zstream
+    inflate_state
+
+cdef unsigned long unsigned_long_min(unsigned long a, unsigned long b):
+    if a <= b:
+        return a
+    else:
+        return b
+
+cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
+    stream.avail_in = unsigned_long_min(<unsigned long>remains[0], UINT32_MAX)
+    remains[0] -= stream.avail_in
+
+def compress(data,
+             int level=ISAL_DEFAULT_COMPRESSION_I,
+             int wbits = ISAL_DEF_MAX_HIST_BITS):
     if level == ZLIB_DEFAULT_COMPRESSION_I:
         level = ISAL_DEFAULT_COMPRESSION_I
 
@@ -115,12 +151,13 @@ cpdef bytes compress(data,
     out = []
     
     # initialise input
-    cdef Py_ssize_t max_input_buffer = UINT32_MAX
-    cdef Py_ssize_t total_length = len(data)
-    cdef Py_ssize_t remains = total_length
-    cdef Py_ssize_t ibuflen = total_length
-    cdef Py_ssize_t position = 0
-    cdef bytes ibuf
+    cdef Py_buffer buffer_data
+    cdef Py_buffer* buffer = &buffer_data
+    if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+        raise TypeError("Failed to get buffer")
+    cdef Py_ssize_t ibuflen = buffer.len
+    cdef unsigned char * ibuf = <unsigned char*>buffer.buf
+    stream.next_in = ibuf
 
     # initialise helper variables
     cdef int err
@@ -131,12 +168,7 @@ cpdef bytes compress(data,
             # This loop runs n times (at least twice). n-1 times to fill the input
             # buffer with data. The nth time the input is empty. In that case
             # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
-            ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-            ibuf = data[position: position + ibuflen]
-            position += ibuflen
-            stream.next_in = ibuf
-            remains -= ibuflen
-            stream.avail_in = ibuflen
+            arrange_input_buffer(&stream, &ibuflen)
             if ibuflen == 0:
                 stream.flush = FULL_FLUSH
                 stream.end_of_stream = 1
@@ -163,6 +195,7 @@ cpdef bytes compress(data,
                     break
         return b"".join(out)
     finally:
+        PyBuffer_Release(buffer)
         PyMem_Free(level_buf)
         PyMem_Free(obuf)
 
@@ -181,12 +214,13 @@ cpdef decompress(data,
                                         &stream.crc_flag)
 
     # initialise input
-    cdef Py_ssize_t max_input_buffer = UINT32_MAX
-    cdef Py_ssize_t total_length = len(data)
-    cdef Py_ssize_t remains = total_length
-    cdef Py_ssize_t ibuflen = total_length
-    cdef Py_ssize_t position = 0
-    cdef bytes ibuf
+    cdef Py_buffer buffer_data
+    cdef Py_buffer* buffer = &buffer_data
+    if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+        raise TypeError("Failed to get buffer")
+    cdef Py_ssize_t ibuflen = buffer.len
+    cdef unsigned char * ibuf = <unsigned char*>buffer.buf
+    stream.next_in = ibuf
 
     # Initialise output buffer
     cdef unsigned long obuflen = bufsize
@@ -197,12 +231,7 @@ cpdef decompress(data,
     # Implementation imitated from CPython's zlibmodule.c
     try:
         while ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
-            ibuflen = Py_ssize_t_min(remains, max_input_buffer)
-            ibuf = data[position: position + ibuflen]
-            position += ibuflen
-            stream.next_in = ibuf
-            remains -= ibuflen
-            stream.avail_in = ibuflen
+            arrange_input_buffer(&stream, &ibuflen)
 
             # This loop reads all the input bytes. The check is at the end,
             # because when the block state is not at FINISH, the function needs
@@ -222,8 +251,15 @@ cpdef decompress(data,
                 out.append(obuf[:obuflen - stream.avail_out])
                 if stream.avail_in == 0:
                     break
+
+            # When nothing was written, stop.
+            if stream.avail_out == obuflen:
+                break
+        if stream.block_state != ISAL_BLOCK_FINISH:
+            raise IsalError("incomplete or truncated stream")
         return b"".join(out)
     finally:
+        PyBuffer_Release(buffer)
         PyMem_Free(obuf)
 
 
@@ -292,38 +328,44 @@ cdef class Compress:
         out = []
 
         # initialise input
-        cdef Py_ssize_t total_length = len(data)
-        if total_length > UINT32_MAX:
-            # Zlib allows a maximum of 64 KB (16-bit length) and python has
-            # integrated workarounds in order to compress up to 64 bits
-            # lengths. This comes at a cost however. Considering 4 GB should
-            # be ample for streaming applications, the workaround is not
-            # implemented here. (It is in the stand-alone compress function).
-            raise OverflowError("A maximum of 4 GB is allowed.")
-        self.stream.next_in = data
-        self.stream.avail_in = total_length
+        cdef Py_buffer buffer_data
+        cdef Py_buffer* buffer = &buffer_data
+        if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+            raise TypeError("Failed to get buffer")
+        cdef Py_ssize_t ibuflen = buffer.len
+        cdef unsigned char * ibuf = <unsigned char*>buffer.buf
+        self.stream.next_in = ibuf
 
         # initialise helper variables
         cdef int err
-
-        # This loop reads all the input bytes. If there are no input bytes
-        # anymore the output is written.
-        while self.stream.avail_in != 0:
-            self.stream.next_out = self.obuf  # Reset output buffer.
-            self.stream.avail_out = self.obuflen
-            err = isal_deflate(&self.stream)
-            if err != COMP_OK:
-                # There is some python interacting when possible exceptions
-                # Are raised. So we remain in pure C code if we check for
-                # COMP_OK first.
-                check_isal_deflate_rc(err)
-            # Instead of output buffer resizing as the zlibmodule.c example
-            # the data is appended to a list.
-            # TODO: Improve this with the buffer protocol.
-            out.append(self.obuf[:self.obuflen - self.stream.avail_out])
-        return b"".join(out)
+        try:
+            while ibuflen !=0:
+                # This loop runs n times (at least twice). n-1 times to fill the input
+                # buffer with data. The nth time the input is empty. In that case
+                # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
+                arrange_input_buffer(&self.stream, &ibuflen)
+                while self.stream.avail_in != 0:
+                    self.stream.next_out = self.obuf  # Reset output buffer.
+                    self.stream.avail_out = self.obuflen
+                    err = isal_deflate(&self.stream)
+                    if err != COMP_OK:
+                        # There is some python interacting when possible exceptions
+                        # Are raised. So we remain in pure C code if we check for
+                        # COMP_OK first.
+                        check_isal_deflate_rc(err)
+                    # Instead of output buffer resizing as the zlibmodule.c example
+                    # the data is appended to a list.
+                    # TODO: Improve this with the buffer protocol.
+                    out.append(self.obuf[:self.obuflen - self.stream.avail_out])
+            return b"".join(out)
+        finally:
+            PyBuffer_Release(buffer)
 
     def flush(self, int mode=FULL_FLUSH):
+        if mode == NO_FLUSH:
+            # Flushing with no_flush does nothing.
+            return b""
+
         # Initialise stream
         self.stream.flush = mode
         self.stream.end_of_stream = 1
@@ -344,9 +386,6 @@ cdef class Compress:
             # TODO: Improve this with the buffer protocol.
             out.append(self.obuf[:self.obuflen - self.stream.avail_out])
         return b"".join(out)
-    
-    def copy(self):
-        raise NotImplementedError("Copy not yet implemented for isal_zlib")
 
 cdef class Decompress:
     cdef public bytes unused_data
@@ -373,105 +412,104 @@ cdef class Decompress:
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
         self.obuflen = DEF_BUF_SIZE
-        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
         self.unused_data = b""
         self.unconsumed_tail = b""
         self.eof = 0
         self.is_initialised = 1
 
-    def __dealloc__(self):
-        if self.obuf is not NULL:
-            PyMem_Free(self.obuf)
+    cdef save_unconsumed_input(self, Py_buffer *data):
+        cdef Py_ssize_t old_size, new_size, left_size
+        cdef bytes new_data
+        if self.stream.block_state == ISAL_BLOCK_FINISH:
+            self.eof = 1
+            if self.stream.avail_in > 0:
+                old_size = len(self.unused_data)
+                left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
+                if left_size > (PY_SSIZE_T_MAX - old_size):
+                    raise MemoryError()
+                new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
+                self.unused_data += new_data
+        if self.stream.avail_in > 0 or self.unconsumed_tail:
+            left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
+            new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
+            self.unconsumed_tail = new_data
 
     def decompress(self, data, Py_ssize_t max_length = 0):
-        # Initialise output buffer
-        out = []
+   
         cdef Py_ssize_t total_bytes = 0
-        if max_length > UINT32_MAX:
-            raise OverflowError("A maximum of 4 GB is allowed for the max "
-                                "length.")
-        elif max_length == 0:  # Zlib default
-            max_length = UINT32_MAX
+        if max_length == 0:
+            max_length = PY_SSIZE_T_MAX
         elif max_length < 0:
             raise ValueError("max_length can not be smaller than 0")
 
-        if data == b"":
-            data = self.unconsumed_tail
-        cdef Py_ssize_t total_length = len(data)
-        if total_length > UINT32_MAX:
-            # Zlib allows a maximum of 64 KB (16-bit length) and python has
-            # integrated workarounds in order to compress up to 64 bits
-            # lengths. This comes at a cost however. Considering 4 GB should
-            # be ample for streaming applications, the workaround is not
-            # implemented here. (It is in the stand-alone compress function).
-            raise OverflowError("A maximum of 4 GB is allowed.")
-        self.stream.next_in = data
-        self.stream.avail_in = total_length
+        # initialise input
+        cdef Py_buffer buffer_data
+        cdef Py_buffer* buffer = &buffer_data
+        if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+            raise TypeError("Failed to get buffer")
+        cdef Py_ssize_t ibuflen = buffer.len
+        cdef unsigned char * ibuf = <unsigned char*>buffer.buf
+        self.stream.next_in = ibuf
         self.stream.avail_out = 0
         cdef unsigned long prev_avail_out
         cdef unsigned long bytes_written
         cdef Py_ssize_t unused_bytes
         cdef int err
+        
+        # Initialise output buffer
+        cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(self.obuflen * sizeof(char))
+        out = []
+
         cdef bint last_round = 0
-        # This loop reads all the input bytes. If there are no input bytes
-        # anymore the output is written.
-        while (self.stream.avail_out == 0
-               or self.stream.avail_in != 0):
-            self.stream.next_out = self.obuf  # Reset output buffer.
-            if total_bytes >= max_length:
-                break
-            elif total_bytes + self.obuflen >= max_length:
-                self.stream.avail_out =  max_length - total_bytes
-                # The inflate process may not fill all available bytes so
-                # we make sure this is the last round.
-                last_round = 1
-            else:
-                self.stream.avail_out = self.obuflen
-            prev_avail_out = self.stream.avail_out
-            err = isal_inflate(&self.stream)
-            if err != ISAL_DECOMP_OK:
-                # There is some python interacting when possible exceptions
-                # Are raised. So we remain in pure C code if we check for
-                # COMP_OK first.
-                check_isal_inflate_rc(err)
-            bytes_written = prev_avail_out - self.stream.avail_out
-            total_bytes += bytes_written
-            out.append(self.obuf[:bytes_written])
-            if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
-                break
-        # Save unconsumed input implementation from zlibmodule.c
-        if self.stream.block_state == ISAL_BLOCK_FINISH:
-            # The end of the compressed data has been reached. Store the
-            # leftover input data in self->unused_data.
-            self.eof = 1
-            if self.stream.avail_in > 0:
-                unused_bytes = self.stream.avail_in
-                self.unused_data = data[-unused_bytes:]
-                self.stream.avail_in = 0
-        if self.stream.avail_in > 0 or self.unconsumed_tail:
-            # This code handles two distinct cases:
-            # 1. Output limit was reached. Save leftover input in unconsumed_tail.
-            # 2. All input data was consumed. Clear unconsumed_tail.
-            unused_bytes = self.stream.avail_in
-            if unused_bytes == 0:
-                self.unconsumed_tail = b""
-            else:
-                self.unconsumed_tail = data[-unused_bytes:]
-        return b"".join(out)
+        try:
+            # This loop reads all the input bytes. If there are no input bytes
+            # anymore the output is written.
+            while True:
+                arrange_input_buffer(&self.stream, &ibuflen)
+                while (self.stream.avail_out == 0 or self.stream.avail_in != 0):
+                    self.stream.next_out = obuf  # Reset output buffer.
+                    if total_bytes >= max_length:
+                        break
+                    elif total_bytes + self.obuflen >= max_length:
+                        self.stream.avail_out =  max_length - total_bytes
+                        # The inflate process may not fill all available bytes so
+                        # we make sure this is the last round.
+                        last_round = 1
+                    else:
+                        self.stream.avail_out = self.obuflen
+                    prev_avail_out = self.stream.avail_out
+                    err = isal_inflate(&self.stream)
+                    if err != ISAL_DECOMP_OK:
+                        # There is some python interacting when possible exceptions
+                        # Are raised. So we remain in pure C code if we check for
+                        # COMP_OK first.
+                        check_isal_inflate_rc(err)
+                    bytes_written = prev_avail_out - self.stream.avail_out
+                    total_bytes += bytes_written
+                    out.append(obuf[:bytes_written])
+                    if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
+                        break
+                if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0:
+                    break
+            self.save_unconsumed_input(buffer)
+            return b"".join(out)
+        finally:
+            PyMem_Free(obuf)
+            PyBuffer_Release(buffer)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
         if length <= 0:
             raise ValueError("Length must be greater than 0")
         if length > UINT32_MAX:
             raise ValueError("Length should not be larger than 4GB.")
-        data = self.unconsumed_tail[:]
-        cdef Py_ssize_t ibuflen = len(data)
-        if ibuflen > UINT32_MAX:
-            # This should never happen, because we check the input size in
-            # the decompress function as well.
-            raise IsalError("Unconsumed tail too large. Can not flush.")
-        self.stream.next_in = data
-        self.stream.avail_in = ibuflen
+        cdef Py_buffer buffer_data
+        cdef Py_buffer* buffer = &buffer_data
+        if PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
+            raise TypeError("Failed to get buffer")
+        cdef Py_ssize_t ibuflen = buffer.len
+        cdef unsigned char * ibuf = <unsigned char*>buffer.buf
+        self.stream.next_in = ibuf
+
         cdef unsigned long total_bytes = 0
         cdef unsigned long bytes_written
         out = []
@@ -480,43 +518,27 @@ cdef class Decompress:
         cdef Py_ssize_t unused_bytes
 
         try:
-            while (self.stream.block_state != ISAL_BLOCK_FINISH
-                   and self.stream.avail_in !=0):
-                self.stream.next_out = obuf  # Reset output buffer.
-                self.stream.avail_out = obuflen
-                err = isal_inflate(&self.stream)
-                if err != ISAL_DECOMP_OK:
-                    # There is some python interacting when possible exceptions
-                    # Are raised. So we remain in pure C code if we check for
-                    # COMP_OK first.
-                    check_isal_inflate_rc(err)
-                # Instead of output buffer resizing as the zlibmodule.c example
-                # the data is appended to a list.
-                # TODO: Improve this with the buffer protocol.
-                bytes_written = obuflen - self.stream.avail_out
-                total_bytes += bytes_written
-                out.append(obuf[:bytes_written])
-            if self.stream.block_state == ISAL_BLOCK_FINISH:
-                # The end of the compressed data has been reached. Store the
-                # leftover input data in self->unused_data.
-                self.eof = 1
-                self.is_initialised = 0
-                if self.stream.avail_in > 0:
-                    unused_bytes = self.stream.avail_in
-                    self.unused_data = data[-unused_bytes:]
-            if self.stream.avail_in > 0 or self.unconsumed_tail:
-                # This code handles two distinct cases:
-                # 1. Output limit was reached. Save leftover input in unconsumed_tail.
-                # 2. All input data was consumed. Clear unconsumed_tail.
-                unused_bytes = self.stream.avail_in
-                self.unconsumed_tail = data[-unused_bytes:]
+            while self.stream.block_state != ISAL_BLOCK_FINISH and ibuflen !=0:
+                arrange_input_buffer(&self.stream, &ibuflen)
+                while (self.stream.block_state != ISAL_BLOCK_FINISH):
+                    self.stream.next_out = obuf  # Reset output buffer.
+                    self.stream.avail_out = obuflen
+                    err = isal_inflate(&self.stream)
+                    if err != ISAL_DECOMP_OK:
+                        # There is some python interacting when possible exceptions
+                        # Are raised. So we remain in pure C code if we check for
+                        # COMP_OK first.
+                        check_isal_inflate_rc(err)
+                    # Instead of output buffer resizing as the zlibmodule.c example
+                    # the data is appended to a list.
+                    # TODO: Improve this with the buffer protocol.
+                    bytes_written = obuflen - self.stream.avail_out
+                    total_bytes += bytes_written
+                    out.append(obuf[:bytes_written])
+            self.save_unconsumed_input(buffer)
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
-
-    def copy(self):
-        raise NotImplementedError("Copy not yet implemented for isal_zlib")
-
 
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
@@ -537,7 +559,10 @@ cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
 cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
                                          unsigned long * hist_bits,
                                          unsigned long * crc_flag):
-    if 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
+    if wbits == 0:
+        hist_bits[0] = 0
+        crc_flag[0] = ISAL_ZLIB
+    elif 8 <= wbits <= 15:  # zlib headers and trailers on compressed stream
         hist_bits[0] = wbits
         crc_flag[0] = ISAL_ZLIB
     elif 24 <= wbits <= 31:  # gzip headers and trailers on compressed stream

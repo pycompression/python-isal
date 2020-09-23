@@ -28,10 +28,11 @@ import io
 import os
 
 import _compression
+import sys
 
 from . import isal_zlib
 
-__all__ = ["IGzipFile", "open", "compress", "decompress"]
+__all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
@@ -39,6 +40,9 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 _BLOCK_SIZE = 64*1024
 
 BUFFER_SIZE = _compression.BUFFER_SIZE
+
+class BadGzipFile(OSError):
+    pass
 
 
 # The open method was copied from the python source with minor adjustments.
@@ -225,7 +229,7 @@ def main():
     parser.description = (
         "A simple command line interface for the igzip module. "
         "Acts like igzip.")
-    parser.add_argument("file")
+    parser.add_argument("file", nargs="?")
     compress_group = parser.add_mutually_exclusive_group()
     compress_group.add_argument(
         "-0", "--fast", action="store_const", dest="compresslevel",
@@ -251,24 +255,37 @@ def main():
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 
-    if args.compress:
-        out_filename = args.file + ".gz"
-        out_open = functools.partial(open, compresslevel=compresslevel)
-        in_open = io.open
+    if args.file is None:
+        if args.compress:
+            in_file = sys.stdin.buffer
+            out_file = IGzipFile(mode="wb", compresslevel=compresslevel,
+                                 fileobj=sys.stdout.buffer)
+        else:
+            in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
+            out_file = sys.stdout.buffer
     else:
-        base, extension = os.path.splitext(args.file)
-        if extension != ".gz":
-            raise ValueError("Can only decompress files with a .gz extension")
-        out_filename = base
-        out_open = io.open
-        in_open = open
-    with in_open(args.file, "rb") as in_file:
-        with out_open(out_filename, "wb") as out_file:
-            while True:
-                block = in_file.read(_BLOCK_SIZE)
-                if block == b"":
-                    break
-                out_file.write(block)
+        if args.compress:
+            in_file = io.open(args.file, mode="rb")
+            out_file = open(args.file + ".gz", mode="wb",
+                            compresslevel=compresslevel)
+        else:
+            base, extension = os.path.splitext(args.file)
+            if extension != ".gz":
+                print(f"filename doesn't end in .gz: {args.file}")
+                return
+            in_file = open(args.file, "rb")
+            out_file = io.open(base, "wb")
+    try:
+        while True:
+            block = in_file.read(_BLOCK_SIZE)
+            if block == b"":
+                break
+            out_file.write(block)
+    finally:
+        if in_file is not sys.stdin.buffer:
+            in_file.close()
+        if out_file is not sys.stdout.buffer:
+            out_file.close()
 
 
 if __name__ == "__main__":
