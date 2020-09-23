@@ -282,8 +282,10 @@ def main():
                 break
             out_file.write(block)
     finally:
-        in_file.close()
-        out_file.close()
+        if in_file is not sys.stdin.buffer:
+            in_file.close()
+        if out_file is not sys.stdout.buffer:
+            out_file.close()
 
 
 if __name__ == "__main__":
