@@ -23,7 +23,7 @@ from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
 
-EXTENSION_OPTS = dict(compiler_directives={})
+EXTENSION_OPTS = dict()
 
 # Make sure conda prefix is loaded if installed in a conda environment.
 CONDA_PREFIX = os.environ.get("CONDA_PREFIX")
