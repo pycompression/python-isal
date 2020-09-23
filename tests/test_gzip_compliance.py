@@ -772,7 +772,7 @@ def create_and_remove_directory(directory):
     def decorator(function):
         @functools.wraps(function)
         def wrapper(*args, **kwargs):
-            os.makedirs(directory)
+            os.makedirs(directory, exist_ok=True)
             try:
                 return function(*args, **kwargs)
             finally:
@@ -789,7 +789,7 @@ class TestCommandLine(unittest.TestCase):
             with igzip.IGzipFile(fileobj=bytes_io, mode='wb') as igzip_file:
                 igzip_file.write(self.data)
 
-            args = sys.executable, '-m', 'igzip', '-d'
+            args = sys.executable, '-m', 'isal.igzip', '-d'
             with Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc:
                 out, err = proc.communicate(bytes_io.getvalue())
 
@@ -803,7 +803,7 @@ class TestCommandLine(unittest.TestCase):
 
         with igzip.open(igzipname, mode='wb') as fp:
             fp.write(self.data)
-        rc, out, err = assert_python_ok('-m', 'igzip', '-d', igzipname)
+        rc, out, err = assert_python_ok('-m', 'isal.igzip', '-d', igzipname)
 
         with open(os.path.join(TEMPDIR, "testigzip"), "rb") as gunziped:
             self.assertEqual(gunziped.read(), self.data)
@@ -814,14 +814,14 @@ class TestCommandLine(unittest.TestCase):
         self.assertEqual(err, b'')
 
     def test_decompress_infile_outfile_error(self):
-        rc, out, err = assert_python_ok('-m', 'igzip', '-d', 'thisisatest.out')
+        rc, out, err = assert_python_ok('-m', 'isal.igzip', '-d', 'thisisatest.out')
         self.assertIn(b"filename doesn't end in .gz:", out)
         self.assertEqual(rc, 0)
         self.assertEqual(err, b'')
 
     @create_and_remove_directory(TEMPDIR)
     def test_compress_stdin_outfile(self):
-        args = sys.executable, '-m', 'igzip'
+        args = sys.executable, '-m', 'isal.igzip'
         with Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc:
             out, err = proc.communicate(self.data)
 
@@ -837,7 +837,7 @@ class TestCommandLine(unittest.TestCase):
         with open(local_testigzip, 'wb') as fp:
             fp.write(self.data)
 
-        rc, out, err = assert_python_ok('-m', 'igzip', local_testigzip)
+        rc, out, err = assert_python_ok('-m', 'isal.igzip', local_testigzip)
 
         self.assertTrue(os.path.exists(igzipname))
         self.assertEqual(out, b'')
@@ -854,7 +854,7 @@ class TestCommandLine(unittest.TestCase):
                 with open(local_testigzip, 'wb') as fp:
                     fp.write(self.data)
 
-                rc, out, err = assert_python_ok('-m', 'igzip', compress_level, local_testigzip)
+                rc, out, err = assert_python_ok('-m', 'isal.igzip', compress_level, local_testigzip)
 
                 self.assertTrue(os.path.exists(igzipname))
                 self.assertEqual(out, b'')
@@ -863,13 +863,13 @@ class TestCommandLine(unittest.TestCase):
                 self.assertFalse(os.path.exists(igzipname))
 
     def test_compress_fast_best_are_exclusive(self):
-        rc, out, err = assert_python_failure('-m', 'igzip', '--fast', '--best')
-        self.assertIn(b"error: argument --best: not allowed with argument --fast", err)
+        rc, out, err = assert_python_failure('-m', 'isal.igzip', '--fast', '--best')
+        self.assertIn(b"error: argument -3/--best: not allowed with argument -0/--fast", err)
         self.assertEqual(out, b'')
 
     def test_decompress_cannot_have_flags_compression(self):
-        rc, out, err = assert_python_failure('-m', 'igzip', '--fast', '-d')
-        self.assertIn(b'error: argument -d/--decompress: not allowed with argument --fast', err)
+        rc, out, err = assert_python_failure('-m', 'isal.igzip', '--fast', '-d')
+        self.assertIn(b'error: argument -d/--decompress: not allowed with argument -0/--fast', err)
         self.assertEqual(out, b'')
 
 
