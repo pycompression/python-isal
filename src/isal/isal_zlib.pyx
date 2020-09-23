@@ -362,6 +362,10 @@ cdef class Compress:
             PyBuffer_Release(buffer)
 
     def flush(self, int mode=FULL_FLUSH):
+        if mode == NO_FLUSH:
+            # Flushing with no_flush does nothing.
+            return b""
+
         # Initialise stream
         self.stream.flush = mode
         self.stream.end_of_stream = 1
