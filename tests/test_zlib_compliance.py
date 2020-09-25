@@ -260,7 +260,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             co = isal_zlib.compressobj()
             x1 = co.compress(data)
             x2 = co.flush()
-            self.assertRaises(isal_zlib.error, co.flush) # second flush should not work
+            # Flushing multiple times no problem for isa-l.
+            # self.assertRaises(isal_zlib.error, co.flush)
             self.assertEqual(x1 + x2, datazip)
         for v1, v2 in ((x1, x2), (bytearray(x1), bytearray(x2))):
             dco = isal_zlib.decompressobj()
