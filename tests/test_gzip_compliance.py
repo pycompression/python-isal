@@ -452,24 +452,15 @@ class TestGzip(BaseTest):
             d = f.read()
             self.assertEqual(d, data1 * 50, "Incorrect data in file")
 
-    @unittest.skipIf(sys.version_info[0] == 3 and sys.version_info[1] < 8
-                     or sys.version_info[0] < 3,
-                     reason="BadGzipFile exception only in version 3.8 or "
-                            "higher")
     def test_igzip_BadGzipFile_exception(self):
         self.assertTrue(issubclass(igzip.BadGzipFile, OSError))
 
     def test_bad_gzip_file(self):
         major, minor, _, _, _ = sys.version_info
-        if major == 3 and minor >= 8 or major > 3:
-            error = gzip.BadGzipFile
-        else:
-            error = OSError
-
         with open(self.filename, 'wb') as file:
             file.write(data1 * 50)
         with igzip.IGzipFile(self.filename, 'r') as file:
-            self.assertRaises(error, file.readlines)
+            self.assertRaises(igzip.BadGzipFile, file.readlines)
 
     def test_non_seekable_file(self):
         uncompressed = data1 * 50

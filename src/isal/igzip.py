@@ -41,10 +41,9 @@ _BLOCK_SIZE = 64*1024
 BUFFER_SIZE = _compression.BUFFER_SIZE
 
 try:
-    class BadGzipFile(gzip.BadGzipFile):
-        pass
+    BadGzipFile = gzip.BadGzipFile
 except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
-    pass
+    BadGzipFile = OSError
 
 
 # The open method was copied from the CPython source with minor adjustments.
