@@ -26,10 +26,9 @@ import functools
 import gzip
 import io
 import os
-
 import _compression
 import sys
-
+from gzip import READ, WRITE
 from . import isal_zlib
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
@@ -41,9 +40,11 @@ _BLOCK_SIZE = 64*1024
 
 BUFFER_SIZE = _compression.BUFFER_SIZE
 
-class BadGzipFile(OSError):
+try:
+    class BadGzipFile(gzip.BadGzipFile):
+        pass
+except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
     pass
-
 
 # The open method was copied from the python source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
@@ -104,7 +105,7 @@ class IGzipFile(gzip.GzipFile):
                     isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION
                 ))
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
-        if hasattr(self, "compress"):
+        if self.mode == gzip.WRITE:
             self.compress = isal_zlib.compressobj(compresslevel,
                                                   isal_zlib.DEFLATED,
                                                   -isal_zlib.MAX_WBITS,
@@ -169,6 +170,12 @@ class _IGzipReader(gzip._GzipReader):
         # Gzip files can be padded with zeroes and still have archives.
         # Consume all zero bytes and set the file position to the first
         # non-zero byte. See http://www.gzip.org/#faq8
+        # Also the isal_zlib.decompressobj does not consume the last two bytes
+        # when using ISAL_GZIP_NO_HDR.
+        for i in range(2):
+            c = self._fp.read(1)
+            if c == b"\x00":
+                break
         c = b"\x00"
         while c == b"\x00":
             c = self._fp.read(1)
@@ -187,12 +194,12 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     return buf.getvalue()
 
 
-# Unlike stdlib, do not use the roundabout way of doing this via a file.
 def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    return isal_zlib.decompress(data, wbits=16 + isal_zlib.MAX_WBITS)
+    with IGzipFile(fileobj=io.BytesIO(data)) as f:
+        return f.read()
 
 
 def main():

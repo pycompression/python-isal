@@ -391,13 +391,17 @@ class TestGzip(BaseTest):
         # see RFC 1952: http://www.faqs.org/rfcs/rfc1952.html
         # specifically, discussion of XFL in section 2.3.1
         cases = [
-            ('fast', 1, b'\x04'),
-            ('best', 9, b'\x02'),
-            ('tradeoff', 6, b'\x00'),
+            ('fast', 0, b'\x04'),
+            ('best', 3, b'\x02'),
+            ('tradeoff', 2, b'\x00'),
         ]
         xflOffset = 8
 
         for (name, level, expectedXflByte) in cases:
+            major, minor, _, _, _ = sys.version_info
+            if major == 3 and minor <=7 or major < 3:
+                # Specific xfl bytes introduced in 3.7
+                expectedXflByte = b'\x02'
             with self.subTest(name):
                 fWrite = igzip.IGzipFile(self.filename, 'w', compresslevel=level)
                 with fWrite:
@@ -440,14 +444,24 @@ class TestGzip(BaseTest):
             d = f.read()
             self.assertEqual(d, data1 * 50, "Incorrect data in file")
 
+    @unittest.skipIf(sys.version_info[0] == 3 and sys.version_info[1] < 8
+                     or sys.version_info[0] < 3,
+                     reason="BadGzipFile exception only in version 3.8 or "
+                            "higher")
     def test_igzip_BadGzipFile_exception(self):
         self.assertTrue(issubclass(igzip.BadGzipFile, OSError))
 
     def test_bad_gzip_file(self):
+        major, minor, _, _, _ = sys.version_info
+        if major == 3 and minor >= 8 or major > 3:
+            error = igzip.BadGzipFile
+        else:
+            error = OSError
+
         with open(self.filename, 'wb') as file:
             file.write(data1 * 50)
         with igzip.IGzipFile(self.filename, 'r') as file:
-            self.assertRaises(igzip.BadGzipFile, file.readlines)
+            self.assertRaises(error, file.readlines)
 
     def test_non_seekable_file(self):
         uncompressed = data1 * 50
@@ -518,7 +532,11 @@ class TestGzip(BaseTest):
             if "x" in mode:
                 os.unlink(self.filename)
             with open(self.filename, mode) as f:
-                with self.assertWarns(FutureWarning):
+                major, minor, _, _, _ = sys.version_info
+                if major == 3 and minor >= 9 or major > 3:
+                    with self.assertWarns(FutureWarning):
+                        g = igzip.IGzipFile(fileobj=f)
+                else:
                     g = igzip.IGzipFile(fileobj=f)
                 with g:
                     self.assertEqual(g.mode, igzip.WRITE)
@@ -562,7 +580,7 @@ class TestGzip(BaseTest):
     def test_compress_mtime(self):
         mtime = 123456789
         for data in [data1, data2]:
-            for args in [(), (1,), (6,), (9,)]:
+            for args in [(), (0,), (1,), (2,), (3,)]:
                 with self.subTest(data=data, args=args):
                     datac = igzip.compress(data, *args, mtime=mtime)
                     self.assertEqual(type(datac), bytes)
