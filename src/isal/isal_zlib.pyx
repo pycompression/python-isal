@@ -540,6 +540,10 @@ cdef class Decompress:
         finally:
             PyMem_Free(obuf)
 
+    @property
+    def crc(self):
+        return self.stream.crc
+
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
                                          unsigned short * gzip_flag):
@@ -571,6 +575,9 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     elif -15 <= wbits <= -8:  # raw compressed stream
         hist_bits[0] = -wbits
         crc_flag[0] = ISAL_DEFLATE
+    elif 72 <=wbits <= 79:
+        hist_bits[0] = wbits - 64
+        crc_flag[0] = ISAL_GZIP_NO_HDR
     else:
         raise ValueError("Invalid wbits value")
 

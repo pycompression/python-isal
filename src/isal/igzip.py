@@ -150,59 +150,30 @@ class IGzipFile(gzip.GzipFile):
 # side of things. It is much simpler. Gzip header interpretation and gzip
 # checksum checking is already implemented in the isa-l library. So no need
 # to do so in pure python.
-class _IGzipReader(_compression.DecompressReader):
+class _IGzipReader(gzip._GzipReader):
     def __init__(self, fp):
-        super().__init__(gzip._PaddedFile(fp), isal_zlib.decompressobj,
-                         trailing_error=isal_zlib.IsalError,
-                         wbits=16 + isal_zlib.MAX_WBITS)
+        super().__init__(fp)
+        self._decomp_factory = isal_zlib.decompressobj
+        self._decomp_args = dict(wbits=64+isal_zlib.MAX_WBITS)
+        self._decompressor = self._decomp_factory(**self._decomp_args)
 
-    # Created by mixing and matching gzip._GzipReader and
-    # _compression.DecompressReader
-    def read(self, size=-1):
-        if size < 0:
-            return self.readall()
-        # size=0 is special because decompress(max_length=0) is not supported
-        if not size:
-            return b""
+    def _add_read_data(self, data):
+        self._crc = isal_zlib.crc32(data, self._crc)
+        self._stream_size = self._stream_size + len(data)
 
-        # For certain input data, a single
-        # call to decompress() may not return
-        # any data. In this case, retry until we get some data or reach EOF.
-        uncompress = b""
-        while True:
-            if self._decompressor.eof:
-                buf = (self._decompressor.unused_data or
-                       self._fp.read(BUFFER_SIZE))
-                if not buf:
-                    break
-                # Continue to next stream.
-                self._decompressor = self._decomp_factory(
-                    **self._decomp_args)
-                try:
-                    uncompress = self._decompressor.decompress(buf, size)
-                except self._trailing_error:
-                    # Trailing data isn't a valid compressed stream; ignore it.
-                    break
-            else:
-                # Read a chunk of data from the file
-                buf = self._fp.read(BUFFER_SIZE)
-                uncompress = self._decompressor.decompress(buf, size)
-            if self._decompressor.unconsumed_tail != b"":
-                self._fp.prepend(self._decompressor.unconsumed_tail)
-            elif self._decompressor.unused_data != b"":
-                # Prepend the already read bytes to the fileobj so they can
-                # be seen by _read_eof() and _read_gzip_header()
-                self._fp.prepend(self._decompressor.unused_data)
-
-            if uncompress != b"":
-                break
-            if buf == b"":
-                raise EOFError("Compressed file ended before the "
-                               "end-of-stream marker was reached")
-
-        self._pos += len(uncompress)
-        return uncompress
-
+    def _read_eof(self):
+        crc32 = self._decompressor.crc
+        if crc32 != self._crc:
+            raise BadGzipFile(
+                f"CRC check failed {hex(crc32)} != {hex(self._crc)}")
+        # Gzip files can be padded with zeroes and still have archives.
+        # Consume all zero bytes and set the file position to the first
+        # non-zero byte. See http://www.gzip.org/#faq8
+        c = b"\x00"
+        while c == b"\x00":
+            c = self._fp.read(1)
+        if c:
+            self._fp.prepend(c)
 
 # Plagiarized from gzip.py from python's stdlib.
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
