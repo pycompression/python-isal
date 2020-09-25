@@ -16,6 +16,7 @@ Changes made:
 
 import array
 import functools
+import gzip
 import io
 import os
 import pathlib
@@ -516,19 +517,19 @@ class TestGzip(BaseTest):
         igzip.IGzipFile(self.filename, "wb").close()
         with open(self.filename, "r+b") as f:
             with igzip.IGzipFile(fileobj=f, mode='r') as g:
-                self.assertEqual(g.mode, igzip.READ)
+                self.assertEqual(g.mode, gzip.READ)
             with igzip.IGzipFile(fileobj=f, mode='w') as g:
-                self.assertEqual(g.mode, igzip.WRITE)
+                self.assertEqual(g.mode, gzip.WRITE)
             with igzip.IGzipFile(fileobj=f, mode='a') as g:
-                self.assertEqual(g.mode, igzip.WRITE)
+                self.assertEqual(g.mode, gzip.WRITE)
             with igzip.IGzipFile(fileobj=f, mode='x') as g:
-                self.assertEqual(g.mode, igzip.WRITE)
+                self.assertEqual(g.mode, gzip.WRITE)
             with self.assertRaises(ValueError):
                 igzip.IGzipFile(fileobj=f, mode='z')
         for mode in "rb", "r+b":
             with open(self.filename, mode) as f:
                 with igzip.IGzipFile(fileobj=f) as g:
-                    self.assertEqual(g.mode, igzip.READ)
+                    self.assertEqual(g.mode, gzip.READ)
         for mode in "wb", "ab", "xb":
             if "x" in mode:
                 os.unlink(self.filename)
@@ -540,7 +541,7 @@ class TestGzip(BaseTest):
                 else:
                     g = igzip.IGzipFile(fileobj=f)
                 with g:
-                    self.assertEqual(g.mode, igzip.WRITE)
+                    self.assertEqual(g.mode, gzip.WRITE)
 
     def test_bytes_filename(self):
         str_filename = self.filename

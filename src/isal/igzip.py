@@ -26,7 +26,6 @@ import gzip
 import io
 import os
 import sys
-from gzip import READ, WRITE
 
 import _compression
 
@@ -47,7 +46,8 @@ try:
 except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
     pass
 
-# The open method was copied from the python source with minor adjustments.
+
+# The open method was copied from the CPython source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
          encoding=None, errors=None, newline=None):
     """Open a gzip-compressed file in binary or text mode. This uses the isa-l
@@ -169,6 +169,7 @@ class _IGzipReader(gzip._GzipReader):
             c = self._fp.read(1)
         if c:
             self._fp.prepend(c)
+
 
 # Plagiarized from gzip.py from python's stdlib.
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
