@@ -170,12 +170,6 @@ class _IGzipReader(gzip._GzipReader):
         # Gzip files can be padded with zeroes and still have archives.
         # Consume all zero bytes and set the file position to the first
         # non-zero byte. See http://www.gzip.org/#faq8
-        # Also the isal_zlib.decompressobj does not consume the last two bytes
-        # when using ISAL_GZIP_NO_HDR.
-        for i in range(2):
-            c = self._fp.read(1)
-            if c == b"\x00":
-                break
         c = b"\x00"
         while c == b"\x00":
             c = self._fp.read(1)
