@@ -11,6 +11,7 @@ Changes made:
 
 
 """
+import functools
 import os
 import unittest
 from test import support
@@ -27,11 +28,11 @@ from isal import isal_zlib
 import pytest
 
 requires_Compress_copy = unittest.skipUnless(
-        hasattr(isal_zlib.compressobj(), "copy"),
-        'requires Compress.copy()')
+    hasattr(isal_zlib.compressobj(), "copy"),
+    'requires Compress.copy()')
 requires_Decompress_copy = unittest.skipUnless(
-        hasattr(isal_zlib.decompressobj(), "copy"),
-        'requires Decompress.copy()')
+    hasattr(isal_zlib.decompressobj(), "copy"),
+    'requires Decompress.copy()')
 
 
 class VersionTestCase(unittest.TestCase):
@@ -39,9 +40,9 @@ class VersionTestCase(unittest.TestCase):
     def test_library_version(self):
         # Test that the major version of the actual library in use matches the
         # major version that we were compiled against. We can't guarantee that
-        # the minor versions will match (even on the machine on which the module
-        # was compiled), and the API is stable between minor versions, so
-        # testing only the major versions avoids spurious failures.
+        # the minor versions will match (even on the machine on which the
+        # module was compiled), and the API is stable between minor versions,
+        # so testing only the major versions avoids spurious failures.
         # TODO: Ask for isal current version upstream
         self.assertEqual(isal.ISAL_MAJOR_VERSION, 2)
 
@@ -72,15 +73,17 @@ class ChecksumTestCase(unittest.TestCase):
         self.assertEqual(isal_zlib.adler32(b"penguin", 0), 0x0bcf02f6)
         self.assertEqual(isal_zlib.adler32(b"penguin", 1), 0x0bd602f7)
 
-        self.assertEqual(isal_zlib.crc32(b"penguin"), isal_zlib.crc32(b"penguin", 0))
-        self.assertEqual(isal_zlib.adler32(b"penguin"),isal_zlib.adler32(b"penguin",1))
+        self.assertEqual(isal_zlib.crc32(b"penguin"),
+                         isal_zlib.crc32(b"penguin", 0))
+        self.assertEqual(isal_zlib.adler32(b"penguin"),
+                         isal_zlib.adler32(b"penguin", 1))
 
     def test_crc32_adler32_unsigned(self):
         foo = b'abcdefghijklmnop'
         # explicitly test signed behavior
         self.assertEqual(isal_zlib.crc32(foo), 2486878355)
         self.assertEqual(isal_zlib.crc32(b'spam'), 1138425661)
-        self.assertEqual(isal_zlib.adler32(foo+foo), 3573550353)
+        self.assertEqual(isal_zlib.adler32(foo + foo), 3573550353)
         self.assertEqual(isal_zlib.adler32(b'spam'), 72286642)
 
     def test_same_as_binascii_crc32(self):
@@ -122,10 +125,12 @@ class ExceptionTestCase(unittest.TestCase):
 
     def test_badcompressobj(self):
         # verify failure on building compress object with bad params
-        self.assertRaises(ValueError, isal_zlib.compressobj, 1, isal_zlib.DEFLATED, 0)
+        self.assertRaises(ValueError, isal_zlib.compressobj, 1,
+                          isal_zlib.DEFLATED, 0)
         # specifying total bits too large causes an error
         self.assertRaises(ValueError,
-                isal_zlib.compressobj, 1, isal_zlib.DEFLATED, isal_zlib.MAX_WBITS + 1)
+                          isal_zlib.compressobj, 1, isal_zlib.DEFLATED,
+                          isal_zlib.MAX_WBITS + 1)
 
     def test_baddecompressobj(self):
         # verify failure on building decompress object with bad params
@@ -150,8 +155,8 @@ class BaseCompressTestCase(object):
     def check_big_compress_buffer(self, size, compress_func):
         _1M = 1024 * 1024
         # Generate 10 MiB worth of random, and expand it by repeating it.
-        # The assumption is that isal_zlib's memory is not big enough to exploit
-        # such spread out redundancy.
+        # The assumption is that isal_zlib's memory is not big enough to
+        # exploit such spread out redundancy.
         if hasattr(random, "randbytes"):  # Available from 3.9
             data = random.randbytes(_1M * 10)
         elif hasattr(os, "urandom"):
@@ -196,8 +201,8 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
         with self.assertRaises(TypeError):
             isal_zlib.compress(data=HAMLET_SCENE, level=3)
         self.assertEqual(isal_zlib.decompress(x,
-                                         wbits=isal_zlib.MAX_WBITS,
-                                         bufsize=isal_zlib.DEF_BUF_SIZE),
+                                              wbits=isal_zlib.MAX_WBITS,
+                                              bufsize=isal_zlib.DEF_BUF_SIZE),
                          HAMLET_SCENE)
 
     def test_speech128(self):
@@ -212,14 +217,14 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
         # A useful error message is given
         x = isal_zlib.compress(HAMLET_SCENE)
         self.assertRaisesRegex(isal_zlib.error,
-            "incomplete or truncated stream",
-            isal_zlib.decompress, x[:-1])
+                               "incomplete or truncated stream",
+                               isal_zlib.decompress, x[:-1])
 
     # Memory use of the following functions takes into account overallocation
 
     @bigmemtest(size=_1G + 1024 * 1024, memuse=3)
     def test_big_compress_buffer(self, size):
-        compress = lambda s: isal_zlib.compress(s, 1)
+        compress = functools.partial(isal_zlib.compress, level=1)
         self.check_big_compress_buffer(size, compress)
 
     @bigmemtest(size=_1G + 1024 * 1024, memuse=2)
@@ -236,9 +241,10 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
     def test_custom_bufsize(self):
         data = HAMLET_SCENE * 10
         compressed = isal_zlib.compress(data, 1)
-        self.assertEqual(isal_zlib.decompress(compressed, 15, CustomInt()), data)
+        self.assertEqual(isal_zlib.decompress(compressed, 15, CustomInt()),
+                         data)
 
-    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=4)
     def test_64bit_compress(self, size):
         data = b'x' * size
@@ -279,11 +285,11 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         memLevel = 9
         strategy = isal_zlib.Z_FILTERED
         co = isal_zlib.compressobj(level=level,
-                              method=method,
-                              wbits=wbits,
-                              memLevel=memLevel,
-                              strategy=strategy,
-                              zdict=b"")
+                                   method=method,
+                                   wbits=wbits,
+                                   memLevel=memLevel,
+                                   strategy=strategy,
+                                   zdict=b"")
         do = isal_zlib.decompressobj(wbits=wbits, zdict=b"")
         with self.assertRaises(TypeError):
             co.compress(data=HAMLET_SCENE)
@@ -314,9 +320,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         co = isal_zlib.compressobj()
         bufs = []
         for i in range(0, len(data), 256):
-            bufs.append(co.compress(data[i:i+256]))
+            bufs.append(co.compress(data[i:i + 256]))
         bufs.append(co.flush())
-        combuf = b''.join(bufs)
 
         dco = isal_zlib.decompressobj()
         y1 = dco.decompress(b''.join(bufs))
@@ -330,7 +335,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         co = isal_zlib.compressobj()
         bufs = []
         for i in range(0, len(data), cx):
-            bufs.append(co.compress(data[i:i+cx]))
+            bufs.append(co.compress(data[i:i + cx]))
         bufs.append(co.flush())
         combuf = b''.join(bufs)
 
@@ -343,10 +348,10 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco = isal_zlib.decompressobj()
         bufs = []
         for i in range(0, len(combuf), dcx):
-            bufs.append(dco.decompress(combuf[i:i+dcx]))
-            self.assertEqual(b'', dco.unconsumed_tail, ########
+            bufs.append(dco.decompress(combuf[i:i + dcx]))
+            self.assertEqual(b'', dco.unconsumed_tail,
                              "(A) uct should be b'': not %d long" %
-                                       len(dco.unconsumed_tail))
+                             len(dco.unconsumed_tail))
             self.assertEqual(b'', dco.unused_data)
         if flush:
             bufs.append(dco.flush())
@@ -357,9 +362,9 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
                     bufs.append(chunk)
                 else:
                     break
-        self.assertEqual(b'', dco.unconsumed_tail, ########
+        self.assertEqual(b'', dco.unconsumed_tail,
                          "(B) uct should be b'': not %d long" %
-                                       len(dco.unconsumed_tail))
+                         len(dco.unconsumed_tail))
         self.assertEqual(b'', dco.unused_data)
         self.assertEqual(data, b''.join(bufs))
         # Failure means: "decompressobj with init options failed"
@@ -375,7 +380,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         co = isal_zlib.compressobj()
         bufs = []
         for i in range(0, len(data), cx):
-            bufs.append(co.compress(data[i:i+cx]))
+            bufs.append(co.compress(data[i:i + cx]))
         bufs.append(co.flush())
         combuf = b''.join(bufs)
         self.assertEqual(data, isal_zlib.decompress(combuf),
@@ -385,10 +390,10 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         bufs = []
         cb = combuf
         while not dco.eof:
-            #max_length = 1 + len(cb)//10
+            # max_length = 1 + len(cb)//10
             chunk = dco.decompress(cb, dcx)
             self.assertFalse(len(chunk) > dcx,
-                    'chunk too big (%d>%d)' % (len(chunk), dcx))
+                             'chunk too big (%d>%d)' % (len(chunk), dcx))
             bufs.append(chunk)
             cb = dco.unconsumed_tail
         bufs.append(dco.flush())
@@ -400,7 +405,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         co = isal_zlib.compressobj()
         bufs = []
         for i in range(0, len(data), 256):
-            bufs.append(co.compress(data[i:i+256]))
+            bufs.append(co.compress(data[i:i + 256]))
         bufs.append(co.flush())
         combuf = b''.join(bufs)
         self.assertEqual(data, isal_zlib.decompress(combuf),
@@ -410,10 +415,11 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         bufs = []
         cb = combuf
         while not dco.eof:
-            max_length = 1 + len(cb)//10
+            max_length = 1 + len(cb) // 10
             chunk = dco.decompress(cb, max_length)
             self.assertFalse(len(chunk) > max_length,
-                        'chunk too big (%d>%d)' % (len(chunk),max_length))
+                             'chunk too big (%d>%d)' % (
+                             len(chunk), max_length))
             bufs.append(chunk)
             cb = dco.unconsumed_tail
         if flush:
@@ -422,7 +428,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             while chunk:
                 chunk = dco.decompress(b'', max_length)
                 self.assertFalse(len(chunk) > max_length,
-                            'chunk too big (%d>%d)' % (len(chunk),max_length))
+                                 'chunk too big (%d>%d)' % (
+                                 len(chunk), max_length))
                 bufs.append(chunk)
         self.assertEqual(data, b''.join(bufs), 'Wrong data retrieved')
 
@@ -453,7 +460,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     def test_clear_unconsumed_tail(self):
         # Issue #12050: calling decompress() without providing max_length
         # should clear the unconsumed_tail attribute.
-        cdata = b"x\x9cKLJ\x06\x00\x02M\x01"    # "abc"
+        cdata = b"x\x9cKLJ\x06\x00\x02M\x01"  # "abc"
         dco = isal_zlib.decompressobj()
         ddata = dco.decompress(cdata, 1)
         ddata += dco.decompress(dco.unconsumed_tail)
@@ -472,16 +479,16 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         for sync in sync_opt:
             for level in range(3):
                 try:
-                    obj = isal_zlib.compressobj( level )
-                    a = obj.compress( data[:3000] )
-                    b = obj.flush( sync )
-                    c = obj.compress( data[3000:] )
+                    obj = isal_zlib.compressobj(level)
+                    a = obj.compress(data[:3000])
+                    b = obj.flush(sync)
+                    c = obj.compress(data[3000:])
                     d = obj.flush()
-                except:
+                except:  # noqa: E722
                     print("Error for flush mode={}, level={}"
                           .format(sync, level))
                     raise
-                result = isal_zlib.decompress(b''.join([a,b,c,d]))
+                result = isal_zlib.decompress(b''.join([a, b, c, d]))
                 self.assertEqual(result,
                                  data, ("Decompress failed: flush "
                                         "mode=%i, level=%i") % (sync, level))
@@ -534,7 +541,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         co = isal_zlib.compressobj(isal_zlib.Z_BEST_COMPRESSION)
         self.assertTrue(co.flush())  # Returns a isal_zlib header
         dco = isal_zlib.decompressobj()
-        self.assertEqual(dco.flush(), b"") # Returns nothing
+        self.assertEqual(dco.flush(), b"")  # Returns nothing
 
     def test_dictionary(self):
         h = HAMLET_SCENE
@@ -618,11 +625,11 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
                     if i < len(y):
                         self.assertEqual(dco.unused_data, b'')
                     if maxlen == 0:
-                        data += dco.decompress(x[i : i + step])
+                        data += dco.decompress(x[i: i + step])
                         self.assertEqual(dco.unconsumed_tail, b'')
                     else:
                         data += dco.decompress(
-                                dco.unconsumed_tail + x[i : i + step], maxlen)
+                            dco.unconsumed_tail + x[i: i + step], maxlen)
                 data += dco.flush()
                 self.assertTrue(dco.eof)
                 self.assertEqual(data, source)
@@ -648,7 +655,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco = isal_zlib.decompressobj()
         dco.decompress(data, 1)
         del data
-        data = isal_zlib.compress(input2)
+        data = isal_zlib.compress(input2)  # noqa: F841
         self.assertEqual(dco.flush(), input1[1:])
 
     @pytest.mark.xfail(reason="Flush is not implemented in a compatible way.")
@@ -690,8 +697,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             bufs1.append(c1.flush())
             s1 = b''.join(bufs1)
 
-            self.assertEqual(isal_zlib.decompress(s0),data0+data0)
-            self.assertEqual(isal_zlib.decompress(s1),data0+data1)
+            self.assertEqual(isal_zlib.decompress(s0), data0 + data0)
+            self.assertEqual(isal_zlib.decompress(s1), data0 + data1)
 
     @requires_Compress_copy
     def test_badcompresscopy(self):
@@ -725,8 +732,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             bufs1.append(d1.decompress(comp[32:]))
             s1 = b''.join(bufs1)
 
-            self.assertEqual(s0,s1)
-            self.assertEqual(s0,data)
+            self.assertEqual(s0, s1)
+            self.assertEqual(s0, data)
 
     @requires_Decompress_copy
     def test_baddecompresscopy(self):
@@ -742,7 +749,8 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     def test_compresspickle(self):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             with self.assertRaises((TypeError, pickle.PicklingError)):
-                pickle.dumps(isal_zlib.compressobj(isal_zlib.Z_BEST_COMPRESSION), proto)
+                pickle.dumps(
+                    isal_zlib.compressobj(isal_zlib.Z_BEST_COMPRESSION), proto)
 
     def test_decompresspickle(self):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
@@ -754,16 +762,20 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
     @bigmemtest(size=_1G + 1024 * 1024, memuse=3)
     def test_big_compress_buffer(self, size):
         c = isal_zlib.compressobj(1)
-        compress = lambda s: c.compress(s) + c.flush()
+
+        def compress(data):
+            return c.compress(data) + c.flush()
         self.check_big_compress_buffer(size, compress)
 
     @bigmemtest(size=_1G + 1024 * 1024, memuse=2)
     def test_big_decompress_buffer(self, size):
         d = isal_zlib.decompressobj()
-        decompress = lambda s: d.decompress(s) + d.flush()
+
+        def decompress(data):
+            return d.decompress(data) + d.flush()
         self.check_big_decompress_buffer(size, decompress)
 
-    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=4)
     def test_64bit_compress(self, size):
         data = b'x' * size
@@ -780,7 +792,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
                               " with regards to unconsumed tails/data due to "
                               "the isa-l deflate process consuming too much"
                               " data.")
-    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=3)
     def test_large_unused_data(self, size):
         data = b'abcdefghijklmnop'
@@ -798,7 +810,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
                               " with regards to unconsumed tails/data due to "
                               "the isa-l deflate process consuming too much"
                               " data.")
-    @unittest.skipUnless(sys.maxsize > 2**32, 'requires 64bit platform')
+    @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=5)
     def test_large_unconsumed_tail(self, size):
         data = b'x' * size
@@ -821,7 +833,7 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         # self.assertEqual(isal_zlib.decompress(isal_zlib15, 32 + 15),
         # HAMLET_SCENE)
         with self.assertRaisesRegex(isal_zlib.error, 'nvalid'):
-            data = isal_zlib.decompress(isal_zlib15, 9)
+            isal_zlib.decompress(isal_zlib15, 9)
         # dco = isal_zlib.decompressobj(wbits=32 + 15)
         # self.assertEqual(dco.decompress(isal_zlib15), HAMLET_SCENE)
         dco = isal_zlib.decompressobj(wbits=9)
@@ -854,9 +866,9 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         co = isal_zlib.compressobj(level=1, wbits=16 + 15)
         gzip = co.compress(HAMLET_SCENE) + co.flush()
         self.assertEqual(isal_zlib.decompress(gzip, 16 + 15), HAMLET_SCENE)
-        #self.assertEqual(isal_zlib.decompress(gzip, 32 + 15), HAMLET_SCENE)
-        #dco = isal_zlib.decompressobj(32 + 15)
-        #self.assertEqual(dco.decompress(gzip), HAMLET_SCENE)
+        # self.assertEqual(isal_zlib.decompress(gzip, 32 + 15), HAMLET_SCENE)
+        # dco = isal_zlib.decompressobj(32 + 15)
+        # self.assertEqual(dco.decompress(gzip), HAMLET_SCENE)
 
 
 def choose_lines(source, number, seed=None, generator=random):
