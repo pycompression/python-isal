@@ -397,8 +397,8 @@ class TestGzip(BaseTest):
         # specifically, discussion of XFL in section 2.3.1
         cases = [
             ('fast', 0, b'\x04'),
-            ('best', 3, b'\x02'),
-            ('tradeoff', 2, b'\x00'),
+            ('best', 3, b'\x00'),  # Comparable to medium gzip level.
+            ('tradeoff', 2, b'\x00'),  # Dito
         ]
         xflOffset = 8
 
