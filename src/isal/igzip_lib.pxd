@@ -449,6 +449,6 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  *
     #  * @returns 32-bit Adler-32 checksum
     #  */
-    unsigned long isal_adler32(unsigned int init,
+    unsigned int isal_adler32(unsigned int init,
                                const unsigned char *buf, 
                                unsigned long long len)
