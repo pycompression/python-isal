@@ -22,13 +22,14 @@
 Library to speed up its methods."""
 
 import argparse
-import functools
 import gzip
 import io
 import os
-import _compression
 import sys
 from gzip import READ, WRITE
+
+import _compression
+
 from . import isal_zlib
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
@@ -146,27 +147,20 @@ class IGzipFile(gzip.GzipFile):
         return length
 
 
-# The gzip._GzipReader does all sorts of complex stuff. While using the
-# standard DecompressReader by _compression relies more on the C implementation
-# side of things. It is much simpler. Gzip header interpretation and gzip
-# checksum checking is already implemented in the isa-l library. So no need
-# to do so in pure python.
 class _IGzipReader(gzip._GzipReader):
     def __init__(self, fp):
         super().__init__(fp)
         self._decomp_factory = isal_zlib.decompressobj
         self._decomp_args = dict(wbits=64+isal_zlib.MAX_WBITS)
+        # Set wbits such that ISAL_GZIP_NO_HDR_VER is used. This means that
+        # it does not read a header, and it verifies the trailer.
         self._decompressor = self._decomp_factory(**self._decomp_args)
 
     def _add_read_data(self, data):
-        self._crc = isal_zlib.crc32(data, self._crc)
+        # isa-l verifies the trailer data, so no need to keep track of the crc.
         self._stream_size = self._stream_size + len(data)
 
     def _read_eof(self):
-        crc32 = self._decompressor.crc
-        if crc32 != self._crc:
-            raise BadGzipFile(
-                f"CRC check failed {hex(crc32)} != {hex(self._crc)}")
         # Gzip files can be padded with zeroes and still have archives.
         # Consume all zero bytes and set the file position to the first
         # non-zero byte. See http://www.gzip.org/#faq8
