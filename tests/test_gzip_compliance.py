@@ -365,8 +365,10 @@ class TestGzip(BaseTest):
                              struct.pack('<i', mtime))  # little-endian
 
             xflByte = fRead.read(1)
-            self.assertEqual(xflByte, b'\x02')  # maximum compression
-
+            if sys.version_info[0] == 3 and sys.version_info[1] < 7:
+                self.assertEqual(xflByte, b'\x02')  # maximum compression
+            else:
+                self.assertEqual(xflByte, b'\x00')  # medium compression
             osByte = fRead.read(1)
             self.assertEqual(osByte, b'\xff')  # OS "unknown" (OS-independent)
 
@@ -460,7 +462,7 @@ class TestGzip(BaseTest):
     def test_bad_gzip_file(self):
         major, minor, _, _, _ = sys.version_info
         if major == 3 and minor >= 8 or major > 3:
-            error = igzip.BadGzipFile
+            error = gzip.BadGzipFile
         else:
             error = OSError
 
