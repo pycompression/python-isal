@@ -412,10 +412,15 @@ cdef class Decompress:
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
         self.obuflen = DEF_BUF_SIZE
+        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
         self.unused_data = b""
         self.unconsumed_tail = b""
         self.eof = 0
         self.is_initialised = 1
+
+    def __dealloc__(self):
+        if self.obuf is not NULL:
+            PyMem_Free(self.obuf)
 
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
@@ -457,7 +462,6 @@ cdef class Decompress:
         cdef int err
         
         # Initialise output buffer
-        cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(self.obuflen * sizeof(char))
         out = []
 
         cdef bint last_round = 0
@@ -467,7 +471,7 @@ cdef class Decompress:
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while (self.stream.avail_out == 0 or self.stream.avail_in != 0):
-                    self.stream.next_out = obuf  # Reset output buffer.
+                    self.stream.next_out = self.obuf  # Reset output buffer.
                     if total_bytes >= max_length:
                         break
                     elif total_bytes + self.obuflen >= max_length:
@@ -486,7 +490,7 @@ cdef class Decompress:
                         check_isal_inflate_rc(err)
                     bytes_written = prev_avail_out - self.stream.avail_out
                     total_bytes += bytes_written
-                    out.append(obuf[:bytes_written])
+                    out.append(self.obuf[:bytes_written])
                     if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0:
@@ -494,7 +498,6 @@ cdef class Decompress:
             self.save_unconsumed_input(buffer)
             return b"".join(out)
         finally:
-            PyMem_Free(obuf)
             PyBuffer_Release(buffer)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
