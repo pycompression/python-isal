@@ -406,7 +406,7 @@ class TestGzip(BaseTest):
 
         for (name, level, expectedXflByte) in cases:
             major, minor, _, _, _ = sys.version_info
-            if major == 3 and minor <= 7 or major < 3:
+            if major == 3 and minor < 7 or major < 3:
                 # Specific xfl bytes introduced in 3.7
                 expectedXflByte = b'\x02'
             with self.subTest(name):
