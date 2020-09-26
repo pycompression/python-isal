@@ -71,18 +71,10 @@ Differences with zlib and gzip modules
 + ``isal_zlib`` only supports ``FLUSH``, ``SYNC_FLUSH`` and ``FULL_FLUSH``
   ``FINISH`` is aliased to ``FULL_FLUSH`` (and works correctly as such).
 + ``isal_zlib`` has a ``compressobj`` and ``decompressobj`` implementation.
-  The resulting objects only support a maximum of 4 GB input for their
-  ``compress`` and ``decompress`` methods unlike ``zlib`` which supports
-  an unlimited size. This difference arises because
-  the zlib C library only supports very small amounts (64 KB) of input and the
-  python zlibmodule.c has created a workaround so larger amounts can be
-  supported. This workaround allows anything up to the maximum size that python
-  can describe.
-  However for isa-l the maximum supported size is 4GB. for isal_zlib it was
-  decided that since the ``compressobj`` and ``decompressobj`` are only used in
-  streaming applications, 4 GB is ample. This simplifies the underlying code
-  quite a bit. If you need to compress or decompress larger sizes than 4 GB
-  in memory then the ``compress`` and ``decompress`` methods support this.
+  However, the unused_data and unconsumed_tail for the Decompress object, only
+  work properly when using gzip compatible compression. (25 <= wbits <= 31).
++ The flush implementation for the Compress object behavious differently from
+  the zlib equivalent.
 
 Contributing
 ------------

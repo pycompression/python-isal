@@ -163,48 +163,44 @@ cdef extern from "<isa-l/igzip_lib.h>":
     
     cdef struct BitBuf2:
         unsigned long long m_bits  #!< bits in the bit buffer
-        unsigned long m_bits_count;  #!< number of valid bits in the bit buffer 
+        unsigned int m_bits_count;  #!< number of valid bits in the bit buffer
         unsigned char *m_out_buff  #!< current index of buffer to write to
         unsigned char *m_out_end  #!< end of buffer to write to
         unsigned char *m_out_start  #!< start of buffer to write to
     
     cdef struct isal_zstate:
-        unsigned long total_in_start #!< Not used, may be replaced with something else
-        unsigned long block_next  #!< Start of current deflate block in the input
-        unsigned long block_end  #!< End of current deflate block in the input
-        unsigned long dist_mask  #!< Distance mask used.
-        unsigned long hash_mask
+        unsigned int total_in_start #!< Not used, may be replaced with something else
+        unsigned int block_next  #!< Start of current deflate block in the input
+        unsigned int block_end  #!< End of current deflate block in the input
+        unsigned int dist_mask  #!< Distance mask used.
+        unsigned int hash_mask
         isal_zstate_state state  #!< Current state in processing the data stream
         BitBuf2 bitbuf
-        unsigned long crc  #!< Current checksum without finalize step if any (adler)
+        unsigned int crc  #!< Current checksum without finalize step if any (adler)
         unsigned char has_wrap_hdr  #!< keeps track of wrapper header
         unsigned char has_eob_hdr  #!< keeps track of eob on the last deflate block
         unsigned char has_hist  #!< flag to track if there is match history
-        unsigned int has_level_buf_init  #!< flag to track if user supplied memory has been initialized.
-        unsigned long count  #!< used for partial header/trailer writes
+        unsigned short has_level_buf_init  #!< flag to track if user supplied memory has been initialized.
+        unsigned int count  #!< used for partial header/trailer writes
         unsigned char tmp_out_buff[16]  #! temporary array
-        unsigned long tmp_out_start  #!< temporary variable
-        unsigned long tmp_out_end  #!< temporary variable
-        unsigned long b_bytes_valid  #!< number of valid bytes in buffer
-        unsigned long b_bytes_processed  #!< number of bytes processed in buffer
-        # Below values give compile errors because they are dynamic in size
-        #unsigned char buffer[2 * IGZIP_HIST_SIZE + ISAL_LOOK_AHEAD]  #!< Internal buffer
-            # Stream should be setup such that the head is cache aligned
-        #unsigned int head[IGZIP_LVL0_HASH_SIZE]  #!< Hash array
+        unsigned int tmp_out_start  #!< temporary variable
+        unsigned int tmp_out_end  #!< temporary variable
+        unsigned int b_bytes_valid  #!< number of valid bytes in buffer
+        unsigned int b_bytes_processed  #!< number of bytes processed in buffer
 
     cdef struct isal_hufftables:
         pass
 
     cdef struct isal_zstream:
         unsigned char *next_in  #!< Next input byte
-        unsigned long avail_in  #!< number of bytes available at next_in
-        unsigned long total_in_start  #!< total number of bytes read so far
+        unsigned int avail_in  #!< number of bytes available at next_in
+        unsigned int total_in_start  #!< total number of bytes read so far
         unsigned char *next_out  #!< Next output byte
-        unsigned long avail_out  #!< number of bytes available at next_out
-        unsigned long total_out  #!< total number of bytes written so far
+        unsigned int avail_out  #!< number of bytes available at next_out
+        unsigned int total_out  #!< total number of bytes written so far
         isal_hufftables *hufftables  #!< Huffman encoding used when compressing
-        unsigned long level  #!< Compression level to use
-        unsigned long level_buf_size  #!< Size of level_buf
+        unsigned int level  #!< Compression level to use
+        unsigned int level_buf_size  #!< Size of level_buf
         unsigned char * level_buf  #!< User allocated buffer required for different compression levels
         unsigned short end_of_stream  #!< non-zero if this is the last input buffer
         unsigned short flush  #!< Flush type can be NO_FLUSH, SYNC_FLUSH or FULL_FLUSH
@@ -220,19 +216,20 @@ cdef extern from "<isa-l/igzip_lib.h>":
 
     cdef struct inflate_state:
         unsigned char *next_out  #!< Next output byte
-        unsigned long avail_out  #!< number of bytes available at next_out
-        unsigned long total_out  #!< total number of bytes written so far
+        unsigned int avail_out  #!< number of bytes available at next_out
+        unsigned int total_out  #!< total number of bytes written so far
         unsigned char *next_in  #!< Next input byte
-        unsigned long avail_in  #!< number of bytes available at next_in
-        long read_in_length  #!< Bits in read_in
+        unsigned int avail_in  #!< number of bytes available at next_in
+        unsigned long long read_in  #!< Bits buffered to handle unaligned streams
+        int read_in_length  #!< Bits in read_in
         inflate_huff_code_large  lit_huff_code  #!< Structure for decoding lit/len symbols
         inflate_huff_code_small  dist_huff_code  #!< Structure for decoding dist symbols
         isal_block_state block_state  #!< Current decompression state
-        unsigned long dict_length  #!< Length of dictionary used
-        unsigned long bfinal  #!< Flag identifying final block
-        unsigned long crc_flag  #!< Flag identifying whether to track of crc
-        unsigned long crc  #!< Contains crc or adler32 of output if crc_flag is set
-        unsigned long hist_bits  #!< Log base 2 of maximum lookback distance
+        unsigned int dict_length  #!< Length of dictionary used
+        unsigned int bfinal  #!< Flag identifying final block
+        unsigned int crc_flag  #!< Flag identifying whether to track of crc
+        unsigned int crc  #!< Contains crc or adler32 of output if crc_flag is set
+        unsigned int hist_bits  #!< Log base 2 of maximum lookback distance
         # Other members are omitted because they are not in use yet.
 
     # Compression functions
@@ -267,7 +264,7 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  */
     cdef int isal_deflate_set_dict(isal_zstream *stream, 
                                    unsigned char *dict,
-                                   unsigned long dict_len )
+                                   unsigned int dict_len )
 
 
     #/**
@@ -355,24 +352,6 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  */
     cdef int isal_deflate_stateless(isal_zstream *stream)
 
-    # Other functions
-
-    #     /**
-    #  * @brief Calculate Adler-32 checksum, runs appropriate version.
-    #  *
-    #  * This function determines what instruction sets are enabled and selects the
-    #  * appropriate version at runtime.
-    #  *
-    #  * @param init: initial Adler-32 value
-    #  * @param buf: buffer to calculate checksum on
-    #  * @param len: buffer length in bytes
-    #  *
-    #  * @returns 32-bit Adler-32 checksum
-    #  */
-
-    unsigned long isal_adler32(unsigned long init, 
-                               const unsigned char *buf, 
-                               unsigned long long len)
 
     ###########################
     # Inflate functions
@@ -406,7 +385,7 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  * @returns COMP_OK,
     #  *          ISAL_INVALID_STATE (dictionary could not be set)
     #  */
-    int isal_inflate_set_dict(inflate_state *state, unsigned char *dict, unsigned long dict_len)
+    int isal_inflate_set_dict(inflate_state *state, unsigned char *dict, unsigned int dict_len)
 
     # /**
     #  * @brief Fast data (deflate) decompression for storage applications.
@@ -454,3 +433,22 @@ cdef extern from "<isa-l/igzip_lib.h>":
     #  *         ISAL_INCORRECT_CHECKSUM.
     #  */
     int isal_inflate(inflate_state *state)
+
+    ##########################
+    # Other functions
+    ##########################
+    #     /**
+    #  * @brief Calculate Adler-32 checksum, runs appropriate version.
+    #  *
+    #  * This function determines what instruction sets are enabled and selects the
+    #  * appropriate version at runtime.
+    #  *
+    #  * @param init: initial Adler-32 value
+    #  * @param buf: buffer to calculate checksum on
+    #  * @param len: buffer length in bytes
+    #  *
+    #  * @returns 32-bit Adler-32 checksum
+    #  */
+    unsigned int isal_adler32(unsigned int init,
+                               const unsigned char *buf, 
+                               unsigned long long len)

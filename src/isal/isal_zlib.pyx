@@ -83,7 +83,7 @@ if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
                      "Please contact the developers.")
 
 
-cpdef adler32(data, unsigned long value = 1):
+cpdef adler32(data, unsigned int value = 1):
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
@@ -95,7 +95,7 @@ cpdef adler32(data, unsigned long value = 1):
     finally:
         PyBuffer_Release(buffer)
 
-cpdef crc32(data, unsigned long value = 0):
+cpdef crc32(data, unsigned int value = 0):
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
@@ -117,14 +117,14 @@ ctypedef fused stream_or_state:
     isal_zstream
     inflate_state
 
-cdef unsigned long unsigned_long_min(unsigned long a, unsigned long b):
+cdef unsigned int unsigned_int_min(unsigned int a, unsigned int b):
     if a <= b:
         return a
     else:
         return b
 
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
-    stream.avail_in = unsigned_long_min(<unsigned long>remains[0], UINT32_MAX)
+    stream.avail_in = unsigned_int_min(<unsigned int>remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
 
 def compress(data,
@@ -135,7 +135,7 @@ def compress(data,
 
     # Initialise stream
     cdef isal_zstream stream
-    cdef unsigned long level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
+    cdef unsigned int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
     cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
     isal_deflate_init(&stream)
     stream.level = level
@@ -146,7 +146,7 @@ def compress(data,
                                         &stream.gzip_flag)
 
     # Initialise output buffer
-    cdef unsigned long obuflen = DEF_BUF_SIZE
+    cdef unsigned int obuflen = DEF_BUF_SIZE
     cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(obuflen * sizeof(char))
     out = []
     
@@ -223,7 +223,7 @@ cpdef decompress(data,
     stream.next_in = ibuf
 
     # Initialise output buffer
-    cdef unsigned long obuflen = bufsize
+    cdef unsigned int obuflen = bufsize
     cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(obuflen * sizeof(char))
     out = []
     cdef int err
@@ -281,7 +281,7 @@ cdef class Compress:
     cdef isal_zstream stream
     cdef unsigned char * level_buf
     cdef unsigned char * obuf
-    cdef unsigned long obuflen
+    cdef unsigned int obuflen
 
     def __cinit__(self,
                   int level = ISAL_DEFAULT_COMPRESSION,
@@ -394,7 +394,7 @@ cdef class Decompress:
     cdef bint is_initialised
     cdef inflate_state stream
     cdef unsigned char * obuf
-    cdef unsigned long obuflen
+    cdef unsigned int obuflen
 
     def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
@@ -412,10 +412,15 @@ cdef class Decompress:
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
         self.obuflen = DEF_BUF_SIZE
+        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
         self.unused_data = b""
         self.unconsumed_tail = b""
         self.eof = 0
         self.is_initialised = 1
+
+    def __dealloc__(self):
+        if self.obuf is not NULL:
+            PyMem_Free(self.obuf)
 
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
@@ -451,13 +456,12 @@ cdef class Decompress:
         cdef unsigned char * ibuf = <unsigned char*>buffer.buf
         self.stream.next_in = ibuf
         self.stream.avail_out = 0
-        cdef unsigned long prev_avail_out
-        cdef unsigned long bytes_written
+        cdef unsigned int prev_avail_out
+        cdef unsigned int bytes_written
         cdef Py_ssize_t unused_bytes
         cdef int err
         
         # Initialise output buffer
-        cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(self.obuflen * sizeof(char))
         out = []
 
         cdef bint last_round = 0
@@ -467,7 +471,7 @@ cdef class Decompress:
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while (self.stream.avail_out == 0 or self.stream.avail_in != 0):
-                    self.stream.next_out = obuf  # Reset output buffer.
+                    self.stream.next_out = self.obuf  # Reset output buffer.
                     if total_bytes >= max_length:
                         break
                     elif total_bytes + self.obuflen >= max_length:
@@ -486,7 +490,7 @@ cdef class Decompress:
                         check_isal_inflate_rc(err)
                     bytes_written = prev_avail_out - self.stream.avail_out
                     total_bytes += bytes_written
-                    out.append(obuf[:bytes_written])
+                    out.append(self.obuf[:bytes_written])
                     if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0:
@@ -494,7 +498,6 @@ cdef class Decompress:
             self.save_unconsumed_input(buffer)
             return b"".join(out)
         finally:
-            PyMem_Free(obuf)
             PyBuffer_Release(buffer)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
@@ -510,10 +513,10 @@ cdef class Decompress:
         cdef unsigned char * ibuf = <unsigned char*>buffer.buf
         self.stream.next_in = ibuf
 
-        cdef unsigned long total_bytes = 0
-        cdef unsigned long bytes_written
+        cdef unsigned int total_bytes = 0
+        cdef unsigned int bytes_written
         out = []
-        cdef unsigned long obuflen = length
+        cdef unsigned int obuflen = length
         cdef unsigned char * obuf = <unsigned char *>PyMem_Malloc(obuflen * sizeof(char))
         cdef Py_ssize_t unused_bytes
 
@@ -540,6 +543,10 @@ cdef class Decompress:
         finally:
             PyMem_Free(obuf)
 
+    @property
+    def crc(self):
+        return self.stream.crc
+
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
                                          unsigned short * gzip_flag):
@@ -557,8 +564,8 @@ cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
 
 
 cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
-                                         unsigned long * hist_bits,
-                                         unsigned long * crc_flag):
+                                         unsigned int * hist_bits,
+                                         unsigned int * crc_flag):
     if wbits == 0:
         hist_bits[0] = 0
         crc_flag[0] = ISAL_ZLIB
@@ -571,6 +578,9 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     elif -15 <= wbits <= -8:  # raw compressed stream
         hist_bits[0] = -wbits
         crc_flag[0] = ISAL_DEFLATE
+    elif 72 <=wbits <= 79:
+        hist_bits[0] = wbits - 64
+        crc_flag[0] = ISAL_GZIP_NO_HDR_VER
     else:
         raise ValueError("Invalid wbits value")
 
