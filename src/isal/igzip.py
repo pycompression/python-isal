@@ -122,7 +122,7 @@ class IGzipFile(gzip.GzipFile):
     def flush(self, zlib_mode=isal_zlib.Z_SYNC_FLUSH):
         super().flush(zlib_mode)
 
-    def _write_gzip_header(self, compresslevel = _COMPRESS_LEVEL_TRADEOFF):
+    def _write_gzip_header(self, compresslevel=_COMPRESS_LEVEL_TRADEOFF):
         # Determine what xfl flag is written for the compression level.
         # Equate the fast level to gzip level 1. All the other levels are
         # medium.

@@ -11,16 +11,16 @@ Changes made:
 
 
 """
-import functools
-import os
-import unittest
-from test import support
 import binascii
 import copy
+import functools
+import os
 import pickle
 import random
 import sys
-from test.support import bigmemtest, _1G, _4G
+import unittest
+from test import support
+from test.support import _1G, _4G, bigmemtest
 
 import isal
 from isal import isal_zlib
