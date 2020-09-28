@@ -181,7 +181,7 @@ def test_unused_data_gzip(unused_size, wbits):
 def test_unused_data_zlib_raw(unused_size, wbits):
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
     compressor = zlib.compressobj(wbits=wbits)
-    data = b"A meaningful sentence stardts with a capital and ends with a."
+    data = b"A meaningful sentence starts with a capital and ends with a."
     compressed = compressor.compress(data) + compressor.flush()
     decompressor = isal_zlib.decompressobj(wbits=wbits)
     result = decompressor.decompress(compressed + unused_data)
