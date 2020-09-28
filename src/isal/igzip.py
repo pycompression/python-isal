@@ -36,7 +36,6 @@ __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
-_BLOCK_SIZE = 64*1024
 
 BUFFER_SIZE = _compression.BUFFER_SIZE
 
@@ -95,9 +94,46 @@ def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
 
 
 class IGzipFile(gzip.GzipFile):
+    """The IGzipFile class simulates most of the methods of a file object with
+    the exception of the truncate() method.
+
+    This class only supports opening files in binary mode. If you need to open a
+    compressed file in text mode, use the gzip.open() function.
+    """
     def __init__(self, filename=None, mode=None,
                  compresslevel=isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  fileobj=None, mtime=None):
+        """Constructor for the IGzipFile class.
+
+        At least one of fileobj and filename must be given a
+        non-trivial value.
+
+        The new class instance is based on fileobj, which can be a regular
+        file, an io.BytesIO object, or any other object which simulates a file.
+        It defaults to None, in which case filename is opened to provide
+        a file object.
+
+        When fileobj is not None, the filename argument is only used to be
+        included in the gzip file header, which may include the original
+        filename of the uncompressed file.  It defaults to the filename of
+        fileobj, if discernible; otherwise, it defaults to the empty string,
+        and in this case the original filename is not included in the header.
+
+        The mode argument can be any of 'r', 'rb', 'a', 'ab', 'w', 'wb', 'x',
+        or 'xb' depending on whether the file will be read or written.
+        The default is the mode of fileobj if discernible; otherwise, the
+        default is 'rb'. A mode of 'r' is equivalent to one of 'rb', and
+        similarly for 'w' and 'wb', 'a' and 'ab', and 'x' and 'xb'.
+
+        The compresslevel argument is an integer from 0 to 3 controlling the
+        level of compression; 0 is fastest and produces the least compression,
+        and 3 is slowest and produces the most compression. Unlike
+        gzip.GzipFile 0 is NOT no compression. The default is 2.
+
+        The mtime argument is an optional numeric timestamp to be written
+        to the last modification time field in the stream when compressing.
+        If omitted or None, the current time is used.
+        """
         if not (isal_zlib.ISAL_BEST_SPEED <= compresslevel
                 <= isal_zlib.ISAL_BEST_COMPRESSION):
             raise ValueError(
@@ -257,7 +293,7 @@ def main():
             out_file = io.open(base, "wb")
     try:
         while True:
-            block = in_file.read(_BLOCK_SIZE)
+            block = in_file.read(BUFFER_SIZE)
             if block == b"":
                 break
             out_file.write(block)
