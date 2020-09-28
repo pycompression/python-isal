@@ -10,6 +10,9 @@ Welcome to python-isal's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   isal_zlib
+   igzip
+
 
 
 Indices and tables
