@@ -71,10 +71,10 @@ ISAL_FULL_FLUSH=FULL_FLUSH
 
 Z_NO_FLUSH=ISAL_NO_FLUSH
 Z_SYNC_FLUSH=ISAL_SYNC_FLUSH
-Z_FULL_FLUSH=ISAL_FULL_FLUSH
 Z_FINISH=ISAL_FULL_FLUSH
 
 class IsalError(OSError):
+    """Exception raised on compression and decompression errors."""
     pass
 
 # Add error for compatibility
@@ -311,6 +311,19 @@ def decompress(data,
 
 def decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
                   zdict = None):
+    """
+    Returns a Decompress object for decompressing data streams.
+
+    :param wbits: Set the amount of history bits or window size and which
+                  headers and trailers are expected. Values from 8 to 15
+                  will expect a zlib header and trailer. -8 to -15 will expect
+                  a raw compressed string with no headers and trailers.
+                  From +24 to +31 == 16 + (8 to 15) a gzip header and trailer
+                  will be expected. From +40 to +47 == 32 + (8 to 15)
+                  automatically detects a gzip or zlib header.
+    :zdict:       A predefined compression dictionary. Must be the same zdict
+                  as was used to compress the data.
+    """
     return Decompress.__new__(Decompress, wbits, zdict)
 
 
@@ -321,7 +334,7 @@ def compressobj(int level=ISAL_DEFAULT_COMPRESSION,
                 int strategy=zlib.Z_DEFAULT_STRATEGY,
                 zdict = None):
     """
-    Returns a compression object for compressing data streams.
+    Returns a Compress object for compressing data streams.
 
     :param level:   the compression level from 0 to 3. 0 is the lowest
                     compression (NOT no compression as in stdlib zlib!) and the
@@ -347,6 +360,7 @@ def compressobj(int level=ISAL_DEFAULT_COMPRESSION,
 
 
 cdef class Compress:
+    """Compress object for handling streaming compression."""
     cdef isal_zstream stream
     cdef unsigned char * level_buf
     cdef unsigned char * obuf
@@ -393,6 +407,12 @@ cdef class Compress:
             PyMem_Free(self.level_buf)
 
     def compress(self, data):
+        """
+        Compress *data* returning a bytes object with at least part of the
+        data in *data*. This data should be concatenated to the output
+        produced by any preceding calls to the compress() method.
+        Some input may be kept in internal buffers for later processing.
+        """
         # Initialise output buffer
         out = []
 
@@ -431,13 +451,23 @@ cdef class Compress:
             PyBuffer_Release(buffer)
 
     def flush(self, int mode=FULL_FLUSH):
+        """
+        All pending input is processed, and a bytes object containing the
+        remaining compressed output is returned.
+
+        :param mode: Defaults to ISAL_FULL_FLUSH (Z_FINISH equivalent) which
+                     finishes the compressed stream and prevents compressing
+                     any more data. The only other supported method is
+                     ISAL_SYNC_FLUSH (Z_SYNC_FLUSH) equivalent.
+        """
         if mode == NO_FLUSH:
             # Flushing with no_flush does nothing.
             return b""
 
-        # Initialise stream
+        if mode == FULL_FLUSH:
+            self.stream.end_of_stream = 1
         self.stream.flush = mode
-        self.stream.end_of_stream = 1
+
          # Initialise output buffer
         out = []
        
@@ -457,6 +487,7 @@ cdef class Compress:
         return b"".join(out)
 
 cdef class Decompress:
+    """Decompress object for handling streaming decompression."""
     cdef public bytes unused_data
     cdef public bytes unconsumed_tail
     cdef public bint eof
@@ -514,6 +545,14 @@ cdef class Decompress:
             self.unconsumed_tail = new_data
 
     def decompress(self, data, Py_ssize_t max_length = 0):
+        """
+        Decompress data, returning a bytes object containing the uncompressed
+        data corresponding to at least part of the data in string.
+
+        :param max_length: if non-zero then the return value will be no longer
+                           than max_length. Unprocessed data will be in the
+                           unconsumed_tail attribute.
+        """
    
         cdef Py_ssize_t total_bytes = 0
         if max_length == 0:
@@ -580,6 +619,12 @@ cdef class Decompress:
             PyBuffer_Release(buffer)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
+        """
+        All pending input is processed, and a bytes object containing the
+        remaining uncompressed output is returned.
+
+        :param length: The initial size of the output buffer.
+        """
         if length <= 0:
             raise ValueError("Length must be greater than 0")
         if length > UINT32_MAX:
