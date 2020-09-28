@@ -464,8 +464,7 @@ cdef class Compress:
             # Flushing with no_flush does nothing.
             return b""
 
-        if mode == FULL_FLUSH:
-            self.stream.end_of_stream = 1
+        self.stream.end_of_stream = 1
         self.stream.flush = mode
 
          # Initialise output buffer
