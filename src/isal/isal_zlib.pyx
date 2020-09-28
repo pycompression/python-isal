@@ -19,8 +19,11 @@
 # SOFTWARE.
 
 # cython: language_level=3
+# cython: binding=True
 
-
+"""
+Implementation of the zlib module using the ISA-L libraries.
+"""
 import warnings
 import zlib
 
@@ -83,7 +86,14 @@ if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
                      "Please contact the developers.")
 
 
-cpdef adler32(data, unsigned int value = 1):
+def adler32(data, unsigned int value = 1):
+    """
+    Computes an Adler-32 checksum of *data*. Returns the checksum as unsigned
+    32-bit integer.
+
+    :param data: Binary data (bytes, bytearray, memoryview).
+    :param value: The starting value of the checksum.
+    """
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
@@ -95,7 +105,14 @@ cpdef adler32(data, unsigned int value = 1):
     finally:
         PyBuffer_Release(buffer)
 
-cpdef crc32(data, unsigned int value = 0):
+def crc32(data, unsigned int value = 0):
+    """
+    Computes a CRC-32 checksum of *data*. Returns the checksum as unsigned
+    32-bit integer.
+
+    :param data: Binary data (bytes, bytearray, memoryview).
+    :param value: The starting value of the checksum.
+    """
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
@@ -130,6 +147,22 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
 def compress(data,
              int level=ISAL_DEFAULT_COMPRESSION_I,
              int wbits = ISAL_DEF_MAX_HIST_BITS):
+    """
+    Compresses the bytes in *data*. Returns a bytes object with the
+    compressed data.
+
+    :param level: the compression level from 0 to 3. 0 is the lowest
+                  compression (NOT no compression as in stdlib zlib!) and the
+                  fastest. 3 is the best compression and the slowest. Default
+                  is a compromise at level 2.
+
+    :param wbits: Set the amount of history bits or window size and which
+                  headers and trailers are used. Values from 9 to 15 signify
+                  will use a zlib header and trailer. From +25 to +31
+                  (16 + 9 to 15) a gzip header and trailer will be used.
+                  -9 to -15 will generate a raw compressed string with
+                  no headers and trailers.
+    """
     if level == ZLIB_DEFAULT_COMPRESSION_I:
         level = ISAL_DEFAULT_COMPRESSION_I
 
@@ -199,10 +232,22 @@ def compress(data,
         PyMem_Free(level_buf)
         PyMem_Free(obuf)
 
-cpdef decompress(data,
+def decompress(data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,
                  Py_ssize_t bufsize=DEF_BUF_SIZE,):
-
+    """
+    Deompresses the bytes in *data*. Returns a bytes object with the
+    decompressed data.
+    
+    :param wbits: Set the amount of history bits or window size and which
+                  headers and trailers are expected. Values from 8 to 15
+                  will expect a zlib header and trailer. -8 to -15 will expect
+                  a raw compressed string with no headers and trailers.
+                  From +24 to +31 == 16 + (8 to 15) a gzip header and trailer
+                  will be expected. From +40 to +47 == 32 + (8 to 15)
+                  automatically detects a gzip or zlib header.
+    :param bufsize: The initial size of the output buffer.
+    """
     if bufsize < 0:
         raise ValueError("bufsize must be non-negative")
    
@@ -263,17 +308,41 @@ cpdef decompress(data,
         PyMem_Free(obuf)
 
 
-cpdef decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
+def decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
                   zdict = None):
+
     return Decompress.__new__(Decompress, wbits, zdict)
 
 
-cpdef compressobj(int level=ISAL_DEFAULT_COMPRESSION,
-                  int method=DEFLATED,
-                  int wbits=ISAL_DEF_MAX_HIST_BITS,
-                  int memLevel=DEF_MEM_LEVEL,
-                  int strategy=zlib.Z_DEFAULT_STRATEGY,
-                  zdict = None):
+def compressobj(int level=ISAL_DEFAULT_COMPRESSION,
+                int method=DEFLATED,
+                int wbits=ISAL_DEF_MAX_HIST_BITS,
+                int memLevel=DEF_MEM_LEVEL,
+                int strategy=zlib.Z_DEFAULT_STRATEGY,
+                zdict = None):
+    """
+    Returns a compression object for compressing data streams.
+
+    :param level:   the compression level from 0 to 3. 0 is the lowest
+                    compression (NOT no compression as in stdlib zlib!) and the
+                    fastest. 3 is the best compression and the slowest. Default
+                    is a compromise at level 2.
+    :param method:  The compression algorithm. Currently only DEFLATED is
+                    supported.
+    :param wbits:   Set the amount of history bits or window size and which
+                    headers and trailers are used. Values from 9 to 15 signify
+                    will use a zlib header and trailer. From +25 to +31
+                    (16 + 9 to 15) a gzip header and trailer will be used.
+                    -9 to -15 will generate a raw compressed string with
+                    no headers and trailers.
+    :param memLevel: The amount of memory used for the internal compression
+                     state. Higher values use more memory for better speed and
+                     smaller output.
+    :zdict:         A predefined compression dictionary. A sequence of bytes
+                    that are expected to occur frequently in the to be
+                    compressed data. The most common subsequences should come
+                    at the end.
+    """
     return Compress.__new__(Compress, level, method, wbits, memLevel, strategy, zdict)
 
 
