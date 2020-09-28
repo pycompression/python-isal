@@ -256,7 +256,8 @@ def decompress(data,
 
     wbits_to_flag_and_hist_bits_inflate(wbits,
                                         &stream.hist_bits,
-                                        &stream.crc_flag)
+                                        &stream.crc_flag,
+                                        data[:2] == b"\037\213")
 
     # initialise input
     cdef Py_buffer buffer_data
@@ -310,7 +311,6 @@ def decompress(data,
 
 def decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
                   zdict = None):
-
     return Decompress.__new__(Decompress, wbits, zdict)
 
 
@@ -464,6 +464,7 @@ cdef class Decompress:
     cdef inflate_state stream
     cdef unsigned char * obuf
     cdef unsigned int obuflen
+    cdef bint method_set
 
     def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
@@ -471,6 +472,10 @@ cdef class Decompress:
         wbits_to_flag_and_hist_bits_inflate(wbits,
                                             &self.stream.hist_bits,
                                             &self.stream.crc_flag)
+        if 40 <= wbits <= 47:
+            self.method_set = 0
+        else:
+            self.method_set = 1
 
         cdef Py_ssize_t zdict_length
         if zdict:
@@ -515,6 +520,11 @@ cdef class Decompress:
             max_length = PY_SSIZE_T_MAX
         elif max_length < 0:
             raise ValueError("max_length can not be smaller than 0")
+
+        if not self.method_set:
+            # Try to detect method from the first two bytes of the data.
+            self.stream.crc_flag = ISAL_GZIP if data[:2] == b"\037\213" else ISAL_ZLIB
+            self.method_set = 1
 
         # initialise input
         cdef Py_buffer buffer_data
@@ -634,7 +644,8 @@ cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
 
 cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
                                          unsigned int * hist_bits,
-                                         unsigned int * crc_flag):
+                                         unsigned int * crc_flag,
+                                         bint gzip = 0):
     if wbits == 0:
         hist_bits[0] = 0
         crc_flag[0] = ISAL_ZLIB
@@ -647,6 +658,9 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     elif -15 <= wbits <= -8:  # raw compressed stream
         hist_bits[0] = -wbits
         crc_flag[0] = ISAL_DEFLATE
+    elif 40 <= wbits <= 47:  # Accept gzip or zlib
+        hist_bits[0] = wbits - 32
+        crc_flag[0] = ISAL_GZIP if gzip else ISAL_ZLIB
     elif 72 <=wbits <= 79:
         hist_bits[0] = wbits - 64
         crc_flag[0] = ISAL_GZIP_NO_HDR_VER
