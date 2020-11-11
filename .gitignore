@@ -6,6 +6,10 @@ __pycache__/
 # C extensions
 *.so
 
+# Cython generated files
+*.c
+*.html
+
 # Distribution / packaging
 .Python
 build/

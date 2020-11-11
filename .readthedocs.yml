@@ -1,0 +1,9 @@
+version: 2
+formats: []  # Do not build epub and pdf
+
+python:
+  install:
+    - method: pip
+      path: .
+conda:
+  environment: docs/conda-environment.yml
