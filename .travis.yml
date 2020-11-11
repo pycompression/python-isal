@@ -1,9 +1,17 @@
 language: python
-dist: focal
+
+before_install:
+  # Install conda
+  - export MINICONDA=${HOME}/miniconda
+  - export PATH=${MINICONDA}/bin:${PATH}
+  - wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - bash miniconda.sh -b -f -p ${MINICONDA}
+  - conda config --set always_yes yes
+  - conda config --add channels defaults
+  - conda config --add channels conda-forge
 
 install:
-  - sudo apt-get update && sudo apt-get install -y libisal-dev
-  - pip install tox
+  - conda install $TRAVIS_PYTHON_VERSION tox isa-l
 
 python: 3.6  # Use the oldest supported version of python as default.
 script:
