@@ -1,3 +1,8 @@
+.. image:: https://readthedocs.org/projects/python-isal/badge
+   :target: https://python-isal.readthedocs.io
+   :alt:
+
+
 python-isal
 ===========
 
