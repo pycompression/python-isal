@@ -1,4 +1,7 @@
 name: rtd
+channels:
+  - conda-forge
+  - defaults
 dependencies:
   - isa-l
   - python >=3.6
