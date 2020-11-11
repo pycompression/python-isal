@@ -50,7 +50,7 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={'isal': ['*.pxd', '*.pyx']},
-    url="https://github.com/rhpvorderman/python-isal",
+    url="https://github.com/pycompression/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
