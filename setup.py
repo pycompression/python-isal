@@ -32,8 +32,7 @@ if CONDA_PREFIX:
     EXTENSION_OPTS["include_dirs"] = [os.path.join(CONDA_PREFIX, "include")]
 if os.environ.get("READTHEDOCS"):
     # Readthedocs uses a conda environment but does not activate it.
-    EXTENSION_OPTS["include_dirs"].append(
-        os.path.join(sys.exec_prefix, "include"))
+    EXTENSION_OPTS["include_dirs"] = [os.path.join(sys.exec_prefix, "include")]
 
 setup(
     name="isal",
