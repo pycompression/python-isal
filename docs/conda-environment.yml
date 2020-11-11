@@ -1,5 +1,5 @@
 name: rtd
-requirements:
+dependencies:
   - isa-l
   - python >=3.6
   - sphinx
