@@ -11,7 +11,7 @@ before_install:
   - conda config --add channels conda-forge
 
 install:
-  - conda install $TRAVIS_PYTHON_VERSION tox isa-l
+  - conda install python=$TRAVIS_PYTHON_VERSION tox isa-l
 
 python: 3.6  # Use the oldest supported version of python as default.
 script:
