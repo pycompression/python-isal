@@ -50,6 +50,14 @@ conda-forge channel. Checkout the `ports documentation
 <https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the isa-l project wiki
 to find out how to install it.
 
+python-isal can be installed via pypi with:
+
+.. code-block::
+
+    pip install isal
+
+This requires the isa-l library to be installed on your pc.
+
 The latest development version of python-isal can be installed with
 
 .. code-block::
