@@ -1,0 +1,6 @@
+name: rtd
+requirements:
+  - isa-l
+  - python >=3.6
+  - sphinx
+  - setuptools
