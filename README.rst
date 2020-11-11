@@ -1,3 +1,23 @@
+.. image:: https://img.shields.io/pypi/v/isal.svg
+  :target: https://pypi.org/project/isal/
+  :alt:
+
+.. image:: https://img.shields.io/pypi/pyversions/isal.svg
+  :target: https://pypi.org/project/isal/
+  :alt:
+
+.. image:: https://img.shields.io/pypi/l/isal.svg
+  :target: https://github.com/LUMC/isal/blob/main/LICENSE
+  :alt:
+
+.. image:: https://travis-ci.com/pycompression/python-isal.svg?branch=develop
+  :target: https://travis-ci.com/github/pycompression/python-isal
+  :alt:
+
+.. image:: https://codecov.io/gh/pycompression/python-isal/branch/develop/graph/badge.svg
+  :target: https://codecov.io/gh/pycompression/python-isal
+  :alt:
+
 .. image:: https://readthedocs.org/projects/python-isal/badge
    :target: https://python-isal.readthedocs.io
    :alt:
