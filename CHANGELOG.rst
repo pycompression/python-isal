@@ -9,6 +9,7 @@ Changelog
 
 version 0.1.0-dev
 -----------------
++ Publish API documentation on readthedocs.
 + Add API documentation.
 + Ensure the igzip module is fully compatible with the gzip stdlib module.
 + Add compliance tests from CPython to ensure isal_zlib and igzip are validated
