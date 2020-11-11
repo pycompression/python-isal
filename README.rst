@@ -53,6 +53,9 @@ They can be imported as follows
 their api and functions are the same as the stdlib's modules. Except where
 isa-l does not support the same calls as zlib (See differences below).
 
+A full API documentation can be found on `our readthedocs page
+<https://python-isal.readthedocs.io>`_.
+
 ``python -m isal.igzip`` implements a simple gzip-like command line
 application (just like ``python -m gzip``).
 
