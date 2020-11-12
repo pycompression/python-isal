@@ -9,6 +9,7 @@ Changelog
 
 version 0.2.0-dev
 -----------------
++ Added Python 3.9 to the testing.
 + Fixed ``setup.py`` to list setuptools as a requirement.
 + Changed homepage to reflect move to pycompression organization.
 
