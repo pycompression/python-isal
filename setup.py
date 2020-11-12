@@ -64,7 +64,7 @@ setup(
     ],
     python_requires=">=3.6",
     setup_requires=["cython"],
-    install_requires=[],
+    install_requires=["setuptools"],
     ext_modules=[
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
                   libraries=["isal"], **EXTENSION_OPTS),

@@ -7,6 +7,11 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.2.0-dev
+-----------------
++ Fixed ``setup.py`` to list setuptools as a requirement.
++ Changed homepage to reflect move to pycompression organization.
+
 version 0.1.0
 -----------------
 + Publish API documentation on readthedocs.
