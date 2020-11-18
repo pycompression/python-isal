@@ -2,6 +2,10 @@
   :target: https://pypi.org/project/isal/
   :alt:
 
+.. image:: https://img.shields.io/conda/v/conda-forge/python-isal.svg
+  :target: https://github.com/conda-forge/python-isal-feedstock
+  :alt:
+
 .. image:: https://img.shields.io/pypi/pyversions/isal.svg
   :target: https://pypi.org/project/isal/
   :alt:
