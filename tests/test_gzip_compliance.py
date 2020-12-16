@@ -365,10 +365,11 @@ class TestGzip(BaseTest):
                              struct.pack('<i', mtime))  # little-endian
 
             xflByte = fRead.read(1)
-            if sys.version_info[0] == 3 and sys.version_info[1] < 7:
-                self.assertEqual(xflByte, b'\x02')  # maximum compression
+            if ("compresslevel" in
+                    gzip.GzipFile._write_gzip_header.__code__.co_varnames):
+                self.assertEqual(xflByte, b'\x00')  # fast compression
             else:
-                self.assertEqual(xflByte, b'\x00')  # medium compression
+                self.assertEqual(xflByte, b'\x02')  # maximum compression
             osByte = fRead.read(1)
             self.assertEqual(osByte, b'\xff')  # OS "unknown" (OS-independent)
 
@@ -399,8 +400,9 @@ class TestGzip(BaseTest):
         # specifically, discussion of XFL in section 2.3.1
         cases = [
             ('fast', 0, b'\x04'),
-            ('best', 3, b'\x00'),  # Comparable to medium gzip level.
-            ('tradeoff', 2, b'\x00'),  # Dito
+            ('best', 3, b'\x00'),  # Smaller than fast, bigger than best gzip.
+            ('tradeoff', 2, b'\x00'),  # therefore medium is appropriate.
+            ('1', 1, b'\x00')
         ]
         xflOffset = 8
 
