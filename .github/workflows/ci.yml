@@ -34,8 +34,6 @@ jobs:
         uses: actions/setup-python@v2
       - name: Install tox
         run: pip install tox
-      - name: Install isal
-        run: sudo apt-get install libisal-dev
       - name: Build docs
         run: tox -e docs
   test:
