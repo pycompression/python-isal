@@ -36,7 +36,7 @@ if os.environ.get("READTHEDOCS"):
 
 setup(
     name="isal",
-    version="0.2.0",
+    version="0.3.0-dev",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the isa-l "
                 "library.",
