@@ -22,7 +22,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Install isal
-        run: apt install libisal-dev
+        run: sudo apt-get install libisal-dev
       - name: Lint
         run: tox -e lint
   docs:
@@ -35,7 +35,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Install isal
-        run: apt install libisal-dev
+        run: sudo apt-get install libisal-dev
       - name: Build docs
         run: tox -e docs
   test:
@@ -55,7 +55,7 @@ jobs:
       - name: Install tox
         run: pip install tox
       - name: Install isal
-        run: apt install libisal-dev
+        run: sudo apt-get install libisal-dev
       - name: Run tests
         run: tox -e py3
       - name: Upload coverage report
