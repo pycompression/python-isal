@@ -159,18 +159,27 @@ class IGzipFile(gzip.GzipFile):
         super().flush(zlib_mode)
 
     def _write_gzip_header(self, compresslevel=_COMPRESS_LEVEL_TRADEOFF):
-        # Determine what xfl flag is written for the compression level.
-        # Equate the fast level to gzip level 1. All the other levels are
-        # medium.
-        if sys.version_info[0] == 3 and sys.version_info[1] < 7:
-            # Correct header introduced in 3.7
-            super()._write_gzip_header()
-        else:
+        # Python 3.9 added a `compresslevel` parameter to write gzip header.
+        # This only determines the value of one extra flag. Because this change
+        # was backported to 3.7 and 3.8 in later point versions, the attributes
+        # of the function should be checked before trying to use the
+        # compresslevel parameter.
+        # The gzip header has an extra flag that can be set depending on the
+        # compression level used. This should be set when either the fastest or
+        # best method is used. ISAL level 0 is larger than gzip level 1 and
+        # much faster, so setting the flag for fastest level is appropriate.
+        # ISAL level 1,2 and 3 (best)are similar in size and fall around the
+        # gzip level 3 size. So setting no extra flag
+        # (by using COMPRESS_LEVEL_TRADEOFF) is appropriate here.
+        if ("compresslevel" in super()._write_gzip_header.__code__.co_varnames
+            and hasattr(gzip, "_COMPRESS_LEVEL_FAST")
+                and hasattr(gzip, "_COMPRESS_LEVEL_TRADEOFF")):
             if compresslevel == _COMPRESS_LEVEL_FAST:
-                compresslevel = gzip._COMPRESS_LEVEL_FAST
+                super()._write_gzip_header(gzip._COMPRESS_LEVEL_FAST)
             else:
-                compresslevel = gzip._COMPRESS_LEVEL_TRADEOFF
-            super()._write_gzip_header(compresslevel)
+                super()._write_gzip_header(gzip._COMPRESS_LEVEL_TRADEOFF)
+        else:
+            super()._write_gzip_header()
 
     def write(self, data):
         self._check_not_closed()

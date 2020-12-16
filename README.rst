@@ -1,3 +1,27 @@
+.. image:: https://img.shields.io/pypi/v/isal.svg
+  :target: https://pypi.org/project/isal/
+  :alt:
+
+.. image:: https://img.shields.io/conda/v/conda-forge/python-isal.svg
+  :target: https://github.com/conda-forge/python-isal-feedstock
+  :alt:
+
+.. image:: https://img.shields.io/pypi/pyversions/isal.svg
+  :target: https://pypi.org/project/isal/
+  :alt:
+
+.. image:: https://img.shields.io/pypi/l/isal.svg
+  :target: https://github.com/LUMC/isal/blob/main/LICENSE
+  :alt:
+
+.. image:: https://travis-ci.com/pycompression/python-isal.svg?branch=develop
+  :target: https://travis-ci.com/github/pycompression/python-isal
+  :alt:
+
+.. image:: https://codecov.io/gh/pycompression/python-isal/branch/develop/graph/badge.svg
+  :target: https://codecov.io/gh/pycompression/python-isal
+  :alt:
+
 .. image:: https://readthedocs.org/projects/python-isal/badge
    :target: https://python-isal.readthedocs.io
    :alt:
@@ -29,6 +53,14 @@ isa-l is available in numerous Linux distro's as well as on conda via the
 conda-forge channel. Checkout the `ports documentation
 <https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the isa-l project wiki
 to find out how to install it.
+
+python-isal can be installed via pypi with:
+
+.. code-block::
+
+    pip install isal
+
+This requires the isa-l library to be installed on your pc.
 
 The latest development version of python-isal can be installed with
 

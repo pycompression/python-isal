@@ -36,7 +36,7 @@ if os.environ.get("READTHEDOCS"):
 
 setup(
     name="isal",
-    version="0.1.0",
+    version="0.2.0",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the isa-l "
                 "library.",
@@ -50,13 +50,14 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={'isal': ['*.pxd', '*.pyx']},
-    url="https://github.com/rhpvorderman/python-isal",
+    url="https://github.com/pycompression/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Programming Language :: Cython",
         "Development Status :: 3 - Alpha",
         "Topic :: System :: Archiving :: Compression",
@@ -64,7 +65,7 @@ setup(
     ],
     python_requires=">=3.6",
     setup_requires=["cython"],
-    install_requires=[],
+    install_requires=["setuptools"],
     ext_modules=[
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
                   libraries=["isal"], **EXTENSION_OPTS),
