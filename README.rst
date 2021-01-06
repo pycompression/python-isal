@@ -45,22 +45,48 @@ and ``gzip`` modules from the stdlib (with some minor exceptions, see below).
 
 Installation
 ------------
+Recommended installation via conda
+..................................
+The recommended installation is an installation via Conda. For example using 
+the `miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ installer
+with a properly setup `conda-forge 
+<https://conda-forge.org/docs/user/introduction.html#how-can-i-install-packages-from-conda-forge>`_
+channel. When used with bioinformatics tools setting up `bioconda 
+<http://bioconda.github.io/user/install.html#install-conda>`_
+provides a clear set of installation instructions for conda.
 
-isa-l version 2.26.0 or higher is needed. This includes bindings for the
-adler32 function.
+python-isal is available on conda-forge and can be installed with 
+
+.. code-block::
+
+  conda install python-isal
+
+This will automatically install the isa-l library dependency as well, since
+it is available on conda-forge.
+
+Installation with pip
+.....................
+isa-l version 2.26.0 or higher is needed on your system. This includes bindings 
+for the adler32 function.
 
 isa-l is available in numerous Linux distro's as well as on conda via the
 conda-forge channel. Checkout the `ports documentation
 <https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the isa-l project wiki
-to find out how to install it.
+to find out how to install it. It is important that the development headers 
+are also installed.
+
+On debian and ubuntu the isa-l libraries (including the development headers)
+can be installed with: 
+
+.. code-block::
+
+  sudo apt install libisal-dev
 
 python-isal can be installed via pypi with:
 
 .. code-block::
 
     pip install isal
-
-This requires the isa-l library to be installed on your pc.
 
 The latest development version of python-isal can be installed with
 
