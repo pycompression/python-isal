@@ -24,15 +24,23 @@ from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
 
+ISA_L_SOURCE_DIR = "src/isal/isa-l"
 EXTENSION_OPTS = dict()
 
-# Make sure conda prefix is loaded if installed in a conda environment.
-CONDA_PREFIX = os.environ.get("CONDA_PREFIX")
-if CONDA_PREFIX:
-    EXTENSION_OPTS["include_dirs"] = [os.path.join(CONDA_PREFIX, "include")]
-if os.environ.get("READTHEDOCS"):
+# Use sys.exec_prefix include to work from conda environments
+if os.environ.get("CONDA_PREFIX") or os.environ.get("READTHEDOCS"):
     # Readthedocs uses a conda environment but does not activate it.
     EXTENSION_OPTS["include_dirs"] = [os.path.join(sys.exec_prefix, "include")]
+
+
+def isa_l_source_files():
+    source_files = []
+    for dirpath, dirname, filenames in os.walk(ISA_L_SOURCE_DIR):
+        for filename in filenames:
+            if not ".git" in dirpath:
+                source_files.append(os.path.join(dirpath, filename))
+    return source_files
+
 
 setup(
     name="isal",
@@ -50,6 +58,7 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={'isal': ['*.pxd', '*.pyx']},
+    data_files=isa_l_source_files(),
     url="https://github.com/pycompression/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
