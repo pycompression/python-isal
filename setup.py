@@ -44,14 +44,15 @@ def build_isa_l():
 
 
 EXTENSION_OPTS = dict()
-if os.path.exists(os.path.join(sys.exec_prefix, "include", "isa-l")):
-    # Readthedocs uses a conda environment but does not activate it.
-    EXTENSION_OPTS["include_dirs"] = [os.path.join(sys.exec_prefix, "include")]
-    EXTENSION_OPTS["libraries"] = ["isal"]
-elif os.environ.get("CONDA_PREFIX"):
-    EXTENSION_OPTS["include_dirs"] = [os.path.join(
-        os.environ.get("CONDA_PREFIX"), "include")]
-    EXTENSION_OPTS["libraries"] = ["isal"]
+POSSIBLE_PREFIXES = [sys.exec_prefix, os.environ.get("CONDA_PREFIX", ""),
+                     sys.base_exec_prefix]
+
+for prefix in POSSIBLE_PREFIXES:
+    if os.path.exists(os.path.join(prefix, "include", "isa-l")):
+        # Readthedocs uses a conda environment but does not activate it.
+        EXTENSION_OPTS["include_dirs"] = [os.path.join(prefix, "include")]
+        EXTENSION_OPTS["libraries"] = ["isal"]
+        break
 else:
     ISA_L_PREFIX_DIR = build_isa_l()
     EXTENSION_OPTS["include_dirs"] = [os.path.join(ISA_L_PREFIX_DIR, "include")
