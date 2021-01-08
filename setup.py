@@ -19,25 +19,54 @@
 # SOFTWARE.
 
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
 
 ISA_L_SOURCE_DIR = "src/isal/isa-l"
-EXTENSION_OPTS = dict()
 
-# Use sys.exec_prefix include to work from conda environments
-if os.environ.get("CONDA_PREFIX") or os.environ.get("READTHEDOCS"):
+
+def build_isa_l():
+    build_dir = tempfile.mktemp()
+    temp_prefix = tempfile.mkdtemp()
+    shutil.copytree(ISA_L_SOURCE_DIR, build_dir)
+    subprocess.run(os.path.join(build_dir, "autogen.sh"), cwd=build_dir)
+    subprocess.run([os.path.join(build_dir, "configure"),
+                    "--prefix", temp_prefix], cwd=build_dir)
+    subprocess.run(["make", "-j", str(os.cpu_count())], cwd=build_dir)
+    subprocess.run(["make", "install"], cwd=build_dir)
+    shutil.rmtree(build_dir)
+    return temp_prefix
+
+
+EXTENSION_OPTS = dict()
+if os.environ.get("CONDA_PREFIX"):
+    # Readthedocs uses a conda environment but does not activate it.
+    EXTENSION_OPTS["include_dirs"] = [os.path.join(
+        os.environ.get("CONDA_PREFIX"), "include")]
+    EXTENSION_OPTS["libraries"] = ["isal"]
+elif os.environ.get("READTHEDOCS"):
     # Readthedocs uses a conda environment but does not activate it.
     EXTENSION_OPTS["include_dirs"] = [os.path.join(sys.exec_prefix, "include")]
+    EXTENSION_OPTS["libraries"] = ["isal"]
+
+else:
+    ISA_L_PREFIX_DIR = build_isa_l()
+    EXTENSION_OPTS["include_dirs"] = [os.path.join(ISA_L_PREFIX_DIR, "include")
+                                      ]
+    EXTENSION_OPTS["extra_objects"] = [os.path.join(ISA_L_PREFIX_DIR, "lib",
+                                                    "libisal.a")]
 
 
 def isa_l_source_files():
     source_files = []
     for dirpath, dirname, filenames in os.walk(ISA_L_SOURCE_DIR):
         for filename in filenames:
-            if not ".git" in dirpath:
+            if ".git" not in dirpath:
                 source_files.append(os.path.join(dirpath, filename))
     return source_files
 
@@ -77,8 +106,7 @@ setup(
     install_requires=["setuptools"],
     ext_modules=[
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
-                  libraries=["isal"], **EXTENSION_OPTS),
-        Extension("isal._isal", ["src/isal/_isal.pyx"],
-                  libraries=["isal"], **EXTENSION_OPTS),
+                  **EXTENSION_OPTS),
+        Extension("isal._isal", ["src/isal/_isal.pyx"], **EXTENSION_OPTS),
     ]
 )
