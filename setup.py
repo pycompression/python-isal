@@ -17,13 +17,13 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
 import functools
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+from distutils.errors import CompileError
 from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
@@ -39,15 +39,31 @@ class IsalExtension(Extension):
 
 class BuildIsalExt(build_ext):
     def build_extension(self, ext):
-        if isinstance(ext, IsalExtension):
-            _add_extension_options(ext)
+        if not isinstance(ext, IsalExtension):
+            super().build_extension(ext)
+            return
         # Import cython here because it should be installed by setup requires.
         from Cython.Build import cythonize
         cythonized_module = cythonize(ext)[0]
         # _needs_stub is apparently not set elsewhere. It is not needed for
         # a functional isal extension.
         setattr(cythonized_module, "_needs_stub", False)
-        super().build_extension(cythonized_module)
+        possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
+        for prefix in possible_prefixes:
+            if os.path.exists(os.path.join(prefix, "include", "isa-l")):
+                ext.include_dirs = [os.path.join(prefix, "include")]
+        ext.libraries = ["isal"]
+        try:
+            super().build_extension(cythonized_module)
+        except CompileError:  # Dynamic linking failed
+            ext.libraries = []  # Make sure libraries are empty
+            isa_l_prefix_dir = build_isa_l()
+            ext.include_dirs = [os.path.join(isa_l_prefix_dir, "include")]
+            # -fPIC needed for proper static linking
+            ext.extra_compile_args = ["-fPIC"]
+            ext.extra_objects = [
+                os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
+            super().build_extension(cythonized_module)
 
 
 # Use a cache to prevent isa-l from being build twice. According to the
@@ -76,25 +92,6 @@ def build_isa_l():
     subprocess.run(["make", "install"], **run_args)
     shutil.rmtree(build_dir)
     return temp_prefix
-
-
-def _add_extension_options(ext: Extension):
-    # Check current environment (conda or venv first) or base system install
-    # (in case of venv) for isa-l include directories. Link dynamically.
-    possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix, "/usr"]
-    for prefix in possible_prefixes:
-        if os.path.exists(os.path.join(prefix, "include", "isa-l")):
-            # Readthedocs uses a conda environment but does not activate it.
-            ext.include_dirs = [os.path.join(prefix, "include")]
-            ext.libraries = ["isal"]
-            break
-    else:  # If not installed, build isa-l and link statically.
-        isa_l_prefix_dir = build_isa_l()
-        ext.include_dirs = [os.path.join(isa_l_prefix_dir, "include")]
-        # -fPIC needed for proper static linking
-        ext.extra_compile_args = ["-fPIC"]
-        ext.extra_objects = [os.path.join(isa_l_prefix_dir, "lib", "libisal.a")
-                             ]
 
 
 setup(
