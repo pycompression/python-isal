@@ -44,6 +44,8 @@ class BuildIsalExt(build_ext):
         # Import cython here because it should be installed by setup requires.
         from Cython.Build import cythonize
         cythonized_module = cythonize(ext)[0]
+        # _needs_stub is apparently not set elsewhere. It is not needed for
+        # a functional isal extension.
         setattr(cythonized_module, "_needs_stub", False)
         super().build_extension(cythonized_module)
 
