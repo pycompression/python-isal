@@ -34,6 +34,8 @@ jobs:
         uses: actions/setup-python@v2.2.1
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install isal
+        run: sudo apt-get install libisal-dev
       - name: Install tox
         run: pip install tox
       - name: Build docs
@@ -62,6 +64,9 @@ jobs:
       - name: Install isal
         if: ${{ matrix.linking_method == 'dynamic' }}
         run: sudo apt-get install libisal-dev
+      - name: Install nasm
+        run: sudo apt install nasm
+        if: ${{ matrix.linking_method == 'static' }}
       - name: Run tests
         run: tox -e py3
       - name: Upload coverage report
