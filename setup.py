@@ -39,13 +39,19 @@ def isa_l_dist_files():
 
 
 def build_isa_l():
+    # Creating temporary directories
     unpack_dir = tempfile.mktemp()
     temp_prefix = tempfile.mkdtemp()
     isa_l_archive = os.path.join(ISA_L_SOURCE_DIR, "v2.30.0.tar.gz")
     shutil.unpack_archive(isa_l_archive, unpack_dir)
     build_dir = os.path.join(unpack_dir, "isa-l-2.30.0")
+
+    # Build environment is a copy of OS environment to allow user to influence
+    # it.
     build_env = os.environ.copy()
+    # Add -fPIC flag to allow static compilation
     build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
+
     run_args = dict(cwd=build_dir, env=build_env)
     subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
     subprocess.run([os.path.join(build_dir, "configure"),
@@ -70,6 +76,7 @@ else:
     ISA_L_PREFIX_DIR = build_isa_l()
     EXTENSION_OPTS["include_dirs"] = [os.path.join(ISA_L_PREFIX_DIR, "include")
                                       ]
+    # -fPIC needed for proper static linking
     EXTENSION_OPTS["extra_compile_args"] = ["-fPIC"]
     EXTENSION_OPTS["extra_objects"] = [os.path.join(ISA_L_PREFIX_DIR, "lib",
                                                     "libisal.a")]
