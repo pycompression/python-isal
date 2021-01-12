@@ -26,8 +26,20 @@ import tempfile
 from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext
 
 ISA_L_SOURCE_ARCHIVE = os.path.join("src", "isal", "isa-l", "v2.30.0.tar.gz")
+
+
+class IsalExtension(Extension):
+    pass
+
+
+class BuildIsalExt(build_ext):
+    def build_extension(self, ext):
+        if isinstance(ext, IsalExtension):
+            _add_extension_options(ext)
+        super().build_extension(ext)
 
 
 def build_isa_l():
@@ -53,28 +65,23 @@ def build_isa_l():
     return temp_prefix
 
 
-EXTENSION_OPTS = dict()
-POSSIBLE_PREFIXES = [sys.exec_prefix, os.environ.get("CONDA_PREFIX", ""),
-                     sys.base_exec_prefix]
+def _add_extension_options(ext: Extension):
+    possible_prefixes = [sys.exec_prefix, os.environ.get("CONDA_PREFIX"),
+                         sys.base_exec_prefix]
+    for prefix in possible_prefixes:
+        if prefix and os.path.exists(os.path.join(prefix, "include", "isa-l")):
+            # Readthedocs uses a conda environment but does not activate it.
+            ext.include_dirs = [os.path.join(prefix, "include")]
+            ext.libraries = ["isal"]
+            break
+    else:
+        isa_l_prefix_dir = build_isa_l()
+        ext.include_dirs = [os.path.join(isa_l_prefix_dir, "include")]
+        # -fPIC needed for proper static linking
+        ext.extra_compile_args = ["-fPIC"]
+        ext.extra_objects = [os.path.join(isa_l_prefix_dir, "lib", "libisal.a")
+                             ]
 
-
-# TODO: Work this code into some sort of Extension class to prevent building
-# TODO: of isa-l twice.
-
-for prefix in POSSIBLE_PREFIXES:
-    if os.path.exists(os.path.join(prefix, "include", "isa-l")):
-        # Readthedocs uses a conda environment but does not activate it.
-        EXTENSION_OPTS["include_dirs"] = [os.path.join(prefix, "include")]
-        EXTENSION_OPTS["libraries"] = ["isal"]
-        break
-else:
-    ISA_L_PREFIX_DIR = build_isa_l()
-    EXTENSION_OPTS["include_dirs"] = [os.path.join(ISA_L_PREFIX_DIR, "include")
-                                      ]
-    # -fPIC needed for proper static linking
-    EXTENSION_OPTS["extra_compile_args"] = ["-fPIC"]
-    EXTENSION_OPTS["extra_objects"] = [os.path.join(ISA_L_PREFIX_DIR, "lib",
-                                                    "libisal.a")]
 
 setup(
     name="isal",
@@ -86,6 +93,7 @@ setup(
     author_email="r.h.p.vorderman@lumc.nl",  # A placeholder for now
     long_description=Path("README.rst").read_text(),
     long_description_content_type="text/x-rst",
+    cmdclass= {"build_ext": BuildIsalExt},
     license="MIT",
     keywords="isal isa-l compression deflate gzip igzip",
     zip_safe=False,
@@ -109,8 +117,7 @@ setup(
     setup_requires=["cython"],
     install_requires=["setuptools"],
     ext_modules=[
-        Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
-                  **EXTENSION_OPTS),
-        Extension("isal._isal", ["src/isal/_isal.pyx"], **EXTENSION_OPTS),
+        IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
+        IsalExtension("isal._isal", ["src/isal/_isal.pyx"]),
     ]
 )
