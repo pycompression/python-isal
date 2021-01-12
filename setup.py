@@ -41,7 +41,11 @@ class BuildIsalExt(build_ext):
     def build_extension(self, ext):
         if isinstance(ext, IsalExtension):
             _add_extension_options(ext)
-        super().build_extension(ext)
+        # Import cython here because it should be installed by setup requires.
+        from Cython.Build import cythonize
+        cythonized_module = cythonize(ext)[0]
+        setattr(cythonized_module, "_needs_stub", False)
+        super().build_extension(cythonized_module)
 
 
 # Use a cache to prevent isa-l from being build twice. According to the
