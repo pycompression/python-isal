@@ -107,13 +107,13 @@ setup(
     author_email="r.h.p.vorderman@lumc.nl",  # A placeholder for now
     long_description=Path("README.rst").read_text(),
     long_description_content_type="text/x-rst",
-    cmdclass= {"build_ext": BuildIsalExt},
+    cmdclass={"build_ext": BuildIsalExt},
     license="MIT",
     keywords="isal isa-l compression deflate gzip igzip",
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    package_data={'isal': ['*.pxd', '*.pyx', os.path.join('isa-l','*')]},
+    package_data={'isal': ['*.pxd', '*.pyx', os.path.join('isa-l', '*')]},
     url="https://github.com/pycompression/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
