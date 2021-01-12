@@ -27,18 +27,29 @@ from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
 
-ISA_L_SOURCE_DIR = "src/isal/isa-l"
+ISA_L_SOURCE_DIR = os.path.join("src", "isal", "isa-l")
+
+
+def isa_l_dist_files():
+    source_files = []
+    for dirpath, dirname, filenames in os.walk(ISA_L_SOURCE_DIR):
+        for filename in filenames:
+            source_files.append(os.path.join(dirpath, filename))
+    return source_files
 
 
 def build_isa_l():
-    build_dir = tempfile.mktemp()
+    unpack_dir = tempfile.mktemp()
     temp_prefix = tempfile.mkdtemp()
-    shutil.copytree(ISA_L_SOURCE_DIR, build_dir)
-    subprocess.run(os.path.join(build_dir, "autogen.sh"), cwd=build_dir)
+    isa_l_archive = os.path.join(ISA_L_SOURCE_DIR, "v2.30.0.tar.gz")
+    shutil.unpack_archive(isa_l_archive, unpack_dir)
+    build_dir = os.path.join(unpack_dir, "isa-l-2.30.0")
+    run_args = dict(cwd=build_dir)
+    subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
     subprocess.run([os.path.join(build_dir, "configure"),
-                    "--prefix", temp_prefix], cwd=build_dir)
-    subprocess.run(["make", "-j", str(os.cpu_count())], cwd=build_dir)
-    subprocess.run(["make", "install"], cwd=build_dir)
+                    "--prefix", temp_prefix], **run_args)
+    subprocess.run(["make", "-j", str(os.cpu_count())], **run_args)
+    subprocess.run(["make", "install"], **run_args)
     shutil.rmtree(build_dir)
     return temp_prefix
 
@@ -60,16 +71,6 @@ else:
     EXTENSION_OPTS["extra_objects"] = [os.path.join(ISA_L_PREFIX_DIR, "lib",
                                                     "libisal.a")]
 
-
-def isa_l_source_files():
-    source_files = []
-    for dirpath, dirname, filenames in os.walk(ISA_L_SOURCE_DIR):
-        for filename in filenames:
-            if ".git" not in dirpath:
-                source_files.append(os.path.join(dirpath, filename))
-    return source_files
-
-
 setup(
     name="isal",
     version="0.3.0-dev",
@@ -86,7 +87,7 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={'isal': ['*.pxd', '*.pyx']},
-    data_files=isa_l_source_files(),
+    data_files=isa_l_dist_files(),
     url="https://github.com/pycompression/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",

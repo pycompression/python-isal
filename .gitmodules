@@ -1,3 +1,0 @@
-[submodule "src/isal/isa-l"]
-	path = src/isal/isa-l
-	url = https://github.com/intel/isa-l.git
