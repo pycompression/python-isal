@@ -81,7 +81,7 @@ def build_isa_l():
 def _add_extension_options(ext: Extension):
     # Check current environment (conda or venv first) or base system install
     # (in case of venv) for isa-l include directories. Link dynamically.
-    possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
+    possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix, "/usr"]
     for prefix in possible_prefixes:
         if os.path.exists(os.path.join(prefix, "include", "isa-l")):
             # Readthedocs uses a conda environment but does not activate it.
