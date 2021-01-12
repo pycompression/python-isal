@@ -33,6 +33,7 @@ ISA_L_SOURCE_ARCHIVE = os.path.join("src", "isal", "isa-l", "v2.30.0.tar.gz")
 
 
 class IsalExtension(Extension):
+    """Custom extension to allow for targeted modification."""
     pass
 
 
@@ -72,15 +73,16 @@ def build_isa_l():
 
 
 def _add_extension_options(ext: Extension):
-    possible_prefixes = [sys.exec_prefix, os.environ.get("CONDA_PREFIX"),
-                         sys.base_exec_prefix]
+    # Check current environment (conda or venv first) or base system install
+    # (in case of venv) for isa-l include directories. Link dynamically.
+    possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
     for prefix in possible_prefixes:
-        if prefix and os.path.exists(os.path.join(prefix, "include", "isa-l")):
+        if os.path.exists(os.path.join(prefix, "include", "isa-l")):
             # Readthedocs uses a conda environment but does not activate it.
             ext.include_dirs = [os.path.join(prefix, "include")]
             ext.libraries = ["isal"]
             break
-    else:
+    else:  # If not installed, build isa-l and link statically.
         isa_l_prefix_dir = build_isa_l()
         ext.include_dirs = [os.path.join(isa_l_prefix_dir, "include")]
         # -fPIC needed for proper static linking
