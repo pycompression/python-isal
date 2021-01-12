@@ -66,6 +66,10 @@ EXTENSION_OPTS = dict()
 POSSIBLE_PREFIXES = [sys.exec_prefix, os.environ.get("CONDA_PREFIX", ""),
                      sys.base_exec_prefix]
 
+
+# TODO: Work this code into some sort of Extension class to prevent building
+# TODO: of isa-l twice.
+
 for prefix in POSSIBLE_PREFIXES:
     if os.path.exists(os.path.join(prefix, "include", "isa-l")):
         # Readthedocs uses a conda environment but does not activate it.
