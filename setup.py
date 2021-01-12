@@ -18,6 +18,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+import functools
 import os
 import shutil
 import subprocess
@@ -42,6 +43,11 @@ class BuildIsalExt(build_ext):
         super().build_extension(ext)
 
 
+# Use a cache to prevent isa-l from being build twice. According to the
+# functools docs lru_cache with maxsize None is faster. The shortcut called
+# 'cache' is only available from python 3.9 onwards.
+# see: https://docs.python.org/3/library/functools.html#functools.cache
+@functools.lru_cache(maxsize=None)
 def build_isa_l():
     # Creating temporary directories
     unpack_dir = tempfile.mktemp()
