@@ -44,26 +44,28 @@ class BuildIsalExt(build_ext):
             return
         # Import cython here because it should be installed by setup requires.
         from Cython.Build import cythonize
-        cythonized_module = cythonize(ext)[0]
+        cythonized_ext = cythonize(ext)[0]
         # _needs_stub is apparently not set elsewhere. It is not needed for
         # a functional isal extension.
-        setattr(cythonized_module, "_needs_stub", False)
+        setattr(cythonized_ext, "_needs_stub", False)
         possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
         for prefix in possible_prefixes:
             if os.path.exists(os.path.join(prefix, "include", "isa-l")):
-                ext.include_dirs = [os.path.join(prefix, "include")]
-        ext.libraries = ["isal"]
+                cythonized_ext.include_dirs = [
+                    os.path.join(prefix, "include")]
+        cythonized_ext.libraries = ["isal"]
         try:
-            super().build_extension(cythonized_module)
+            super().build_extension(cythonized_ext)
         except CompileError:  # Dynamic linking failed
-            ext.libraries = []  # Make sure libraries are empty
+            cythonized_ext.libraries = []  # Make sure libraries are empty
             isa_l_prefix_dir = build_isa_l()
-            ext.include_dirs = [os.path.join(isa_l_prefix_dir, "include")]
+            cythonized_ext.include_dirs = [os.path.join(isa_l_prefix_dir,
+                                                        "include")]
             # -fPIC needed for proper static linking
-            ext.extra_compile_args = ["-fPIC"]
-            ext.extra_objects = [
+            cythonized_ext.extra_compile_args = ["-fPIC"]
+            cythonized_ext.extra_objects = [
                 os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
-            super().build_extension(cythonized_module)
+            super().build_extension(cythonized_ext)
 
 
 # Use a cache to prevent isa-l from being build twice. According to the
