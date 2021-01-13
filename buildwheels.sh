@@ -1,5 +1,8 @@
 #!/bin/bash
 #
+# This script was copied from github.com/marcelm/dnaio. Many thanks to Marcel!
+# The only adaptation was moving the script to manylinux2014.
+#
 # Build manylinux wheels. Based on the example at
 # <https://github.com/pypa/python-manylinux-demo>
 #
