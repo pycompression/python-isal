@@ -7,6 +7,12 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.3.0-dev
+-----------------
++ Added a source tarball for isa-l in the package, so it can be compiled and
+  statically linked on (unix) systems that do not have isa-l available in the
+  repos. Linux wheels can be provided on PYPI as well because of this change.
+
 version 0.2.0
 -----------------
 + Fixed a bug where writing of the gzip header would crash if an older version
