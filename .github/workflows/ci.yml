@@ -11,16 +11,12 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        python-version:
-          - 3.6
     steps:
       - uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.6
         uses: actions/setup-python@v2.2.1
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.6
       - name: Install tox
         run: pip install tox
       - name: Lint
@@ -28,16 +24,12 @@ jobs:
   docs:
     needs: lint
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        python-version:
-          - 3.6
     steps:
       - uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.6
         uses: actions/setup-python@v2.2.1
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: 3.6
       - name: Install isal
         run: sudo apt-get install libisal-dev
       - name: Install tox
