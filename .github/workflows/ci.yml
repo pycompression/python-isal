@@ -28,6 +28,10 @@ jobs:
   docs:
     needs: lint
     runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        python-version:
+          - 3.6
     steps:
       - uses: actions/checkout@v2.3.4
       - name: Set up Python ${{ matrix.python-version }}
