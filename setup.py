@@ -54,7 +54,7 @@ class BuildIsalExt(build_ext):
                 cythonized_ext.include_dirs = [
                     os.path.join(prefix, "include")]
         cythonized_ext.libraries = ["isal"]
-        try: # First try to link dynamically
+        try:  # First try to link dynamically
             super().build_extension(cythonized_ext)
         except CompileError:
             # Dynamic linking failed, build ISA-L and link statically.
