@@ -48,11 +48,15 @@ class BuildIsalExt(build_ext):
         # _needs_stub is apparently not set elsewhere. It is not needed for
         # a functional isal extension.
         setattr(cythonized_ext, "_needs_stub", False)
+
+        # Check for isa-l include directories. This is useful when installing
+        # in a conda environment.
         possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
         for prefix in possible_prefixes:
             if os.path.exists(os.path.join(prefix, "include", "isa-l")):
                 cythonized_ext.include_dirs = [
                     os.path.join(prefix, "include")]
+                break  # Only one include directory is needed.
         cythonized_ext.libraries = ["isal"]
         try:  # First try to link dynamically
             super().build_extension(cythonized_ext)
