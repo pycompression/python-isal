@@ -51,7 +51,10 @@ Python-isal can be installed with::
 
     pip install isal
 
-This will include a staticallly linked version of isa-l.
+This will include a staticallly linked version of isa-l. On Linux, wheels
+are provided. If a wheel is not provided for your system the installation will
+build ISA-L first in a temporary directory. Please check the `ISA-L homepage
+<https://github.com/intel/isa-l>`_ for the build requirements.
 
 The latest development version of python-isal can be installed with::
 
