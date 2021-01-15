@@ -29,7 +29,7 @@ from pathlib import Path
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-ISA_L_SOURCE_ARCHIVE = os.path.join("src", "isal", "isa-l", "v2.30.0.tar.gz")
+ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
 
 
 class IsalExtension(Extension):
@@ -73,10 +73,9 @@ class BuildIsalExt(build_ext):
 @functools.lru_cache(maxsize=None)
 def build_isa_l():
     # Creating temporary directories
-    unpack_dir = tempfile.mktemp()
+    build_dir = tempfile.mktemp()
     temp_prefix = tempfile.mkdtemp()
-    shutil.unpack_archive(ISA_L_SOURCE_ARCHIVE, unpack_dir)
-    build_dir = os.path.join(unpack_dir, "isa-l-2.30.0")
+    shutil.copytree(ISA_L_SOURCE, build_dir)
 
     # Build environment is a copy of OS environment to allow user to influence
     # it.
@@ -110,7 +109,9 @@ setup(
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    package_data={'isal': ['*.pxd', '*.pyx', os.path.join('isa-l', '*')]},
+    package_data={'isal': ['*.pxd', '*.pyx',
+                           'isa-l/LICENSE', 'isa-l/README.md',
+                           'isa-l/Release_notes.txt']},
     url="https://github.com/pycompression/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
