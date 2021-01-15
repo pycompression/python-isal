@@ -51,14 +51,16 @@ Python-isal can be installed with::
 
     pip install isal
 
-This will include a staticallly linked version of isa-l. If you wish to link
-dynamically against a version of libisal installed on your system use::
-
-     PYTHON_ISAL_LINK_DYNAMIC=true pip install isal
+This will include a staticallly linked version of isa-l.
 
 The latest development version of python-isal can be installed with::
 
     pip install git+https://github.com/rhpvorderman/python-isal.git
+
+If you wish to link
+dynamically against a version of libisal installed on your system use::
+
+     PYTHON_ISAL_LINK_DYNAMIC=true pip install isal
 
 ISA-L is available in numerous Linux distro's as well as on conda via the
 conda-forge channel. Checkout the `ports documentation
