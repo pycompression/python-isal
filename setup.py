@@ -110,6 +110,8 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     package_data={'isal': ['*.pxd', '*.pyx',
+                           # Include isa-l LICENSE and other relevant files
+                           # with the binary distribution.
                            'isa-l/LICENSE', 'isa-l/README.md',
                            'isa-l/Release_notes.txt']},
     url="https://github.com/pycompression/python-isal",
