@@ -31,7 +31,7 @@ jobs:
         with:
           python-version: 3.6
       - name: Install isal
-        run: sudo apt-get install libisal-dev
+        run: sudo apt-get install nasm
       - name: Install tox
         run: pip install tox
       - name: Build docs
@@ -63,8 +63,14 @@ jobs:
       - name: Install nasm
         run: sudo apt install nasm
         if: ${{ matrix.linking_method == 'static' }}
-      - name: Run tests
+      - name: Run tests (dynamic link)
         run: tox -e py3
+        env:
+          PYTHON_ISAL_LINK_DYNAMIC: True
+        if: ${{ matrix.linking_method == 'dynamic' }}
+      - name: Run tests (dynamic link)
+        run: tox -e py3
+        if: ${{ matrix.linking_method == 'static' }}
       - name: Upload coverage report
-        if: ${{ matrix.python-version == 3.6 }} # Only upload coverage once
+        if: ${{ matrix.python-version == 3.6 && matrix.linking_method == 'static'}} # Only upload coverage once
         uses: codecov/codecov-action@v1
