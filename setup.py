@@ -23,7 +23,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from distutils.errors import CompileError
 from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
@@ -42,28 +41,28 @@ class BuildIsalExt(build_ext):
         if not isinstance(ext, IsalExtension):
             super().build_extension(ext)
             return
-        # Check for isa-l include directories. This is useful when installing
-        # in a conda environment.
-        possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
-        for prefix in possible_prefixes:
-            if os.path.exists(os.path.join(prefix, "include", "isa-l")):
-                ext.include_dirs = [
-                    os.path.join(prefix, "include")]
-                break  # Only one include directory is needed.
-        ext.libraries = ["isal"]
-        try:  # First try to link dynamically
-            super().build_extension(ext)
-        except CompileError:
-            # Dynamic linking failed, build ISA-L and link statically.
-            ext.libraries = []  # Make sure libraries are empty
+
+        # Add option to link dynamically for packaging systems such as conda.
+        if os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None:
+            # Check for isa-l include directories. This is useful when
+            # installing in a conda environment.
+            possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
+            for prefix in possible_prefixes:
+                if os.path.exists(os.path.join(prefix, "include", "isa-l")):
+                    ext.include_dirs = [
+                        os.path.join(prefix, "include")]
+                    break  # Only one include directory is needed.
+            ext.libraries = ["isal"]
+        else:
             isa_l_prefix_dir = build_isa_l()
             ext.include_dirs = [os.path.join(isa_l_prefix_dir,
-                                                        "include")]
+                                             "include")]
             # -fPIC needed for proper static linking
             ext.extra_compile_args = ["-fPIC"]
             ext.extra_objects = [
                 os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
-            super().build_extension(ext)
+
+        super().build_extension(ext)
 
 
 # Use a cache to prevent isa-l from being build twice. According to the
