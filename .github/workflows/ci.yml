@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
       - name: Set up Python 3.6
         uses: actions/setup-python@v2.2.1
         with:
@@ -26,6 +28,8 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
       - name: Set up Python 3.6
         uses: actions/setup-python@v2.2.1
         with:
@@ -51,6 +55,8 @@ jobs:
     needs: lint
     steps:
       - uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2.2.1
         with:
