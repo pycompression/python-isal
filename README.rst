@@ -47,23 +47,18 @@ Installation
 ------------
 Installation with pip
 .....................
-Python-isal can be installed with:
-
-.. code-block::
+Python-isal can be installed with:::
 
     pip install isal
 
-On linux this will install a wheel that has a statically linked version of
-isa-l (version 2.30.0) included.
+This will include a staticallly linked version of isa-l. If you wish to link
+dynamically against a version of libisal installed on your system use:::
 
-The latest development version of python-isal can be installed with
+     PYTHON_ISAL_LINK_DYNAMIC=true pip install isal
 
-.. code-block::
+The latest development version of python-isal can be installed with:::
 
     pip install git+https://github.com/rhpvorderman/python-isal.git
-
-Installing from source will dynamically link isa-l if already available
-on the system. This will speed up the installation process.
 
 isa-l is available in numerous Linux distro's as well as on conda via the
 conda-forge channel. Checkout the `ports documentation
