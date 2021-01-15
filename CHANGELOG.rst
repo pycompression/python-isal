@@ -9,9 +9,11 @@ Changelog
 
 version 0.3.0-dev
 -----------------
-+ Added a source tarball for isa-l in the package, so it can be compiled and
-  statically linked on (Unix) systems that do not have ISA-L available in the
-  repos. Linux wheels can be provided on PyPI as well because of this change.
++ Set included ISA-L library at version 2.30.0.
++ Python-isal now comes with a source distribution of ISA-L in its source
+  distribution against which python-isal is linked statically upon installation
+  by default. Dynamic linking against system libraries is now optional. Wheels
+  with the statically linked ISA-L are now provided on PyPI.
 
 version 0.2.0
 -----------------
