@@ -10,8 +10,8 @@ Changelog
 version 0.3.0-dev
 -----------------
 + Added a source tarball for isa-l in the package, so it can be compiled and
-  statically linked on (unix) systems that do not have isa-l available in the
-  repos. Linux wheels can be provided on PYPI as well because of this change.
+  statically linked on (Unix) systems that do not have ISA-L available in the
+  repos. Linux wheels can be provided on PyPI as well because of this change.
 
 version 0.2.0
 -----------------

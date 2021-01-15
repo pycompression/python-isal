@@ -31,11 +31,11 @@ python-isal
 ===========
 
 Faster zlib and gzip compatible compression and decompression
-by providing python bindings for the isa-l library.
+by providing Python bindings for the ISA-L library.
 
-This package provides Python bindings for the `isa-l
+This package provides Python bindings for the `ISA-L
 <https://github.com/intel/isa-l>`_ library. The Intel Infrastructure Storage
-Acceleration Library (isa-l) implements several key algorithms in `assembly
+Acceleration Library (ISA-L) implements several key algorithms in `assembly
 language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
 a variety of functions to provide zlib/gzip-compatible compression.
 
@@ -60,13 +60,13 @@ The latest development version of python-isal can be installed with::
 
     pip install git+https://github.com/rhpvorderman/python-isal.git
 
-isa-l is available in numerous Linux distro's as well as on conda via the
+ISA-L is available in numerous Linux distro's as well as on conda via the
 conda-forge channel. Checkout the `ports documentation
-<https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the isa-l project wiki
+<https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the ISA-L project wiki
 to find out how to install it. It is important that the development headers
 are also installed.
 
-On debian and ubuntu the isa-l libraries (including the development headers)
+On Debian and Ubuntu the ISA-L libraries (including the development headers)
 can be installed with:
 
 .. code-block::
@@ -121,7 +121,7 @@ Differences with zlib and gzip modules
 
 + Compression level 0 in ``zlib`` and ``gzip`` means **no compression**, while
   in ``isal_zlib`` and ``igzip`` this is the **lowest compression level**.
-  This is a design choice that was inherited from the isa-l library.
+  This is a design choice that was inherited from the ISA-L library.
 + Compression levels range from 0 to 3, not 1 to 9.
 + ``isal_zlib.crc32`` and ``isal_zlib.adler32`` do not support negative
   numbers for the value parameter.
