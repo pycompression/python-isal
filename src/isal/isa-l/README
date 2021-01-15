@@ -1,9 +1,0 @@
-This folder contains the source and license for isa-l. 
-
-This source is used for static linking when no version of 
-the isa-l library is installed on the system python-isal 
-is installed to.
-
-For more information about isa-l go to 
-https://github.com/intel/isa-l.
-
