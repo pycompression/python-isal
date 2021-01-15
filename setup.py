@@ -42,35 +42,28 @@ class BuildIsalExt(build_ext):
         if not isinstance(ext, IsalExtension):
             super().build_extension(ext)
             return
-        # Import cython here because it should be installed by setup requires.
-        from Cython.Build import cythonize
-        cythonized_ext = cythonize(ext)[0]
-        # _needs_stub is apparently not set elsewhere. It is not needed for
-        # a functional isal extension.
-        setattr(cythonized_ext, "_needs_stub", False)
-
         # Check for isa-l include directories. This is useful when installing
         # in a conda environment.
         possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
         for prefix in possible_prefixes:
             if os.path.exists(os.path.join(prefix, "include", "isa-l")):
-                cythonized_ext.include_dirs = [
+                ext.include_dirs = [
                     os.path.join(prefix, "include")]
                 break  # Only one include directory is needed.
-        cythonized_ext.libraries = ["isal"]
+        ext.libraries = ["isal"]
         try:  # First try to link dynamically
-            super().build_extension(cythonized_ext)
+            super().build_extension(ext)
         except CompileError:
             # Dynamic linking failed, build ISA-L and link statically.
-            cythonized_ext.libraries = []  # Make sure libraries are empty
+            ext.libraries = []  # Make sure libraries are empty
             isa_l_prefix_dir = build_isa_l()
-            cythonized_ext.include_dirs = [os.path.join(isa_l_prefix_dir,
+            ext.include_dirs = [os.path.join(isa_l_prefix_dir,
                                                         "include")]
             # -fPIC needed for proper static linking
-            cythonized_ext.extra_compile_args = ["-fPIC"]
-            cythonized_ext.extra_objects = [
+            ext.extra_compile_args = ["-fPIC"]
+            ext.extra_objects = [
                 os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
-            super().build_extension(cythonized_ext)
+            super().build_extension(ext)
 
 
 # Use a cache to prevent isa-l from being build twice. According to the
@@ -132,7 +125,6 @@ setup(
         "License :: OSI Approved :: MIT License",
     ],
     python_requires=">=3.6",
-    setup_requires=["cython"],
     ext_modules=[
         IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
         IsalExtension("isal._isal", ["src/isal/_isal.pyx"]),
