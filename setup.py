@@ -17,22 +17,81 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+import functools
 import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext
 
-EXTENSION_OPTS = dict()
+ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
 
-# Make sure conda prefix is loaded if installed in a conda environment.
-CONDA_PREFIX = os.environ.get("CONDA_PREFIX")
-if CONDA_PREFIX:
-    EXTENSION_OPTS["include_dirs"] = [os.path.join(CONDA_PREFIX, "include")]
-if os.environ.get("READTHEDOCS"):
-    # Readthedocs uses a conda environment but does not activate it.
-    EXTENSION_OPTS["include_dirs"] = [os.path.join(sys.exec_prefix, "include")]
+
+class IsalExtension(Extension):
+    """Custom extension to allow for targeted modification."""
+    pass
+
+
+class BuildIsalExt(build_ext):
+    def build_extension(self, ext):
+        if not isinstance(ext, IsalExtension):
+            super().build_extension(ext)
+            return
+
+        # Add option to link dynamically for packaging systems such as conda.
+        if os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None:
+            # Check for isa-l include directories. This is useful when
+            # installing in a conda environment.
+            possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
+            for prefix in possible_prefixes:
+                if os.path.exists(os.path.join(prefix, "include", "isa-l")):
+                    ext.include_dirs = [
+                        os.path.join(prefix, "include")]
+                    break  # Only one include directory is needed.
+            ext.libraries = ["isal"]
+        else:
+            isa_l_prefix_dir = build_isa_l()
+            ext.include_dirs = [os.path.join(isa_l_prefix_dir,
+                                             "include")]
+            # -fPIC needed for proper static linking
+            ext.extra_compile_args = ["-fPIC"]
+            ext.extra_objects = [
+                os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
+
+        super().build_extension(ext)
+
+
+# Use a cache to prevent isa-l from being build twice. According to the
+# functools docs lru_cache with maxsize None is faster. The shortcut called
+# 'cache' is only available from python 3.9 onwards.
+# see: https://docs.python.org/3/library/functools.html#functools.cache
+@functools.lru_cache(maxsize=None)
+def build_isa_l():
+    # Creating temporary directories
+    build_dir = tempfile.mktemp()
+    temp_prefix = tempfile.mkdtemp()
+    shutil.copytree(ISA_L_SOURCE, build_dir)
+
+    # Build environment is a copy of OS environment to allow user to influence
+    # it.
+    build_env = os.environ.copy()
+    # Add -fPIC flag to allow static compilation
+    build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
+
+    run_args = dict(cwd=build_dir, env=build_env)
+    subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
+    subprocess.run([os.path.join(build_dir, "configure"),
+                    "--prefix", temp_prefix], **run_args)
+    subprocess.run(["make", "-j", str(len(os.sched_getaffinity(0)))],
+                   **run_args)
+    subprocess.run(["make", "install"], **run_args)
+    shutil.rmtree(build_dir)
+    return temp_prefix
+
 
 setup(
     name="isal",
@@ -44,12 +103,17 @@ setup(
     author_email="r.h.p.vorderman@lumc.nl",  # A placeholder for now
     long_description=Path("README.rst").read_text(),
     long_description_content_type="text/x-rst",
+    cmdclass={"build_ext": BuildIsalExt},
     license="MIT",
     keywords="isal isa-l compression deflate gzip igzip",
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    package_data={'isal': ['*.pxd', '*.pyx']},
+    package_data={'isal': ['*.pxd', '*.pyx',
+                           # Include isa-l LICENSE and other relevant files
+                           # with the binary distribution.
+                           'isa-l/LICENSE', 'isa-l/README.md',
+                           'isa-l/Release_notes.txt']},
     url="https://github.com/pycompression/python-isal",
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
@@ -64,12 +128,8 @@ setup(
         "License :: OSI Approved :: MIT License",
     ],
     python_requires=">=3.6",
-    setup_requires=["cython"],
-    install_requires=["setuptools"],
     ext_modules=[
-        Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
-                  libraries=["isal"], **EXTENSION_OPTS),
-        Extension("isal._isal", ["src/isal/_isal.pyx"],
-                  libraries=["isal"], **EXTENSION_OPTS),
+        IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
+        IsalExtension("isal._isal", ["src/isal/_isal.pyx"]),
     ]
 )

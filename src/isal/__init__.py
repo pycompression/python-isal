@@ -18,8 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-import pkg_resources
-
 from ._isal import ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, \
     ISAL_PATCH_VERSION, ISAL_VERSION
 
@@ -27,7 +25,8 @@ __all__ = [
     "ISAL_MAJOR_VERSION",
     "ISAL_MINOR_VERSION",
     "ISAL_PATCH_VERSION",
-    "ISAL_VERSION"
+    "ISAL_VERSION",
+    "__version__"
 ]
 
-__version__ = pkg_resources.get_distribution(__package__).version
+__version__ = "0.3.0-dev"

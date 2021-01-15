@@ -7,6 +7,14 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.3.0-dev
+-----------------
++ Set included ISA-L library at version 2.30.0.
++ Python-isal now comes with a source distribution of ISA-L in its source
+  distribution against which python-isal is linked statically upon installation
+  by default. Dynamic linking against system libraries is now optional. Wheels
+  with the statically linked ISA-L are now provided on PyPI.
+
 version 0.2.0
 -----------------
 + Fixed a bug where writing of the gzip header would crash if an older version
