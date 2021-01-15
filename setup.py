@@ -25,6 +25,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from Cython.Build import cythonize
+
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
@@ -61,6 +63,17 @@ class BuildIsalExt(build_ext):
             ext.extra_compile_args = ["-fPIC"]
             ext.extra_objects = [
                 os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
+
+        if os.getenv("CYTHON_COVERAGE") is not None:
+            # Add cython directives and macros for coverage support.
+            cythonized_exts = cythonize(ext, compiler_directives=dict(
+                linetrace=True
+            ))
+            for cython_ext in cythonized_exts:
+                cython_ext.define_macros = [("CYTHON_TRACE_NOGIL", "1")]
+                cython_ext._needs_stub = False
+                super().build_extension(cython_ext)
+            return
 
         super().build_extension(ext)
 
