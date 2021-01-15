@@ -86,7 +86,8 @@ def build_isa_l():
     subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
     subprocess.run([os.path.join(build_dir, "configure"),
                     "--prefix", temp_prefix], **run_args)
-    subprocess.run(["make", "-j", str(os.cpu_count())], **run_args)
+    subprocess.run(["make", "-j", str(len(os.sched_getaffinity(0)))],
+                   **run_args)
     subprocess.run(["make", "install"], **run_args)
     shutil.rmtree(build_dir)
     return temp_prefix
