@@ -31,11 +31,11 @@ python-isal
 ===========
 
 Faster zlib and gzip compatible compression and decompression
-by providing python bindings for the isa-l library.
+by providing Python bindings for the ISA-L library.
 
-This package provides Python bindings for the `isa-l
+This package provides Python bindings for the `ISA-L
 <https://github.com/intel/isa-l>`_ library. The Intel Infrastructure Storage
-Acceleration Library (isa-l) implements several key algorithms in `assembly
+Acceleration Library (ISA-L) implements several key algorithms in `assembly
 language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
 a variety of functions to provide zlib/gzip-compatible compression.
 
@@ -45,28 +45,58 @@ and ``gzip`` modules from the stdlib (with some minor exceptions, see below).
 
 Installation
 ------------
-
-isa-l version 2.26.0 or higher is needed. This includes bindings for the
-adler32 function.
-
-isa-l is available in numerous Linux distro's as well as on conda via the
-conda-forge channel. Checkout the `ports documentation
-<https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the isa-l project wiki
-to find out how to install it.
-
-python-isal can be installed via pypi with:
-
-.. code-block::
+Installation with pip
+.....................
+Python-isal can be installed with::
 
     pip install isal
 
-This requires the isa-l library to be installed on your pc.
+This will include a staticallly linked version of isa-l. On Linux, wheels
+are provided. If a wheel is not provided for your system the installation will
+build ISA-L first in a temporary directory. Please check the `ISA-L homepage
+<https://github.com/intel/isa-l>`_ for the build requirements.
 
-The latest development version of python-isal can be installed with
+The latest development version of python-isal can be installed with::
+
+    pip install git+https://github.com/rhpvorderman/python-isal.git
+
+If you wish to link
+dynamically against a version of libisal installed on your system use::
+
+     PYTHON_ISAL_LINK_DYNAMIC=true pip install isal
+
+ISA-L is available in numerous Linux distro's as well as on conda via the
+conda-forge channel. Checkout the `ports documentation
+<https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the ISA-L project wiki
+to find out how to install it. It is important that the development headers
+are also installed.
+
+On Debian and Ubuntu the ISA-L libraries (including the development headers)
+can be installed with:
 
 .. code-block::
 
-    pip install git+https://github.com/rhpvorderman/python-isal.git
+  sudo apt install libisal-dev
+
+Installation via conda
+..................................
+Python-isal can be installed via conda, for example using
+the `miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ installer
+with a properly setup `conda-forge 
+<https://conda-forge.org/docs/user/introduction.html#how-can-i-install-packages-from-conda-forge>`_
+channel. When used with bioinformatics tools setting up `bioconda 
+<http://bioconda.github.io/user/install.html#install-conda>`_
+provides a clear set of installation instructions for conda.
+
+python-isal is available on conda-forge and can be installed with 
+
+.. code-block::
+
+  conda install python-isal
+
+This will automatically install the isa-l library dependency as well, since
+it is available on conda-forge.
+
 
 Usage
 -----
@@ -96,7 +126,7 @@ Differences with zlib and gzip modules
 
 + Compression level 0 in ``zlib`` and ``gzip`` means **no compression**, while
   in ``isal_zlib`` and ``igzip`` this is the **lowest compression level**.
-  This is a design choice that was inherited from the isa-l library.
+  This is a design choice that was inherited from the ISA-L library.
 + Compression levels range from 0 to 3, not 1 to 9.
 + ``isal_zlib.crc32`` and ``isal_zlib.adler32`` do not support negative
   numbers for the value parameter.

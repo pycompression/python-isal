@@ -1,0 +1,6 @@
+[build-system]
+requires = ["setuptools>=51", "cython>=0.29", "wheel"]
+build-backend = "setuptools.build_meta"
+
+# [tool.coverage.run]
+# plugins = ["Cython.Coverage"]

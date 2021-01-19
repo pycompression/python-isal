@@ -4,6 +4,7 @@ Release checklist
 - [ ] Create a release branch.
   - [ ] Set version to a stable number.
   - [ ] Change current development version in `CHANGELOG.rst` to stable version.
+  - [ ] Change the version in `__init__.py`
 - [ ] Merge the release branch into `main`.
 - [ ] Create a test pypi package from the main branch. ([Instructions.](
 https://packaging.python.org/tutorials/packaging-projects/#generating-distribution-archives

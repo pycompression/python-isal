@@ -5,20 +5,20 @@ on:
   push:
     branches:
       - develop
-      - master
+      - main
 
 
 jobs:
   lint:
     runs-on: ubuntu-20.04
-    strategy:
-      matrix:
-        python-version:
-          - 3.6
     steps:
       - uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        with:
+          submodules: recursive
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.6
       - name: Install tox
         run: pip install tox
       - name: Lint
@@ -28,14 +28,20 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2.3.4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-      - name: Install tox
-        run: pip install tox
+        with:
+          submodules: recursive
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.6
       - name: Install isal
         run: sudo apt-get install libisal-dev
+      - name: Install tox and upgrade setuptools and pip
+        run: pip install --upgrade tox setuptools pip
       - name: Build docs
         run: tox -e docs
+        env:
+          PYTHON_ISAL_LINK_DYNAMIC: True
   test:
     runs-on: ubuntu-20.04
     strategy:
@@ -45,17 +51,34 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
+        linking_method:
+          - static
+          - dynamic
     needs: lint
     steps:
       - uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
-      - name: Install tox
-        run: pip install tox
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install tox and upgrade setuptools and pip
+        run: pip install --upgrade tox setuptools pip
       - name: Install isal
+        if: ${{ matrix.linking_method == 'dynamic' }}
         run: sudo apt-get install libisal-dev
-      - name: Run tests
+      - name: Install yasm  # Yasm in pypa/manylinux images.
+        run: sudo apt install yasm
+        if: ${{ matrix.linking_method == 'static' }}
+      - name: Run tests (dynamic link)
         run: tox -e py3
+        env:
+          PYTHON_ISAL_LINK_DYNAMIC: True
+        if: ${{ matrix.linking_method == 'dynamic' }}
+      - name: Run tests (dynamic link)
+        run: tox -e py3
+        if: ${{ matrix.linking_method == 'static' }}
       - name: Upload coverage report
-        if: ${{ matrix.python-version == 3.6 }} # Only upload coverage once
+        if: ${{ matrix.python-version == 3.6 && matrix.linking_method == 'static'}} # Only upload coverage once
         uses: codecov/codecov-action@v1

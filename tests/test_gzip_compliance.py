@@ -26,7 +26,6 @@ import sys
 import tempfile
 import unittest
 from subprocess import PIPE, Popen
-from test import support
 from test.support import _4G, bigmemtest
 from test.support.script_helper import assert_python_failure, assert_python_ok
 
@@ -408,8 +407,12 @@ class TestGzip(BaseTest):
 
         for (name, level, expectedXflByte) in cases:
             major, minor, _, _, _ = sys.version_info
-            if major == 3 and minor < 7 or major < 3:
-                # Specific xfl bytes introduced in 3.7
+            if not ("compresslevel" in
+                    gzip.GzipFile._write_gzip_header.__code__.co_varnames
+                    and hasattr(gzip, "_COMPRESS_LEVEL_FAST")
+                    and hasattr(gzip, "_COMPRESS_LEVEL_TRADEOFF")):
+                # Specific xfl bytes introduced in 3.9 and backported to
+                # earlier versions
                 expectedXflByte = b'\x02'
             with self.subTest(name):
                 fWrite = igzip.IGzipFile(self.filename, 'w',
@@ -804,15 +807,13 @@ class TestCommandLine(unittest.TestCase):
 
         with igzip.open(igzipname, mode='wb') as fp:
             fp.write(self.data)
-        rc, out, err = assert_python_ok('-m', 'isal.igzip', '-d', igzipname)
+        sys.argv = ['', '-d', igzipname]
+        igzip.main()
 
         with open(os.path.join(TEMPDIR, "testigzip"), "rb") as gunziped:
             self.assertEqual(gunziped.read(), self.data)
 
         self.assertTrue(os.path.exists(igzipname))
-        self.assertEqual(rc, 0)
-        self.assertEqual(out, b'')
-        self.assertEqual(err, b'')
 
     def test_decompress_infile_outfile_error(self):
         rc, out, err = assert_python_ok('-m', 'isal.igzip', '-d',
@@ -882,11 +883,3 @@ class TestCommandLine(unittest.TestCase):
             b'-0/--fast',
             err)
         self.assertEqual(out, b'')
-
-
-def test_main(verbose=None):
-    support.run_unittest(TestGzip, TestOpen, TestCommandLine)
-
-
-if __name__ == "__main__":
-    test_main(verbose=True)
