@@ -43,7 +43,9 @@ class BuildIsalExt(build_ext):
             return
 
         # Add option to link dynamically for packaging systems such as conda.
-        if os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None:
+        # Always link dynamically on readthedocs to simplify install.
+        if (os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None or
+                os.environ.get("READTHEDOCS") is not None):
             # Check for isa-l include directories. This is useful when
             # installing in a conda environment.
             possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
