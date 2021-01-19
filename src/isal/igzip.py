@@ -313,5 +313,5 @@ def main():
             out_file.close()
 
 
-if __name__ == "__main__":  # pragma: nocov
+if __name__ == "__main__":  # pragma: no cover
     main()
