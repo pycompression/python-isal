@@ -408,8 +408,12 @@ class TestGzip(BaseTest):
 
         for (name, level, expectedXflByte) in cases:
             major, minor, _, _, _ = sys.version_info
-            if major == 3 and minor < 7 or major < 3:
-                # Specific xfl bytes introduced in 3.7
+            if not (
+                    "compresslevel" in gzip.GzipFile._write_gzip_header.__code__.co_varnames
+                    and hasattr(gzip, "_COMPRESS_LEVEL_FAST")
+                    and hasattr(gzip, "_COMPRESS_LEVEL_TRADEOFF")):
+                # Specific xfl bytes introduced in 3.9 and backported to
+                # earlier versions
                 expectedXflByte = b'\x02'
             with self.subTest(name):
                 fWrite = igzip.IGzipFile(self.filename, 'w',
