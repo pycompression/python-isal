@@ -945,7 +945,3 @@ LAERTES
 class CustomInt:
     def __index__(self):
         return 100
-
-
-if __name__ == "__main__":
-    unittest.main()

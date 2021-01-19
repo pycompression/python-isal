@@ -886,11 +886,3 @@ class TestCommandLine(unittest.TestCase):
             b'-0/--fast',
             err)
         self.assertEqual(out, b'')
-
-
-def test_main(verbose=None):
-    support.run_unittest(TestGzip, TestOpen, TestCommandLine)
-
-
-if __name__ == "__main__":
-    test_main(verbose=True)
