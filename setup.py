@@ -62,6 +62,20 @@ class BuildIsalExt(build_ext):
             ext.extra_objects = [
                 os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
 
+        if os.getenv("CYTHON_COVERAGE") is not None:
+            # Import cython here so python setup.py can be used without
+            # installing cython.
+            from Cython.Build import cythonize
+            # Add cython directives and macros for coverage support.
+            cythonized_exts = cythonize(ext, compiler_directives=dict(
+                linetrace=True
+            ))
+            for cython_ext in cythonized_exts:
+                cython_ext.define_macros = [("CYTHON_TRACE_NOGIL", "1")]
+                cython_ext._needs_stub = False
+                super().build_extension(cython_ext)
+            return
+
         super().build_extension(ext)
 
 
