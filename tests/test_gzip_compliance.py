@@ -808,15 +808,13 @@ class TestCommandLine(unittest.TestCase):
 
         with igzip.open(igzipname, mode='wb') as fp:
             fp.write(self.data)
-        rc, out, err = assert_python_ok('-m', 'isal.igzip', '-d', igzipname)
+        sys.argv = [ '', '-d', igzipname]
+        igzip.main()
 
         with open(os.path.join(TEMPDIR, "testigzip"), "rb") as gunziped:
             self.assertEqual(gunziped.read(), self.data)
 
         self.assertTrue(os.path.exists(igzipname))
-        self.assertEqual(rc, 0)
-        self.assertEqual(out, b'')
-        self.assertEqual(err, b'')
 
     def test_decompress_infile_outfile_error(self):
         rc, out, err = assert_python_ok('-m', 'isal.igzip', '-d',
