@@ -25,8 +25,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-from Cython.Build import cythonize
-
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
@@ -65,6 +63,9 @@ class BuildIsalExt(build_ext):
                 os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
 
         if os.getenv("CYTHON_COVERAGE") is not None:
+            # Import cython here so python setup.py can be used without
+            # installing cython.
+            from Cython.Build import cythonize
             # Add cython directives and macros for coverage support.
             cythonized_exts = cythonize(ext, compiler_directives=dict(
                 linetrace=True
