@@ -68,8 +68,8 @@ jobs:
       - name: Install isal
         if: ${{ matrix.linking_method == 'dynamic' }}
         run: sudo apt-get install libisal-dev
-      - name: Install nasm
-        run: sudo apt install nasm
+      - name: Install yasm  # Yasm in pypa/manylinux images.
+        run: sudo apt install yasm
         if: ${{ matrix.linking_method == 'static' }}
       - name: Run tests (dynamic link)
         run: tox -e py3
