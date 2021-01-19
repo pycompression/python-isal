@@ -26,7 +26,6 @@ import sys
 import tempfile
 import unittest
 from subprocess import PIPE, Popen
-from test import support
 from test.support import _4G, bigmemtest
 from test.support.script_helper import assert_python_failure, assert_python_ok
 
@@ -408,8 +407,8 @@ class TestGzip(BaseTest):
 
         for (name, level, expectedXflByte) in cases:
             major, minor, _, _, _ = sys.version_info
-            if not (
-                    "compresslevel" in gzip.GzipFile._write_gzip_header.__code__.co_varnames
+            if not ("compresslevel" in
+                    gzip.GzipFile._write_gzip_header.__code__.co_varnames
                     and hasattr(gzip, "_COMPRESS_LEVEL_FAST")
                     and hasattr(gzip, "_COMPRESS_LEVEL_TRADEOFF")):
                 # Specific xfl bytes introduced in 3.9 and backported to
@@ -808,7 +807,7 @@ class TestCommandLine(unittest.TestCase):
 
         with igzip.open(igzipname, mode='wb') as fp:
             fp.write(self.data)
-        sys.argv = [ '', '-d', igzipname]
+        sys.argv = ['', '-d', igzipname]
         igzip.main()
 
         with open(os.path.join(TEMPDIR, "testigzip"), "rb") as gunziped:
