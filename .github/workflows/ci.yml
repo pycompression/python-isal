@@ -84,16 +84,20 @@ jobs:
         uses: codecov/codecov-action@v1
 
   macos:
-    - uses: actions/checkout@v2.3.4
+    runs-on: macos-latest
+    needs: lint
+    steps:
+      - name: Install python 3.6
+        uses: actions/checkout@v2.3.4
         with:
           submodules: recursive
-    - name: Set up Python 3.6
-      uses: actions/setup-python@v2.2.1
-      with:
-        python-version: 3.6
-    - name: Install tox and upgrade setuptools and pip
-      run: pip install --upgrade tox setuptools pip
-    - name: Install yasm  # Yasm in pypa/manylinux images.
-      run: brew install yasm
-    - name: Run tests
-      run: tox -e py3
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.6
+      - name: Install tox and upgrade setuptools and pip
+        run: pip install --upgrade tox setuptools pip
+      - name: Install yasm  # Yasm in pypa/manylinux images.
+        run: brew install yasm
+      - name: Run tests
+        run: tox -e py3
