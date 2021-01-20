@@ -97,7 +97,7 @@ jobs:
           python-version: 3.6
       - name: Install tox and upgrade setuptools and pip
         run: pip install --upgrade tox setuptools pip
-      - name: Install yasm  # Yasm in pypa/manylinux images.
-        run: brew install yasm
+      - name: Install build dependencies
+        run: brew install yasm automake autoconf
       - name: Run tests
         run: tox -e py3
