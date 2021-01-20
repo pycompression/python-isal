@@ -145,6 +145,8 @@ setup(
         "Development Status :: 3 - Alpha",
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: MIT License",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS"
     ],
     python_requires=">=3.6",
     ext_modules=[
