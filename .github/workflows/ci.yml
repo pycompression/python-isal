@@ -65,13 +65,13 @@ jobs:
         run: pip install --upgrade tox setuptools pip
       - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
         run: sudo apt install yasm
-        if: ${{ runner.os == "linux" }}
+        if: runner.os == 'Linux'
       - name: Install build dependencies (Macos)
         run: brew install yasm automake autoconf
-        if: ${{ runner.os == "macOS" }}
+        if: runner.os == 'macOS'
       - name: Install build dependencies (Windows)
         run: choco install yasm
-        if: ${{ runner.os == "Windows" }}
+        if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
       - name: Upload coverage report
