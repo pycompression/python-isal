@@ -64,6 +64,9 @@ class BuildIsalExt(build_ext):
             elif sys.platform.startswith("win"):
                 ext.extra_objects = [
                     os.path.join(isa_l_prefix_dir, "isa-l_static.lib")]
+            else:
+                raise NotImplementedError(
+                    f"Unsupported platform: {sys.platform}")
             ext.include_dirs = [os.path.join(isa_l_prefix_dir,
                                              "include")]
             # -fPIC needed for proper static linking
