@@ -82,3 +82,22 @@ jobs:
       - name: Upload coverage report
         if: ${{ matrix.python-version == 3.6 && matrix.linking_method == 'static'}} # Only upload coverage once
         uses: codecov/codecov-action@v1
+
+  macos:
+    runs-on: macos-latest
+    needs: lint
+    steps:
+      - name: Install python 3.6
+        uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.6
+      - name: Install tox and upgrade setuptools and pip
+        run: pip install --upgrade tox setuptools pip
+      - name: Install build dependencies
+        run: brew install yasm automake autoconf
+      - name: Run tests
+        run: tox -e py3
