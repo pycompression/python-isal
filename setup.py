@@ -57,12 +57,17 @@ class BuildIsalExt(build_ext):
             ext.libraries = ["isal"]
         else:
             isa_l_prefix_dir = build_isa_l()
+            if (sys.platform.startswith("linux") or
+                    sys.platform.startswith("darwin")):
+                ext.extra_objects = [
+                    os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
+            elif sys.platform.startswith("win"):
+                ext.extra_objects = [
+                    os.path.join(isa_l_prefix_dir, "isa-l_static.lib")]
             ext.include_dirs = [os.path.join(isa_l_prefix_dir,
                                              "include")]
             # -fPIC needed for proper static linking
             ext.extra_compile_args = ["-fPIC"]
-            ext.extra_objects = [
-                os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
 
         if os.getenv("CYTHON_COVERAGE") is not None:
             # Import cython here so python setup.py can be used without
@@ -102,13 +107,19 @@ def build_isa_l():
     else:  # sched_getaffinity not available on all platforms
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
-    subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
-    subprocess.run([os.path.join(build_dir, "configure"),
-                    "--prefix", temp_prefix], **run_args)
-    subprocess.run(["make", "-j", str(cpu_count)],
-                   **run_args)
-    subprocess.run(["make", "install"], **run_args)
-    shutil.rmtree(build_dir)
+    if sys.platform.startswith("linux") or sys.platform.startswith("darwin"):
+        subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
+        subprocess.run([os.path.join(build_dir, "configure"),
+                        "--prefix", temp_prefix], **run_args)
+        subprocess.run(["make", "-j", str(cpu_count)],
+                       **run_args)
+        subprocess.run(["make", "install"], **run_args)
+        shutil.rmtree(build_dir)
+    elif sys.platform.startswith("win"):
+        subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
+        temp_prefix = build_dir
+    else:
+        raise NotImplementedError(f"Unsupported platform: {sys.platform}")
     return temp_prefix
 
 
