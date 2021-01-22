@@ -61,8 +61,8 @@ jobs:
         uses: actions/setup-python@v2.2.1
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install tox and upgrade setuptools and pip
-        run: pip install --upgrade tox setuptools pip
+      - name: Install tox and upgrade setuptools
+        run: pip install --upgrade tox setuptools
       - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
         run: sudo apt install yasm
         if: runner.os == 'Linux'
