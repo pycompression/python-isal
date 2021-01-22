@@ -70,7 +70,7 @@ jobs:
         run: brew install yasm automake autoconf
         if: runner.os == 'macOS'
       - name: Install build dependencies (Windows)
-        run: choco install yasm
+        run: choco install yasm visualstudio2019-workload-universalbuildtools
         if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
