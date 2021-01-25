@@ -58,6 +58,12 @@ jobs:
         uses: actions/setup-python@v2.2.1
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
+        run: sudo apt install yasm
+        if: runner.os == 'Linux'
+      - name: Install build dependencies (Macos)
+        run: brew install yasm automake autoconf
+        if: runner.os == 'macOS'
       - name: Install twine, cython wheel and upgrade setuptools
         run: pip install --upgrade twine cython wheel setuptools
       - name: create dists
@@ -135,6 +141,12 @@ jobs:
           submodules: recursive
       - uses: actions/setup-python@v2
         name: Install Python
+      - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
+        run: sudo apt install yasm
+        if: runner.os == 'Linux'
+      - name: Install build dependencies (Macos)
+        run: brew install yasm automake autoconf
+        if: runner.os == 'macOS'
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==1.8.0
         env:
