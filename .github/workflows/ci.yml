@@ -49,7 +49,7 @@ jobs:
       matrix:
         python-version:
           - 3.6
-        os: [ "macos-latest", "ubuntu-latest" ]
+        os: ["ubuntu-latest" ]
     steps:
       - uses: actions/checkout@v2.3.4
         with:
