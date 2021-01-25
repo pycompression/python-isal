@@ -125,7 +125,7 @@ jobs:
   buildwheels:
     runs-on: ${{ matrix.os }}
     needs: [lint, docs, test-static, test-dynamic, twine_check]
-    if: startsWith(github.ref, 'refs/tags')
+    #if: startsWith(github.ref, 'refs/tags')
     strategy:
       matrix:
         os: [ "macos-latest", "ubuntu-latest" ]
@@ -142,7 +142,7 @@ jobs:
       - name: Build wheels
         run: cibuildwheel --outputdir dist
       - name: Build sdist
-        if: runner.os == "Linux"
+        if: "runner.os == 'Linux'"
         run: python setup.py sdist
       - uses: actions/upload-artifact@v2
         with:
