@@ -155,7 +155,7 @@ jobs:
         env:
           CIBW_BUILD: py36,py37,py38,py39
       - name: Build wheels
-        run: cibuildwheel --outputdir dist
+        run: cibuildwheel --output-dir dist
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
