@@ -62,7 +62,7 @@ jobs:
         run: sudo apt install yasm
         if: runner.os == 'Linux'
       - name: Install build dependencies (Macos)
-        run: sudo conda install yasm automake autoconf
+        run: brew install yasm automake autoconf
         if: runner.os == 'macOS'
       - name: Install twine, cython wheel and upgrade setuptools
         run: pip install --upgrade twine cython wheel setuptools
@@ -99,7 +99,7 @@ jobs:
         run: sudo apt install yasm
         if: runner.os == 'Linux'
       - name: Install build dependencies (Macos)
-        run: sudo conda install yasm automake autoconf
+        run: brew install yasm automake autoconf
         if: runner.os == 'macOS'
       - name: Run tests
         run: tox -e py3
