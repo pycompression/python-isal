@@ -134,10 +134,9 @@ jobs:
           PYTHON_ISAL_LINK_DYNAMIC: True
 
   deploy:
-    #if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
     needs: [lint, docs, test-static, test-dynamic, twine_check]
-    #if: startsWith(github.ref, 'refs/tags')
     strategy:
       matrix:
         os: [ "macos-latest", "ubuntu-latest" ]
