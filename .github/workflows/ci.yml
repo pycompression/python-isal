@@ -7,7 +7,7 @@ on:
       - develop
       - main
     tags:
-      - *
+      - "*"
 
 
 jobs:
@@ -133,7 +133,8 @@ jobs:
         env:
           PYTHON_ISAL_LINK_DYNAMIC: True
 
-  buildwheels:
+  deploy:
+    #if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
     needs: [lint, docs, test-static, test-dynamic, twine_check]
     #if: startsWith(github.ref, 'refs/tags')
@@ -158,11 +159,22 @@ jobs:
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
           # Below command fails when data is not correctly statically linked
+          # Full tests not needed: these are done prior to building.
           CIBW_TEST_COMMAND: "python -c 'from isal import isal_zlib, igzip; isal_zlib.adler32(b\"bla\")'"
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
-      - uses: actions/upload-artifact@v2
+      - name: Publish package to TestPyPI
+        uses: pypa/gh-action-pypi-publish@master
+        # Alpha, Beta and dev releases contain a - in the tag.
+        if: contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
         with:
-          name: ${{matrix.os}}_wheels
-          path: dist/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@master
+        if: !contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
