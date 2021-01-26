@@ -160,4 +160,4 @@ jobs:
       - uses: actions/upload-artifact@v2
         with:
           name: ${{matrix.os}}_wheels
-          path: wheelhouse/
+          path: dist/
