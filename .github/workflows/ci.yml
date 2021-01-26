@@ -6,6 +6,8 @@ on:
     branches:
       - develop
       - main
+    tags:
+      - *
 
 
 jobs:
@@ -155,8 +157,8 @@ jobs:
           CIBW_BUILD: "cp3{6,7,8,9}-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
-          CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: pytest {project}/tests
+          # Below command fails when data is not correctly statically linked
+          CIBW_TEST_COMMAND: "python -c 'from isal import isal_zlib, igzip; isal_zlib.adler32(b\"bla\")'"
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
