@@ -154,6 +154,7 @@ jobs:
         env:
           CIBW_BUILD: "cp3{6,7,8,9}-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
