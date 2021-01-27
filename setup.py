@@ -97,12 +97,15 @@ def build_isa_l():
     build_env = os.environ.copy()
     # Add -fPIC flag to allow static compilation
     build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
-
+    if hasattr(os, "sched_getaffinity"):
+        cpu_count = len(os.sched_getaffinity(0))
+    else:  # sched_getaffinity not available on all platforms
+        cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
     subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
     subprocess.run([os.path.join(build_dir, "configure"),
                     "--prefix", temp_prefix], **run_args)
-    subprocess.run(["make", "-j", str(len(os.sched_getaffinity(0)))],
+    subprocess.run(["make", "-j", str(cpu_count)],
                    **run_args)
     subprocess.run(["make", "install"], **run_args)
     shutil.rmtree(build_dir)
@@ -111,7 +114,7 @@ def build_isa_l():
 
 setup(
     name="isal",
-    version="0.3.0",
+    version="0.4.0",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the isa-l "
                 "library.",
@@ -142,6 +145,8 @@ setup(
         "Development Status :: 3 - Alpha",
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: MIT License",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS"
     ],
     python_requires=">=3.6",
     ext_modules=[

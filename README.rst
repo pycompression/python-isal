@@ -47,19 +47,21 @@ Installation
 ------------
 Installation with pip
 .....................
-Python-isal can be installed with::
 
-    pip install isal
++ Linux and MacOS: ``pip install isal``. Wheels are provided, so installation should
+  be almost instantaneous.
++ Windows: Installation is not supported yet.
 
-This will include a staticallly linked version of isa-l. On Linux, wheels
-are provided. If a wheel is not provided for your system the installation will
-build ISA-L first in a temporary directory. Please check the `ISA-L homepage
-<https://github.com/intel/isa-l>`_ for the build requirements.
+The installation will include a staticallly linked version of isa-l. On Linux
+and MacOS, wheels are provided. If a wheel is not provided for your system the
+installation will build ISA-L first in a temporary directory. Please check the
+`ISA-L homepage <https://github.com/intel/isa-l>`_ for the build requirements.
 
 The latest development version of python-isal can be installed with::
 
     pip install git+https://github.com/rhpvorderman/python-isal.git
 
+This requires having the build requirements installed.
 If you wish to link
 dynamically against a version of libisal installed on your system use::
 
