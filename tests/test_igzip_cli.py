@@ -91,3 +91,23 @@ def test_decompress_infile_outfile_error(capsysbinary):
     assert error.match("filename doesn't end")
     out, err = capsysbinary.readouterr()
     assert out == b''
+
+
+def test_decompress_infile_stdout(capsysbinary, tmp_path):
+    test_gz = tmp_path / "test.gz"
+    test_gz.write_bytes(gzip.compress(DATA))
+    sys.argv = ['', '-cd', str(test_gz)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert out == DATA
+    assert err == b''
+
+
+def test_compress_infile_stdout(capsysbinary, tmp_path):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    sys.argv = ['', '-c', str(test)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert gzip.decompress(out) == DATA
+    assert err == b''

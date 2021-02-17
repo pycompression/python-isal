@@ -276,6 +276,8 @@ def main():
         "-d", "--decompress", action="store_false",
         dest="compress",
         help="Decompress the file instead of compressing.")
+    parser.add_argument("-c", "--stdout", action="store_true",
+                        help="write on standard output")
     args = parser.parse_args()
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
@@ -291,14 +293,21 @@ def main():
     else:
         if args.compress:
             in_file = io.open(args.file, mode="rb")
-            out_file = open(args.file + ".gz", mode="wb",
-                            compresslevel=compresslevel)
+            if args.stdout:
+                out_file = IGzipFile(mode="wb", compresslevel=compresslevel,
+                                     fileobj=sys.stdout.buffer)
+            else:
+                out_file = open(args.file + ".gz", mode="wb",
+                                compresslevel=compresslevel)
         else:
             base, extension = os.path.splitext(args.file)
             if extension != ".gz":
                 raise ValueError(f"filename doesn't end in .gz: {args.file}")
             in_file = open(args.file, "rb")
-            out_file = io.open(base, "wb")
+            if args.stdout:
+                out_file = sys.stdout.buffer
+            else:
+                out_file = io.open(base, "wb")
     try:
         while True:
             block = in_file.read(BUFFER_SIZE)
