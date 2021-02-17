@@ -296,8 +296,7 @@ def main():
         else:
             base, extension = os.path.splitext(args.file)
             if extension != ".gz":
-                print(f"filename doesn't end in .gz: {args.file}")
-                return
+                raise ValueError(f"filename doesn't end in .gz: {args.file}")
             in_file = open(args.file, "rb")
             out_file = io.open(base, "wb")
     try:

@@ -18,6 +18,10 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+"""Tests for the igzip CLI. Uses pytest which works better than unittest for
+these sort of tests. Meant to complement the gzip module compliance tests.
+It should improve coverage as well."""
+
 import gzip
 import io
 import sys
@@ -39,6 +43,7 @@ def test_decompress_stdin_stdout(capsysbinary, level):
     sys.argv = ["", "-d"]
     igzip.main()
     out, err = capsysbinary.readouterr()
+    assert err == b''
     assert out == DATA
 
 
@@ -49,21 +54,40 @@ def test_compress_stdin_stdout(capsysbinary, level):
     sys.argv = ["", f"-{level}"]
     igzip.main()
     out, err = capsysbinary.readouterr()
+    assert err == b''
     assert gzip.decompress(out) == DATA
 
 
-def test_decompress_infile_outfile(tmp_path):
+def test_decompress_infile_outfile(tmp_path, capsysbinary):
     test_file = tmp_path / "test"
     compressed_temp = test_file.with_suffix(".gz")
     compressed_temp.write_bytes(gzip.compress(DATA))
     sys.argv = ['', '-d', str(compressed_temp)]
     igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert err == b''
+    assert out == b''
+    assert test_file.exists()
     assert test_file.read_bytes() == DATA
 
 
-def test_compress_infile_outfile(tmp_path):
+def test_compress_infile_outfile(tmp_path, capsysbinary):
     test_file = tmp_path / "test"
     test_file.write_bytes(DATA)
     sys.argv = ['', str(test_file)]
     igzip.main()
-    assert gzip.decompress(test_file.with_suffix(".gz").read_bytes()) == DATA
+    out_file = test_file.with_suffix(".gz")
+    out, err = capsysbinary.readouterr()
+    assert err == b''
+    assert out == b''
+    assert out_file.exists()
+    assert gzip.decompress(out_file.read_bytes()) == DATA
+
+
+def test_decompress_infile_outfile_error(capsysbinary):
+    sys.argv = ['', '-d', 'thisisatest.out']
+    with pytest.raises(ValueError) as error:
+        igzip.main()
+    assert error.match("filename doesn't end")
+    out, err = capsysbinary.readouterr()
+    assert out == b''
