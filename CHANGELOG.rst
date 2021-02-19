@@ -9,6 +9,8 @@ Changelog
 
 version 0.5.0-dev
 -----------------
++ Fix a bug where negative integers were not allowed for the ``adler32`` and
+  ``crc32`` functions in ``isal_zlib``.
 + Provided stubs (type-hint files) for ``isal_zlib`` and ``_isal`` modules.
   Package is now tested with mypy to ensure correct type information.
 + The command-line interface now reads in blocks of 32K instead of 8K. This
