@@ -7,6 +7,12 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.5.0-dev
+-----------------
++ A ``-c`` or ``--stdout`` flag was added to the CLI interface of isal.igzip.
+  This allows it to behave more like the ``gzip`` or ``pigz`` command line
+  interfaces.
+
 version 0.4.0
 -----------------
 + Move wheel building to cibuildwheel on github actions CI. Wheels are now
