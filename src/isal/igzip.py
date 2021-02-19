@@ -36,7 +36,7 @@ _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
 try:
-    BadGzipFile = gzip.BadGzipFile
+    BadGzipFile = gzip.BadGzipFile  # type: ignore
 except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
     BadGzipFile = OSError
 
@@ -76,7 +76,8 @@ def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
             raise ValueError("Argument 'newline' not supported in binary mode")
 
     gz_mode = mode.replace("t", "")
-    if isinstance(filename, (str, bytes, os.PathLike)):
+    # __fspath__ method is os.PathLike
+    if isinstance(filename, (str, bytes)) or hasattr(filename, "__fspath__"):
         binary_file = IGzipFile(filename, gz_mode, compresslevel)
     elif hasattr(filename, "read") or hasattr(filename, "write"):
         binary_file = IGzipFile(None, gz_mode, compresslevel, filename)
