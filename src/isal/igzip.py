@@ -27,8 +27,6 @@ import io
 import os
 import sys
 
-import _compression
-
 from . import isal_zlib
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
@@ -36,8 +34,6 @@ __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
-
-BUFFER_SIZE = _compression.BUFFER_SIZE
 
 try:
     BadGzipFile = gzip.BadGzipFile
@@ -278,6 +274,12 @@ def main():
         help="Decompress the file instead of compressing.")
     parser.add_argument("-c", "--stdout", action="store_true",
                         help="write on standard output")
+    # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K
+    # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
+    # ~6% faster.
+    parser.add_argument("-b", "--buffer-size",
+                        default=32 * 1024, type=int,
+                        help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
@@ -310,7 +312,7 @@ def main():
 
     try:
         while True:
-            block = in_file.read(BUFFER_SIZE)
+            block = in_file.read(args.buffer_size)
             if block == b"":
                 break
             out_file.write(block)
