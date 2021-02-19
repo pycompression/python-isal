@@ -35,8 +35,9 @@ with gzip.open(str(COMPRESSED_FILE), mode="rb") as file_h:
 DATA_SIZES = [2**i for i in range(3, 20)]
 # 100 seeds generated with random.randint(0, 2**32-1)
 SEEDS_FILE = DATA_DIR / "seeds.txt"
-# Create seeds 0, 1 and 20 seeds from the seeds file.
-SEEDS = [0, 1] + [int(seed) for seed in SEEDS_FILE.read_text().splitlines()]
+# Create seeds -3, -20, 0, 1 and 20 seeds from the seeds file.
+SEEDS = [-3, -20, 0, 1] + [
+    int(seed) for seed in SEEDS_FILE.read_text().splitlines()]
 
 # Wbits for ZLIB compression, GZIP compression, and RAW compressed streams
 WBITS_RANGE = list(range(9, 16)) + list(range(25, 32)) + list(range(-15, -8))

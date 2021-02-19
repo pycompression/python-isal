@@ -86,7 +86,7 @@ if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
                      "Please contact the developers.")
 
 
-def adler32(data, unsigned int value = 1):
+def adler32(data, long long value = 1):
     """
     Computes an Adler-32 checksum of *data*. Returns the checksum as unsigned
     32-bit integer.
@@ -105,7 +105,7 @@ def adler32(data, unsigned int value = 1):
     finally:
         PyBuffer_Release(buffer)
 
-def crc32(data, unsigned int value = 0):
+def crc32(data, long long value = 0):
     """
     Computes a CRC-32 checksum of *data*. Returns the checksum as unsigned
     32-bit integer.
