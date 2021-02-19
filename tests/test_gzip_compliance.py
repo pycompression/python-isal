@@ -26,8 +26,8 @@ import sys
 import tempfile
 import unittest
 from subprocess import PIPE, Popen
-from test.support import _4G, bigmemtest
-from test.support.script_helper import assert_python_failure, assert_python_ok
+from test.support import _4G, bigmemtest  # type: ignore
+from test.support.script_helper import assert_python_failure, assert_python_ok  # type: ignore  # noqa: E501
 
 from isal import igzip
 
