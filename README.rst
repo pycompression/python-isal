@@ -43,6 +43,29 @@ a variety of functions to provide zlib/gzip-compatible compression.
 ``igzip`` module which are usable as drop-in replacements for the ``zlib``
 and ``gzip`` modules from the stdlib (with some minor exceptions, see below).
 
+Usage
+-----
+
+Python-isal has faster versions of the stdlib's ``zlib`` and ``gzip`` module
+these are called ``isal_zlib`` and ``igzip`` respectively.
+
+They can be imported as follows
+
+.. code-block:: python
+
+    from isal import isal_zlib
+    from isal import igzip
+
+``isal_zlib`` and ``igzip`` were meant to be used as drop in replacements so
+their api and functions are the same as the stdlib's modules. Except where
+isa-l does not support the same calls as zlib (See differences below).
+
+A full API documentation can be found on `our readthedocs page
+<https://python-isal.readthedocs.io>`_.
+
+``python -m isal.igzip`` implements a simple gzip-like command line
+application (just like ``python -m gzip``).
+
 Installation
 ------------
 Installation with pip
@@ -99,30 +122,6 @@ python-isal is available on conda-forge and can be installed with
 This will automatically install the isa-l library dependency as well, since
 it is available on conda-forge.
 
-
-Usage
------
-
-Python-isal has faster versions of the stdlib's ``zlib`` and ``gzip`` module
-these are called ``isal_zlib`` and ``igzip`` respectively.
-
-They can be imported as follows
-
-.. code-block:: python
-
-    from isal import isal_zlib
-    from isal import igzip
-
-``isal_zlib`` and ``igzip`` were meant to be used as drop in replacements so
-their api and functions are the same as the stdlib's modules. Except where
-isa-l does not support the same calls as zlib (See differences below).
-
-A full API documentation can be found on `our readthedocs page
-<https://python-isal.readthedocs.io>`_.
-
-``python -m isal.igzip`` implements a simple gzip-like command line
-application (just like ``python -m gzip``).
-
 Differences with zlib and gzip modules
 --------------------------------------
 
@@ -140,13 +139,14 @@ Differences with zlib and gzip modules
   ``isal_zlib`` supports memory levels smallest, small, medium, large and
   largest. These have been mapped to levels 1, 2-3, 4-6, 7-8 and 9. So
   ``isal_zlib`` can be used with zlib compatible memory levels.
-+ ``isal_zlib`` only supports ``FLUSH``, ``SYNC_FLUSH`` and ``FULL_FLUSH``
-  ``FINISH`` is aliased to ``FULL_FLUSH`` (and works correctly as such).
 + ``isal_zlib`` has a ``compressobj`` and ``decompressobj`` implementation.
   However, the unused_data and unconsumed_tail for the Decompress object, only
   work properly when using gzip compatible compression. (25 <= wbits <= 31).
 + The flush implementation for the Compress object behavious differently from
-  the zlib equivalent.
+  the zlib equivalent. The flush implementation is sufficient for 
+  the ``igzip`` module to work 100% in compliance with the ``gzip`` tests from
+  CPython. It does not however work for the ``zlib`` compliance tests. This
+  is an area that still needs work.
 
 Contributing
 ------------
