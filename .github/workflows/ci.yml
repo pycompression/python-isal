@@ -44,6 +44,25 @@ jobs:
         run: tox -e docs
         env:
           PYTHON_ISAL_LINK_DYNAMIC: True
+  mypy:
+    needs: lint
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.6
+      - name: Install isal
+        run: sudo apt-get install libisal-dev
+      - name: Install tox and upgrade setuptools and pip
+        run: pip install --upgrade tox setuptools pip
+      - name: Mypy checks
+        run: tox -e mypy
+        env:
+          PYTHON_ISAL_LINK_DYNAMIC: True
   twine_check:
     needs: lint
     runs-on: ${{ matrix.os }}

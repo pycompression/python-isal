@@ -9,6 +9,8 @@ Changelog
 
 version 0.5.0-dev
 -----------------
++ Provided stubs (type-hint files) for ``isal_zlib`` and ``_isal`` modules.
+  Package is now tested with mypy to ensure correct type information.
 + The command-line interface now reads in blocks of 32K instead of 8K. This
   improves performance by about 6% when compressing and 11% when decompressing.
   A hidden ``-b`` flag was added to adjust the buffer size for benchmarks.
