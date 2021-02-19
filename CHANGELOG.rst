@@ -9,6 +9,9 @@ Changelog
 
 version 0.5.0-dev
 -----------------
++ The command-line interface now reads in blocks of 32K instead of 8K. This
+  improves performance by about 6% when compressing and 11% when decompressing.
+  A hidden ``-b`` flag was added to adjust the buffer size for benchmarks.
 + A ``-c`` or ``--stdout`` flag was added to the CLI interface of isal.igzip.
   This allows it to behave more like the ``gzip`` or ``pigz`` command line
   interfaces.
