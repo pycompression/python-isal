@@ -19,8 +19,8 @@ import pickle
 import random
 import sys
 import unittest
-from test import support
-from test.support import _1G, _4G, bigmemtest
+from test import support  # type: ignore
+from test.support import _1G, _4G, bigmemtest  # type: ignore
 
 import isal
 from isal import isal_zlib
