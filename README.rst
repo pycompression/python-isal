@@ -56,7 +56,7 @@ They can be imported as follows
     from isal import isal_zlib
     from isal import igzip
 
-``isal_zlib`` and ``igzip`` were meant to be used as drop in replacements so
+``isal_zlib`` and ``igzip`` are meant to be used as drop in replacements so
 their api and functions are the same as the stdlib's modules. Except where
 isa-l does not support the same calls as zlib (See differences below).
 
