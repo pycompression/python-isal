@@ -143,8 +143,8 @@ Differences with zlib and gzip modules
 + The flush implementation for the Compress object behavious differently from
   the zlib equivalent. The flush implementation is sufficient for 
   the ``igzip`` module to work 100% in compliance with the ``gzip`` tests from
-  CPython. It does not however work for the ``zlib`` compliance tests. This
-  is an area that still needs work.
+  CPython. It does not however work for all the ``zlib`` compliance tests 
+  (see above). This is an area that still needs work.
 
 Contributing
 ------------
