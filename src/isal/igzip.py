@@ -285,6 +285,19 @@ def main():
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 
+    # Determine input file
+    if args.compress and args.file is None:
+        in_file = sys.stdin.buffer
+    elif args.compress and args.file is not None:
+        in_file = io.open(args.file, mode="rb")
+    elif not args.compress and args.file is None:
+        in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
+    elif not args.compress and args.file is not None:
+        base, extension = os.path.splitext(args.file)
+        if extension != ".gz":
+            raise ValueError(f"filename doesn't end in .gz: {args.file}. ")
+        in_file = open(args.file, "rb")
+
     # Determine output file
     if args.compress and (args.file is None or args.stdout):
         out_file = IGzipFile(mode="wb", compresslevel=compresslevel,
@@ -295,21 +308,7 @@ def main():
     elif not args.compress and (args.file is None or args.stdout):
         out_file = sys.stdout.buffer
     elif not args.compress and args.file is not None:
-        base, extension = os.path.splitext(args.file)
-        if extension != ".gz":
-            raise ValueError(f"filename doesn't end in .gz: {args.file}. "
-                             f"Cannot determine filename for output")
         out_file = io.open(base, "wb")
-
-    # Determine input file
-    if args.compress and args.file is None:
-        in_file = sys.stdin.buffer
-    elif args.compress and args.file is not None:
-        in_file = io.open(args.file, mode="rb")
-    elif not args.compress and args.file is None:
-        in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
-    elif not args.compress and args.file is not None:
-        in_file = open(args.file, "rb")
 
     try:
         while True:
