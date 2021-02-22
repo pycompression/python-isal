@@ -129,8 +129,6 @@ Differences with zlib and gzip modules
   in ``isal_zlib`` and ``igzip`` this is the **lowest compression level**.
   This is a design choice that was inherited from the ISA-L library.
 + Compression levels range from 0 to 3, not 1 to 9.
-+ ``isal_zlib.crc32`` and ``isal_zlib.adler32`` do not support negative
-  numbers for the value parameter.
 + ``zlib.Z_DEFAULT_STRATEGY``, ``zlib.Z_RLE`` etc. are exposed as
   ``isal_zlib.Z_DEFAULT_STRATEGY``, ``isal_zlib.Z_RLE`` etc. for compatibility
   reasons. However, ``isal_zlib`` only supports a default strategy and will
