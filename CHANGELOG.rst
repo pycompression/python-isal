@@ -7,7 +7,7 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 0.5.0-dev
+version 0.5.0
 -----------------
 + Fix a bug where negative integers were not allowed for the ``adler32`` and
   ``crc32`` functions in ``isal_zlib``.
