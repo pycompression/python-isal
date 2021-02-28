@@ -34,7 +34,7 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cpython.buffer cimport PyBUF_READ, PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, \
     PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
-
+from cpython.long cimport PyLong_AsUnsignedLongMask
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
@@ -86,7 +86,7 @@ if ISAL_DEF_MAX_HIST_BITS > zlib.MAX_WBITS:
                      "Please contact the developers.")
 
 
-def adler32(data, unsigned int value = 1):
+def adler32(data, value = 1):
     """
     Computes an Adler-32 checksum of *data*. Returns the checksum as unsigned
     32-bit integer.
@@ -94,6 +94,7 @@ def adler32(data, unsigned int value = 1):
     :param data: Binary data (bytes, bytearray, memoryview).
     :param value: The starting value of the checksum.
     """
+    cdef unsigned long init = PyLong_AsUnsignedLongMask(value)
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
@@ -101,11 +102,11 @@ def adler32(data, unsigned int value = 1):
     try:
         if buffer.len > UINT64_MAX:
             raise ValueError("Data too big for adler32")
-        return isal_adler32(value, <unsigned char*>buffer.buf, buffer.len)
+        return isal_adler32(init, <unsigned char*>buffer.buf, buffer.len)
     finally:
         PyBuffer_Release(buffer)
 
-def crc32(data, unsigned int value = 0):
+def crc32(data, value = 0):
     """
     Computes a CRC-32 checksum of *data*. Returns the checksum as unsigned
     32-bit integer.
@@ -113,6 +114,7 @@ def crc32(data, unsigned int value = 0):
     :param data: Binary data (bytes, bytearray, memoryview).
     :param value: The starting value of the checksum.
     """
+    cdef unsigned long init = PyLong_AsUnsignedLongMask(value)
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     if PyObject_GetBuffer(data, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
@@ -120,7 +122,7 @@ def crc32(data, unsigned int value = 0):
     try:
         if buffer.len > UINT64_MAX:
             raise ValueError("Data too big for adler32")
-        return crc32_gzip_refl(value, <unsigned char*>buffer.buf, buffer.len)
+        return crc32_gzip_refl(init, <unsigned char*>buffer.buf, buffer.len)
     finally:
         PyBuffer_Release(buffer)
 

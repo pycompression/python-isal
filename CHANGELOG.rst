@@ -7,8 +7,23 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 0.3.1-dev
+version 0.5.0
 -----------------
++ Fix a bug where negative integers were not allowed for the ``adler32`` and
+  ``crc32`` functions in ``isal_zlib``.
++ Provided stubs (type-hint files) for ``isal_zlib`` and ``_isal`` modules.
+  Package is now tested with mypy to ensure correct type information.
++ The command-line interface now reads in blocks of 32K instead of 8K. This
+  improves performance by about 6% when compressing and 11% when decompressing.
+  A hidden ``-b`` flag was added to adjust the buffer size for benchmarks.
++ A ``-c`` or ``--stdout`` flag was added to the CLI interface of isal.igzip.
+  This allows it to behave more like the ``gzip`` or ``pigz`` command line
+  interfaces.
+
+version 0.4.0
+-----------------
++ Move wheel building to cibuildwheel on github actions CI. Wheels are now
+  provided for Mac OS as well.
 + Make a tiny change in setup.py so python-isal can be build on Mac OS X.
 
 version 0.3.0

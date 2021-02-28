@@ -26,8 +26,8 @@ import sys
 import tempfile
 import unittest
 from subprocess import PIPE, Popen
-from test.support import _4G, bigmemtest
-from test.support.script_helper import assert_python_failure, assert_python_ok
+from test.support import _4G, bigmemtest  # type: ignore
+from test.support.script_helper import assert_python_failure, assert_python_ok  # type: ignore  # noqa: E501
 
 from isal import igzip
 
@@ -816,11 +816,17 @@ class TestCommandLine(unittest.TestCase):
         self.assertTrue(os.path.exists(igzipname))
 
     def test_decompress_infile_outfile_error(self):
-        rc, out, err = assert_python_ok('-m', 'isal.igzip', '-d',
-                                        'thisisatest.out')
-        self.assertIn(b"filename doesn't end in .gz:", out)
-        self.assertEqual(rc, 0)
-        self.assertEqual(err, b'')
+        rc, out, err = assert_python_failure('-m', 'isal.igzip', '-d',
+                                             'thisisatest.out')
+        # We take a divide from the original gzip module here. Error messages
+        # should be printed in stderr. Also exit code should not be 0!
+        # in python -m gzip -d mycompressedfile > decompressed
+        # will simply make decompressed contents 'filename doesn't end in .gz'
+        # without throwing an error. Crazy!
+        # TODO: Report a bug in CPython for gzip module
+        self.assertIn(b"filename doesn't end in .gz:", err)
+        self.assertNotEqual(rc, 0)
+        self.assertEqual(out, b'')
 
     @create_and_remove_directory(TEMPDIR)
     def test_compress_stdin_outfile(self):

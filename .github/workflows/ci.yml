@@ -6,6 +6,8 @@ on:
     branches:
       - develop
       - main
+    tags:
+      - "*"
 
 
 jobs:
@@ -42,6 +44,54 @@ jobs:
         run: tox -e docs
         env:
           PYTHON_ISAL_LINK_DYNAMIC: True
+  mypy:
+    needs: lint
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
+      - name: Set up Python 3.6
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: 3.6
+      - name: Install isal
+        run: sudo apt-get install libisal-dev
+      - name: Install tox and upgrade setuptools and pip
+        run: pip install --upgrade tox setuptools pip
+      - name: Mypy checks
+        run: tox -e mypy
+        env:
+          PYTHON_ISAL_LINK_DYNAMIC: True
+  twine_check:
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        python-version:
+          - 3.6
+        os: ["ubuntu-latest" ]
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+         submodules: recursive
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2.2.1
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
+        run: sudo apt install yasm
+        if: runner.os == 'Linux'
+      - name: Install build dependencies (Macos)
+        run: brew install yasm automake autoconf
+        if: runner.os == 'macOS'
+      - name: Install twine, cython wheel and upgrade setuptools
+        run: pip install --upgrade twine cython wheel setuptools
+      - name: create dists
+        run: python setup.py sdist bdist_wheel
+      - name: check dists
+        run: twine check dist/*
+
   test-static:
     needs: lint
     runs-on: ${{ matrix.os }}
@@ -52,7 +102,10 @@ jobs:
           - 3.7
           - 3.8
           - 3.9
-        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        os: ["ubuntu-latest"]
+        include:
+          - os: "macos-latest"
+            python-version: 3.8
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -69,9 +122,6 @@ jobs:
       - name: Install build dependencies (Macos)
         run: brew install yasm automake autoconf
         if: runner.os == 'macOS'
-      - name: Install build dependencies (Windows)
-        run: choco install yasm
-        if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
       - name: Upload coverage report
@@ -84,9 +134,6 @@ jobs:
       matrix:
         python-version:
           - 3.6
-          - 3.7
-          - 3.8
-          - 3.9
         os: ["ubuntu-20.04"]
     steps:
       - uses: actions/checkout@v2.3.4
@@ -100,8 +147,52 @@ jobs:
         run: sudo apt-get install libisal-dev
       - name: Install tox and upgrade setuptools and pip
         run: pip install --upgrade tox setuptools pip
-
       - name: Run tests (dynamic link)
         run: tox -e py3
         env:
           PYTHON_ISAL_LINK_DYNAMIC: True
+
+  deploy:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    runs-on: ${{ matrix.os }}
+    needs: [lint, docs, test-static, test-dynamic, twine_check]
+    strategy:
+      matrix:
+        os: [ "macos-latest", "ubuntu-latest" ]
+    steps:
+      - uses: actions/checkout@v2.3.4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v2
+        name: Install Python
+      - name: Install cibuildwheel twine
+        run: python -m pip install cibuildwheel twine
+      - name: Install build dependencies (Macos)
+        run: brew install yasm automake autoconf
+        if: runner.os == 'macOS'
+      - name: Build wheels
+        run: cibuildwheel --output-dir dist
+        env:
+          CIBW_BUILD: "cp3{6,7,8,9}-*"
+          CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
+          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
+          # Below command fails when data is not correctly statically linked
+          # Full tests not needed: these are done prior to building.
+          CIBW_TEST_COMMAND: "python -c 'from isal import isal_zlib, igzip; isal_zlib.adler32(b\"bla\")'"
+      - name: Build sdist
+        if: "runner.os == 'Linux'"
+        run: python setup.py sdist
+      - name: Publish package to TestPyPI
+        # pypa/gh-action-pypi-publish@master does not work on OSX
+        # Alpha, Beta and dev releases contain a - in the tag.
+        if: contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
+        run: twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      - name: Publish package to PyPI
+        if: "!contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')"
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}

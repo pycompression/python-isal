@@ -128,7 +128,7 @@ def build_isa_l():
 
 setup(
     name="isal",
-    version="0.4.0-dev",
+    version="0.6.0-dev",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the isa-l "
                 "library.",
@@ -142,7 +142,7 @@ setup(
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    package_data={'isal': ['*.pxd', '*.pyx',
+    package_data={'isal': ['*.pxd', '*.pyx', '*.pyi', 'py.typed',
                            # Include isa-l LICENSE and other relevant files
                            # with the binary distribution.
                            'isa-l/LICENSE', 'isa-l/README.md',
