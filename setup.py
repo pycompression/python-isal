@@ -59,10 +59,14 @@ class BuildIsalExt(build_ext):
             # installing in a conda environment.
             possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
             for prefix in possible_prefixes:
-                if os.path.exists(os.path.join(prefix, "include", "isa-l")):
-                    ext.include_dirs = [
-                        os.path.join(prefix, "include")]
-                    break  # Only one include directory is needed.
+                if Path(prefix, "include", "isa-l").exists():
+                    ext.include_dirs = [os.path.join(prefix, "include")]
+                    break   # Only one include directory is needed.
+                # On windows include is in Library apparently
+                elif Path(prefix, "Library", "include", "isa-l").exists():
+                    ext.include_dirs = [os.path.join(prefix, "Library",
+                                                     "include")]
+                    break
             ext.libraries = ["isal"]
         else:
             isa_l_prefix_dir = build_isa_l()
