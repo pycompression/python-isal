@@ -84,7 +84,7 @@ jobs:
         run: brew install nasm automake autoconf
         if: runner.os == 'macOS'
       - name: install build dependencies (Windows)
-        run: choco install nasm
+        run: conda install nasm vs2019_win-64
         if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
