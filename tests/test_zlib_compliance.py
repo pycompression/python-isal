@@ -37,6 +37,9 @@ requires_Decompress_copy = unittest.skipUnless(
 
 class VersionTestCase(unittest.TestCase):
 
+    @unittest.skipIf(
+        sys.platform.startswith("win"),
+        "isa-l.h with version information does not exist on Windows")
     def test_library_version(self):
         # Test that the major version of the actual library in use matches the
         # major version that we were compiled against. We can't guarantee that
