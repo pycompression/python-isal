@@ -66,8 +66,15 @@ class BuildIsalExt(build_ext):
                 elif Path(prefix, "Library", "include", "isa-l").exists():
                     ext.include_dirs = [os.path.join(prefix, "Library",
                                                      "include")]
+                    ext.library_dirs = [os.path.join(prefix, "Library", "lib")]
                     break
-            ext.libraries = ["isal"]
+            if SYSTEM_IS_UNIX:
+                ext.libraries = ["isal"]  # libisal.so*
+            elif SYSTEM_IS_WINDOWS:
+                ext.libraries = ["isa-l"]  # isa-l.dll
+            else:
+                raise NotImplementedError(
+                    f"Unsupported platform: {sys.platform}")
         else:
             isa_l_prefix_dir = build_isa_l()
             if SYSTEM_IS_UNIX:
