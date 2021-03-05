@@ -9,11 +9,6 @@ on:
     tags:
       - "*"
 
-defaults:
-  run:
-    # This is needed for miniconda, see:
-    # https://github.com/marketplace/actions/setup-miniconda#important.
-    shell: bash -l {0}
 
 jobs:
   lint:
@@ -60,6 +55,11 @@ jobs:
   test-static:
     needs: lint
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # This is needed for miniconda, see:
+        # https://github.com/marketplace/actions/setup-miniconda#important.
+        shell: bash -l {0}
     strategy:
       matrix:
         python-version:
@@ -81,20 +81,15 @@ jobs:
         uses: conda-incubator/setup-miniconda@v2.0.1 # https://github.com/conda-incubator/setup-miniconda.
         with:
           channels: conda-forge,bioconda,defaults
-      - name: Install requirements (universal)
-        run: conda install python=${{ matrix.python-version }} tox
-      - name: Install requirements (unix)
-        run: conda install make automake autoconf libtool
-        if: runner.os != 'Windows'
-      - name: install requirements (Windows)
-        if: runner.os == 'Windows'
-        run: conda install vs2019_win-64
-      - name: install assembler (nasm)
-        run: conda install nasm
-        if: runner.os != 'Linux'
-      - name: install assembler (yasm)  # Yasm in pypa/manylinux images.
-        run: conda install yasm
+      - name: Install requirements (MacOS)
+        run: conda install python=${{ matrix.python-version }} tox make automake autoconf libtool nasm
+        if: runner.os == 'macOS'
+      - name: Install requirements (Linux)
+        run: conda install python=${{ matrix.python-version }} tox make automake autoconf libtool yasm # Yasm in pypa/manylinux images.
         if: runner.os == 'Linux'
+      - name: install requirements (Windows)
+        run: conda install python=${{ matrix.python-version }} tox vs2019_win-64 nasm
+        if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
       - name: Upload coverage report
@@ -105,6 +100,11 @@ jobs:
   test-dynamic:
     runs-on: ${{ matrix.os }}
     needs: lint
+    defaults:
+      run:
+        # This is needed for miniconda, see:
+        # https://github.com/marketplace/actions/setup-miniconda#important.
+        shell: bash -l {0}
     strategy:
       matrix:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
@@ -118,9 +118,6 @@ jobs:
           channels: conda-forge,bioconda,defaults
       - name: Install requirements (universal)
         run: conda install isa-l python tox
-      - name: Install requirements (unix)
-        run: conda install make automake autoconf libtool
-        if: runner.os != 'Windows'
       - name: install requirements (Windows)
         if: runner.os == 'Windows'
         run: conda install vs2019_win-64
