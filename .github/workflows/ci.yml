@@ -9,6 +9,12 @@ on:
     tags:
       - "*"
 
+defaults:
+  run:
+    # This is needed for miniconda, see:
+    # https://github.com/marketplace/actions/setup-miniconda#important.
+    shell: bash -l {0}
+
 
 jobs:
   lint:
@@ -65,7 +71,9 @@ jobs:
         os: ["ubuntu-latest"]
         include:
           - os: "macos-latest"
-            python-version: 3.8
+            python-version: 3.6
+          - os: "windows-latest"
+            python-version: 3.6
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -80,8 +88,11 @@ jobs:
         run: sudo apt install yasm
         if: runner.os == 'Linux'
       - name: Install build dependencies (Macos)
-        run: brew install yasm automake autoconf
+        run: brew install nasm automake autoconf
         if: runner.os == 'macOS'
+      - name: install build dependencies (Windows)
+        run: choco install nasm
+        if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
       - name: Upload coverage report
@@ -92,21 +103,23 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        python-version:
-          - 3.6
-        os: ["ubuntu-20.04"]
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     steps:
       - uses: actions/checkout@v2.3.4
         with:
           submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2.2.1
+      - name: Install miniconda.
+        uses: conda-incubator/setup-miniconda@v2.0.1 # https://github.com/conda-incubator/setup-miniconda.
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install isal
-        run: sudo apt-get install libisal-dev
-      - name: Install tox and upgrade setuptools and pip
-        run: pip install --upgrade tox setuptools pip
+          channels: conda-forge,bioconda,defaults
+      - name: Install requirements (universal)
+        run: conda install nasm isa-l python tox
+      - name: Install requirements (unix)
+        run: conda install make automake autoconf libtool
+        if: runner.os != 'Windows'
+      - name: install requirements (Windows)
+        if: runner.os == 'Windows'
+        run: conda install vs2019_win-64
       - name: Run tests (dynamic link)
         run: tox -e py3
         env:
