@@ -88,7 +88,10 @@ jobs:
         run: conda install python=${{ matrix.python-version }} tox make automake autoconf libtool yasm # Yasm in pypa/manylinux images.
         if: runner.os == 'Linux'
       - name: install requirements (Windows)
-        run: conda install python=${{ matrix.python-version }} tox vs2019_win-64 nasm
+        run: conda install python=${{ matrix.python-version }} tox nasm
+        if: runner.os == 'Windows'
+      - name: Set MSVC developer prompt
+        uses: ilammy/msvc-dev-cmd@v1.6.0
         if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
@@ -118,9 +121,9 @@ jobs:
           channels: conda-forge,bioconda,defaults
       - name: Install requirements (universal)
         run: conda install isa-l python tox
-      - name: install requirements (Windows)
+      - name: Set MSVC developer prompt
+        uses: ilammy/msvc-dev-cmd@v1.6.0
         if: runner.os == 'Windows'
-        run: conda install vs2019_win-64
       - name: Run tests (dynamic link)
         run: tox -e py3
         env:
