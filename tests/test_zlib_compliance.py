@@ -37,9 +37,6 @@ requires_Decompress_copy = unittest.skipUnless(
 
 class VersionTestCase(unittest.TestCase):
 
-    @unittest.skipIf(
-        sys.platform.startswith("win"),
-        "isa-l.h with version information does not exist on Windows")
     def test_library_version(self):
         # Test that the major version of the actual library in use matches the
         # major version that we were compiled against. We can't guarantee that
@@ -47,7 +44,11 @@ class VersionTestCase(unittest.TestCase):
         # module was compiled), and the API is stable between minor versions,
         # so testing only the major versions avoids spurious failures.
         # TODO: Ask for isal current version upstream
-        self.assertEqual(isal.ISAL_MAJOR_VERSION, 2)
+        if sys.platform.startswith("win"):
+            # No isa-l.h on windows, so no version information there.
+            self.assertEqual(isal.ISAL_MAJOR_VERSION, None)
+        else:
+            self.assertEqual(isal.ISAL_MAJOR_VERSION, 2)
 
 
 class ChecksumTestCase(unittest.TestCase):
