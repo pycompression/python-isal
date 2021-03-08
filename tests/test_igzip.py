@@ -18,9 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Tests for the igzip CLI. Uses pytest which works better than unittest for
-these sort of tests. Meant to complement the gzip module compliance tests.
-It should improve coverage as well."""
+"""Tests for igzip that are not tested with the gzip_compliance tests taken
+ from CPython. Uses pytest which is easier to work with. Meant to complement
+ the gzip module compliance tests. It should improve coverage as well."""
 
 import gzip
 import io
@@ -32,6 +32,12 @@ import pytest
 
 DATA = b'This is a simple test with igzip'
 COMPRESSED_DATA = gzip.compress(DATA)
+
+
+def test_wrong_compresslevel_igzipfile():
+    with pytest.raises(ValueError) as error:
+        igzip.IGzipFile("test.gz", mode="wb", compresslevel=6)
+    error.match("Compression level should be between 0 and 3")
 
 
 @pytest.mark.parametrize("level", range(1, 10))
