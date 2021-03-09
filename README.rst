@@ -133,6 +133,9 @@ Differences with zlib and gzip modules
   in ``isal_zlib`` and ``igzip`` this is the **lowest compression level**.
   This is a design choice that was inherited from the ISA-L library.
 + Compression levels range from 0 to 3, not 1 to 9.
++ ``igzip`` contains a class ``IGzipFile`` instead of ``GzipFile``. Since the
+  compression levels are not compatible, a difference in naming was chosen to
+  reflect this.
 + ``zlib.Z_DEFAULT_STRATEGY``, ``zlib.Z_RLE`` etc. are exposed as
   ``isal_zlib.Z_DEFAULT_STRATEGY``, ``isal_zlib.Z_RLE`` etc. for compatibility
   reasons. However, ``isal_zlib`` only supports a default strategy and will
