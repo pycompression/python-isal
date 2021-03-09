@@ -9,6 +9,11 @@ Changelog
 
 version 0.6.0-dev
 -----------------
++ ``python -m gzip``'s behaviour has been changed since fixing bug:
+  `bpo-43316 <https://bugs.python.org/issue43316>`_. This bug was not present
+  in ``python -m isal.igzip`` but it handled the error differently than the
+  solution in CPython. This is now corrected and ``python -m isal.igzip``
+  handles the error the same as the fixed ``python -m gzip``.
 + Installation on Windows is now supported. Wheels are provided for Windows as
   well.
 
