@@ -136,7 +136,6 @@ def build_isa_l():
         subprocess.run(["make", "-j", str(cpu_count)],
                        **run_args)
         subprocess.run(["make", "install"], **run_args)
-        shutil.rmtree(build_dir)
     elif SYSTEM_IS_WINDOWS:
         subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
         Path(temp_prefix, "include").mkdir()
@@ -147,6 +146,7 @@ def build_isa_l():
                     os.path.join(temp_prefix, "isa-l_static.lib"))
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
+    shutil.rmtree(build_dir)
     return temp_prefix
 
 
