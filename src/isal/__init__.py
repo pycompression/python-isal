@@ -17,9 +17,19 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+from typing import Optional
 
-from ._isal import ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, \
-    ISAL_PATCH_VERSION, ISAL_VERSION
+try:
+    from . import _isal
+    ISAL_MAJOR_VERSION: Optional[int] = _isal.ISAL_MAJOR_VERSION
+    ISAL_MINOR_VERSION: Optional[int] = _isal.ISAL_MINOR_VERSION
+    ISAL_PATCH_VERSION: Optional[int] = _isal.ISAL_PATCH_VERSION
+    ISAL_VERSION: Optional[str] = _isal.ISAL_VERSION
+except ImportError:  # isa-l.h not available on windows
+    ISAL_MAJOR_VERSION = None
+    ISAL_MINOR_VERSION = None
+    ISAL_PATCH_VERSION = None
+    ISAL_VERSION = None
 
 __all__ = [
     "ISAL_MAJOR_VERSION",

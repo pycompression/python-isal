@@ -7,6 +7,11 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.6.0-dev
+-----------------
++ Installation on Windows is now supported. Wheels are provided for Windows as
+  well.
+
 version 0.5.0
 -----------------
 + Fix a bug where negative integers were not allowed for the ``adler32`` and

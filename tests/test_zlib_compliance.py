@@ -44,7 +44,11 @@ class VersionTestCase(unittest.TestCase):
         # module was compiled), and the API is stable between minor versions,
         # so testing only the major versions avoids spurious failures.
         # TODO: Ask for isal current version upstream
-        self.assertEqual(isal.ISAL_MAJOR_VERSION, 2)
+        if sys.platform.startswith("win"):
+            # No isa-l.h on windows, so no version information there.
+            self.assertEqual(isal.ISAL_MAJOR_VERSION, None)
+        else:
+            self.assertEqual(isal.ISAL_MAJOR_VERSION, 2)
 
 
 class ChecksumTestCase(unittest.TestCase):

@@ -58,7 +58,11 @@ class UnseekableIO(io.BytesIO):
 
 
 class BaseTest(unittest.TestCase):
-    fileno, filename = tempfile.mkstemp()
+
+    def __init__(self, methodName):
+        fileno, self.filename = tempfile.mkstemp()
+        os.close(fileno)
+        super().__init__(methodName)
 
     def setUp(self):
         if os.path.exists(self.filename):
@@ -391,7 +395,8 @@ class TestGzip(BaseTest):
             self.assertEqual(isizeBytes, struct.pack('<i', len(data1)))
 
     def test_metadata_ascii_name(self):
-        self.filename = tempfile.mkstemp()[1]
+        fd, self.filename = tempfile.mkstemp()
+        os.close(fd)
         self.test_metadata()
 
     def test_compresslevel_metadata(self):

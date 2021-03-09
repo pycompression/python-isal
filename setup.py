@@ -30,10 +30,19 @@ from setuptools.command.build_ext import build_ext
 
 ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
 
+SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
+                  sys.platform.startswith("darwin"))
+SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
+
 
 class IsalExtension(Extension):
     """Custom extension to allow for targeted modification."""
     pass
+
+
+MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"])]
+if SYSTEM_IS_UNIX:
+    MODULES.append(IsalExtension("isal._isal", ["src/isal/_isal.pyx"]))
 
 
 class BuildIsalExt(build_ext):
@@ -50,19 +59,37 @@ class BuildIsalExt(build_ext):
             # installing in a conda environment.
             possible_prefixes = [sys.exec_prefix, sys.base_exec_prefix]
             for prefix in possible_prefixes:
-                if os.path.exists(os.path.join(prefix, "include", "isa-l")):
-                    ext.include_dirs = [
-                        os.path.join(prefix, "include")]
-                    break  # Only one include directory is needed.
-            ext.libraries = ["isal"]
+                if Path(prefix, "include", "isa-l").exists():
+                    ext.include_dirs = [os.path.join(prefix, "include")]
+                    break   # Only one include directory is needed.
+                # On windows include is in Library apparently
+                elif Path(prefix, "Library", "include", "isa-l").exists():
+                    ext.include_dirs = [os.path.join(prefix, "Library",
+                                                     "include")]
+                    ext.library_dirs = [os.path.join(prefix, "Library", "lib")]
+                    break
+            if SYSTEM_IS_UNIX:
+                ext.libraries = ["isal"]  # libisal.so*
+            elif SYSTEM_IS_WINDOWS:
+                ext.libraries = ["isa-l"]  # isa-l.dll
+            else:
+                raise NotImplementedError(
+                    f"Unsupported platform: {sys.platform}")
         else:
             isa_l_prefix_dir = build_isa_l()
+            if SYSTEM_IS_UNIX:
+                ext.extra_objects = [
+                    os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
+            elif SYSTEM_IS_WINDOWS:
+                ext.extra_objects = [
+                    os.path.join(isa_l_prefix_dir, "isa-l_static.lib")]
+            else:
+                raise NotImplementedError(
+                    f"Unsupported platform: {sys.platform}")
             ext.include_dirs = [os.path.join(isa_l_prefix_dir,
                                              "include")]
             # -fPIC needed for proper static linking
             ext.extra_compile_args = ["-fPIC"]
-            ext.extra_objects = [
-                os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
 
         if os.getenv("CYTHON_COVERAGE") is not None:
             # Import cython here so python setup.py can be used without
@@ -102,12 +129,23 @@ def build_isa_l():
     else:  # sched_getaffinity not available on all platforms
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
-    subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
-    subprocess.run([os.path.join(build_dir, "configure"),
-                    "--prefix", temp_prefix], **run_args)
-    subprocess.run(["make", "-j", str(cpu_count)],
-                   **run_args)
-    subprocess.run(["make", "install"], **run_args)
+    if SYSTEM_IS_UNIX:
+        subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
+        subprocess.run([os.path.join(build_dir, "configure"),
+                        "--prefix", temp_prefix], **run_args)
+        subprocess.run(["make", "-j", str(cpu_count)],
+                       **run_args)
+        subprocess.run(["make", "install"], **run_args)
+    elif SYSTEM_IS_WINDOWS:
+        subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
+        Path(temp_prefix, "include").mkdir()
+        print(temp_prefix, file=sys.stderr)
+        shutil.copytree(os.path.join(build_dir, "include"),
+                        Path(temp_prefix, "include", "isa-l"))
+        shutil.copy(os.path.join(build_dir, "isa-l_static.lib"),
+                    os.path.join(temp_prefix, "isa-l_static.lib"))
+    else:
+        raise NotImplementedError(f"Unsupported platform: {sys.platform}")
     shutil.rmtree(build_dir)
     return temp_prefix
 
@@ -149,8 +187,5 @@ setup(
         "Operating System :: MacOS"
     ],
     python_requires=">=3.6",
-    ext_modules=[
-        IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
-        IsalExtension("isal._isal", ["src/isal/_isal.pyx"]),
-    ]
+    ext_modules=MODULES
 )

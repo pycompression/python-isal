@@ -9,6 +9,11 @@ on:
     tags:
       - "*"
 
+defaults:
+  run:
+    # This is needed for miniconda, see:
+    # https://github.com/marketplace/actions/setup-miniconda#important.
+    shell: bash -l {0}
 
 jobs:
   lint:
@@ -25,72 +30,32 @@ jobs:
         run: pip install tox
       - name: Lint
         run: tox -e lint
-  docs:
-    needs: lint
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2.3.4
-        with:
-          submodules: recursive
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v2.2.1
-        with:
-          python-version: 3.6
-      - name: Install isal
-        run: sudo apt-get install libisal-dev
-      - name: Install tox and upgrade setuptools and pip
-        run: pip install --upgrade tox setuptools pip
-      - name: Build docs
-        run: tox -e docs
-        env:
-          PYTHON_ISAL_LINK_DYNAMIC: True
-  mypy:
-    needs: lint
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2.3.4
-        with:
-          submodules: recursive
-      - name: Set up Python 3.6
-        uses: actions/setup-python@v2.2.1
-        with:
-          python-version: 3.6
-      - name: Install isal
-        run: sudo apt-get install libisal-dev
-      - name: Install tox and upgrade setuptools and pip
-        run: pip install --upgrade tox setuptools pip
-      - name: Mypy checks
-        run: tox -e mypy
-        env:
-          PYTHON_ISAL_LINK_DYNAMIC: True
-  twine_check:
-    needs: lint
-    runs-on: ${{ matrix.os }}
+
+  package-checks:
     strategy:
       matrix:
-        python-version:
-          - 3.6
-        os: ["ubuntu-latest" ]
+        tox_env:
+          - docs
+          - mypy
+          - twine_check
+    needs: lint
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2.3.4
         with:
-         submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
+          submodules: recursive
+      - name: Set up Python 3.6
         uses: actions/setup-python@v2.2.1
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
-        run: sudo apt install yasm
-        if: runner.os == 'Linux'
-      - name: Install build dependencies (Macos)
-        run: brew install yasm automake autoconf
-        if: runner.os == 'macOS'
-      - name: Install twine, cython wheel and upgrade setuptools
-        run: pip install --upgrade twine cython wheel setuptools
-      - name: create dists
-        run: python setup.py sdist bdist_wheel
-      - name: check dists
-        run: twine check dist/*
+          python-version: 3.6
+      - name: Install isal
+        run: sudo apt-get install libisal-dev
+      - name: Install tox and upgrade setuptools and pip
+        run: pip install --upgrade tox setuptools pip
+      - name: Run tox -e ${{ matrix.tox_env }}
+        run: tox -e ${{ matrix.tox_env }}
+        env:
+          PYTHON_ISAL_LINK_DYNAMIC: True
 
   test-static:
     needs: lint
@@ -105,48 +70,55 @@ jobs:
         os: ["ubuntu-latest"]
         include:
           - os: "macos-latest"
-            python-version: 3.8
+            python-version: 3.6
+          - os: "windows-latest"
+            python-version: 3.6
     steps:
       - uses: actions/checkout@v2.3.4
         with:
           submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2.2.1
+      - name: Install miniconda.
+        uses: conda-incubator/setup-miniconda@v2.0.1 # https://github.com/conda-incubator/setup-miniconda.
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install tox and upgrade setuptools
-        run: pip install --upgrade tox setuptools
-      - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
-        run: sudo apt install yasm
-        if: runner.os == 'Linux'
-      - name: Install build dependencies (Macos)
-        run: brew install yasm automake autoconf
+          channels: conda-forge,defaults
+      - name: Install requirements (MacOS)
+        run: conda install python=${{ matrix.python-version }} tox make automake autoconf libtool nasm
         if: runner.os == 'macOS'
+      - name: Install requirements (Linux)
+        run: conda install python=${{ matrix.python-version }} tox make automake autoconf libtool yasm # Yasm in pypa/manylinux images.
+        if: runner.os == 'Linux'
+      - name: install requirements (Windows)
+        run: conda install python=${{ matrix.python-version }} tox nasm
+        if: runner.os == 'Windows'
+      - name: Set MSVC developer prompt
+        uses: ilammy/msvc-dev-cmd@v1.6.0
+        if: runner.os == 'Windows'
       - name: Run tests
         run: tox -e py3
       - name: Upload coverage report
         uses: codecov/codecov-action@v1
 
+  # Test if the python-isal conda package can be build. Which is linked
+  # dynamically to the conda isa-l package.
   test-dynamic:
     runs-on: ${{ matrix.os }}
     needs: lint
     strategy:
       matrix:
-        python-version:
-          - 3.6
-        os: ["ubuntu-20.04"]
+        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     steps:
       - uses: actions/checkout@v2.3.4
         with:
           submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2.2.1
+      - name: Install miniconda.
+        uses: conda-incubator/setup-miniconda@v2.0.1 # https://github.com/conda-incubator/setup-miniconda.
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install isal
-        run: sudo apt-get install libisal-dev
-      - name: Install tox and upgrade setuptools and pip
-        run: pip install --upgrade tox setuptools pip
+          channels: conda-forge,defaults
+      - name: Install requirements (universal)
+        run: conda install isa-l python tox
+      - name: Set MSVC developer prompt
+        uses: ilammy/msvc-dev-cmd@v1.6.0
+        if: runner.os == 'Windows'
       - name: Run tests (dynamic link)
         run: tox -e py3
         env:
@@ -155,21 +127,29 @@ jobs:
   deploy:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
-    needs: [lint, docs, test-static, test-dynamic, twine_check]
+    needs: [lint, package-checks, test-static, test-dynamic]
     strategy:
       matrix:
-        os: [ "macos-latest", "ubuntu-latest" ]
+        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
     steps:
       - uses: actions/checkout@v2.3.4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v2
-        name: Install Python
+      - name: Install miniconda.
+        uses: conda-incubator/setup-miniconda@v2.0.1 # https://github.com/conda-incubator/setup-miniconda.
+        with:
+          channels: conda-forge,defaults
+      - name: Install build dependencies (Macos)
+        run: conda install nasm automake autoconf python
+        if: runner.os == 'macOS'
+      - name: Install build dependencies (Windows)
+        run: conda install nasm python
+        if: runner.os == 'Windows'
+      - name: Set MSVC developer prompt
+        uses: ilammy/msvc-dev-cmd@v1.6.0
+        if: runner.os == 'Windows'
       - name: Install cibuildwheel twine
         run: python -m pip install cibuildwheel twine
-      - name: Install build dependencies (Macos)
-        run: brew install yasm automake autoconf
-        if: runner.os == 'macOS'
       - name: Build wheels
         run: cibuildwheel --output-dir dist
         env:
