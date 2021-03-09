@@ -94,7 +94,7 @@ This requires having the build requirements installed.
 If you wish to link
 dynamically against a version of libisal installed on your system use::
 
-     PYTHON_ISAL_LINK_DYNAMIC=true pip install isal
+     PYTHON_ISAL_LINK_DYNAMIC=true pip install isal --no-binary isal
 
 ISA-L is available in numerous Linux distro's as well as on conda via the
 conda-forge channel. Checkout the `ports documentation
@@ -117,9 +117,7 @@ channel. When used with bioinformatics tools setting up `bioconda
 <http://bioconda.github.io/user/install.html#install-conda>`_
 provides a clear set of installation instructions for conda.
 
-python-isal is available on conda-forge and can be installed with 
-
-.. code-block::
+python-isal is available on conda-forge and can be installed with::
 
   conda install python-isal
 
