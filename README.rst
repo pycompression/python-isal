@@ -15,6 +15,7 @@
   :alt:
 
 .. image:: https://img.shields.io/conda/pn/conda-forge/python-isal.svg
+  :target: https://github.com/conda-forge/python-isal-feedstock
   :alt:
 
 .. image:: https://travis-ci.com/pycompression/python-isal.svg?branch=develop
