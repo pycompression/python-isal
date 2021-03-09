@@ -157,9 +157,9 @@ jobs:
           CIBW_BUILD: "cp3{6,7,8,9}-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
-          # Below command fails when data is not correctly statically linked
-          # Full tests not needed: these are done prior to building.
-          CIBW_TEST_COMMAND: "python -c 'from isal import isal_zlib, igzip; isal_zlib.adler32(b\"bla\")'"
+          # Fully test the build wheels again.
+          CIBW_TEST_REQUIRES: "pytest"
+          CIBW_TEST_COMMAND: "pytest {project}/tests"
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
