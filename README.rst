@@ -71,10 +71,10 @@ Installation
 Installation with pip
 .....................
 
-+ On x86-64 (amd64) platforms: ``pip install isal``. Wheels are provided, so
-  installation should be almost instantaneous.
-+ Installation is supported on Linux, MacOS and Windows.
++ ``pip install isal``
 
+Installation is supported on Linux, MacOS and Windows. On x86-64 (amd64)
+platforms wheels are provided, so installation should be almost instantaneous.
 The installation will include a staticallly linked version of isa-l.
 If a wheel is not provided for your system the
 installation will build ISA-L first in a temporary directory. Please check the
