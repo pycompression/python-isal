@@ -184,7 +184,8 @@ setup(
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
-        "Operating System :: MacOS"
+        "Operating System :: MacOS",
+        "Operating System :: Microsoft :: Windows",
     ],
     python_requires=">=3.6",
     ext_modules=MODULES

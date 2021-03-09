@@ -14,6 +14,9 @@
   :target: https://github.com/LUMC/isal/blob/main/LICENSE
   :alt:
 
+.. image:: https://img.shields.io/conda/pn/conda-forge/python-isal.svg
+  :alt:
+
 .. image:: https://travis-ci.com/pycompression/python-isal.svg?branch=develop
   :target: https://travis-ci.com/github/pycompression/python-isal
   :alt:
