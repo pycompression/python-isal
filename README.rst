@@ -38,7 +38,7 @@ Faster zlib and gzip compatible compression and decompression
 by providing Python bindings for the ISA-L library.
 
 This package provides Python bindings for the `ISA-L
-<https://github.com/intel/isa-l>`_ library. The Intel Infrastructure Storage
+<https://github.com/intel/isa-l>`_ library. The Intel(R) Intelligent Storage
 Acceleration Library (ISA-L) implements several key algorithms in `assembly
 language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
 a variety of functions to provide zlib/gzip-compatible compression.
@@ -62,7 +62,7 @@ They can be imported as follows
 
 ``isal_zlib`` and ``igzip`` are meant to be used as drop in replacements so
 their api and functions are the same as the stdlib's modules. Except where
-isa-l does not support the same calls as zlib (See differences below).
+ISA-L does not support the same calls as zlib (See differences below).
 
 A full API documentation can be found on `our readthedocs page
 <https://python-isal.readthedocs.io>`_.
@@ -79,7 +79,7 @@ Installation with pip
 
 Installation is supported on Linux, MacOS and Windows. On x86-64 (amd64)
 platforms wheels are provided, so installation should be almost instantaneous.
-The installation will include a staticallly linked version of isa-l.
+The installation will include a staticallly linked version of ISA-L.
 If a wheel is not provided for your system the
 installation will build ISA-L first in a temporary directory. Please check the
 `ISA-L homepage <https://github.com/intel/isa-l>`_ for the build requirements.
@@ -123,7 +123,7 @@ python-isal is available on conda-forge and can be installed with
 
   conda install python-isal
 
-This will automatically install the isa-l library dependency as well, since
+This will automatically install the ISA-L library dependency as well, since
 it is available on conda-forge.
 
 Differences with zlib and gzip modules

@@ -154,7 +154,7 @@ setup(
     name="isal",
     version="0.6.0-dev",
     description="Faster zlib and gzip compatible compression and "
-                "decompression by providing python bindings for the isa-l "
+                "decompression by providing python bindings for the ISA-L "
                 "library.",
     author="Leiden University Medical Center",
     author_email="r.h.p.vorderman@lumc.nl",  # A placeholder for now
