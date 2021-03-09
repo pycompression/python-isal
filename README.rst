@@ -75,7 +75,9 @@ Installation
 Installation with pip
 .....................
 
-+ ``pip install isal``
+::
+
+    pip install isal
 
 Installation is supported on Linux, MacOS and Windows. On x86-64 (amd64)
 platforms wheels are provided, so installation should be almost instantaneous.
@@ -101,9 +103,7 @@ to find out how to install it. It is important that the development headers
 are also installed.
 
 On Debian and Ubuntu the ISA-L libraries (including the development headers)
-can be installed with:
-
-.. code-block::
+can be installed with::
 
   sudo apt install libisal-dev
 
