@@ -295,7 +295,7 @@ def main():
     elif not args.compress and args.file is not None:
         base, extension = os.path.splitext(args.file)
         if extension != ".gz":
-            raise ValueError(f"filename doesn't end in .gz: {args.file}. ")
+            sys.exit(f"filename doesn't end in .gz: {args.file!r}")
         in_file = open(args.file, "rb")
 
     # Determine output file

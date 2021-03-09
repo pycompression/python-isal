@@ -823,14 +823,9 @@ class TestCommandLine(unittest.TestCase):
     def test_decompress_infile_outfile_error(self):
         rc, out, err = assert_python_failure('-m', 'isal.igzip', '-d',
                                              'thisisatest.out')
-        # We take a divide from the original gzip module here. Error messages
-        # should be printed in stderr. Also exit code should not be 0!
-        # in python -m gzip -d mycompressedfile > decompressed
-        # will simply make decompressed contents 'filename doesn't end in .gz'
-        # without throwing an error. Crazy!
-        # TODO: Report a bug in CPython for gzip module
-        self.assertIn(b"filename doesn't end in .gz:", err)
-        self.assertNotEqual(rc, 0)
+        self.assertEqual(b"filename doesn't end in .gz: 'thisisatest.out'",
+                         err.strip())
+        self.assertEqual(rc, 1)
         self.assertEqual(out, b'')
 
     @create_and_remove_directory(TEMPDIR)

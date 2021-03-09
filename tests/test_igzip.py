@@ -92,7 +92,7 @@ def test_compress_infile_outfile(tmp_path, capsysbinary):
 
 def test_decompress_infile_outfile_error(capsysbinary):
     sys.argv = ['', '-d', 'thisisatest.out']
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(SystemExit) as error:
         igzip.main()
     assert error.match("filename doesn't end")
     out, err = capsysbinary.readouterr()
