@@ -294,8 +294,9 @@ def main():
         in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
     elif not args.compress and args.file is not None:
         base, extension = os.path.splitext(args.file)
-        if extension != ".gz":
-            sys.exit(f"filename doesn't end in .gz: {args.file!r}")
+        if extension != ".gz" and not args.stdout:
+            sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
+                     f"Cannot determine output filename.")
         in_file = open(args.file, "rb")
 
     # Determine output file

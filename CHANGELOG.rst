@@ -7,6 +7,11 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.6.1
+-----------------
++ Fix a crash that occurs when opening a file that did not end in ``.gz`` while
+  outputting to stdout using ``python -m isal.igzip``.
+
 version 0.6.0
 -----------------
 + ``python -m gzip``'s behaviour has been changed since fixing bug:

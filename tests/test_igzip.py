@@ -118,6 +118,15 @@ def test_decompress_infile_outfile_error(capsysbinary):
     assert out == b''
 
 
+def test_decompress_infile_stdout_noerror(capsysbinary, tmp_path):
+    test_file = tmp_path / "test"
+    test_file.write_bytes(COMPRESSED_DATA)
+    sys.argv = ['', '-cd', str(tmp_path / 'test')]
+    igzip.main()
+    result = capsysbinary.readouterr()
+    assert DATA == result.out
+
+
 def test_decompress_infile_stdout(capsysbinary, tmp_path):
     test_gz = tmp_path / "test.gz"
     test_gz.write_bytes(gzip.compress(DATA))
