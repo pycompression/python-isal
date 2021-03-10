@@ -18,13 +18,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-"""Tests for the igzip CLI. Uses pytest which works better than unittest for
-these sort of tests. Meant to complement the gzip module compliance tests.
-It should improve coverage as well."""
+"""Tests for igzip that are not tested with the gzip_compliance tests taken
+ from CPython. Uses pytest which is easier to work with. Meant to complement
+ the gzip module compliance tests. It should improve coverage as well."""
 
 import gzip
 import io
+import os
+import shutil
 import sys
+import tempfile
+from pathlib import Path
 
 from isal import igzip
 
@@ -32,6 +36,27 @@ import pytest
 
 DATA = b'This is a simple test with igzip'
 COMPRESSED_DATA = gzip.compress(DATA)
+TEST_FILE = str((Path(__file__).parent / "data" / "test.fastq.gz"))
+
+
+def test_wrong_compresslevel_igzipfile():
+    with pytest.raises(ValueError) as error:
+        igzip.IGzipFile("test.gz", mode="wb", compresslevel=6)
+    error.match("Compression level should be between 0 and 3")
+
+
+def test_repr():
+    tempdir = tempfile.mkdtemp()
+    with igzip.IGzipFile(os.path.join(tempdir, "test.gz"), "wb") as test:
+        assert "<igzip _io.BufferedWriter name='" in repr(test)
+    shutil.rmtree(tempdir)
+
+
+def test_write_readonly_file():
+    with igzip.IGzipFile(TEST_FILE, "rb") as test:
+        with pytest.raises(OSError) as error:
+            test.write(b"bla")
+    error.match(r"write\(\) on read-only IGzipFile object")
 
 
 @pytest.mark.parametrize("level", range(1, 10))
@@ -86,7 +111,7 @@ def test_compress_infile_outfile(tmp_path, capsysbinary):
 
 def test_decompress_infile_outfile_error(capsysbinary):
     sys.argv = ['', '-d', 'thisisatest.out']
-    with pytest.raises(ValueError) as error:
+    with pytest.raises(SystemExit) as error:
         igzip.main()
     assert error.match("filename doesn't end")
     out, err = capsysbinary.readouterr()

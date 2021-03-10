@@ -58,7 +58,11 @@ class UnseekableIO(io.BytesIO):
 
 
 class BaseTest(unittest.TestCase):
-    fileno, filename = tempfile.mkstemp()
+
+    def __init__(self, methodName):
+        fileno, self.filename = tempfile.mkstemp()
+        os.close(fileno)
+        super().__init__(methodName)
 
     def setUp(self):
         if os.path.exists(self.filename):
@@ -391,7 +395,8 @@ class TestGzip(BaseTest):
             self.assertEqual(isizeBytes, struct.pack('<i', len(data1)))
 
     def test_metadata_ascii_name(self):
-        self.filename = tempfile.mkstemp()[1]
+        fd, self.filename = tempfile.mkstemp()
+        os.close(fd)
         self.test_metadata()
 
     def test_compresslevel_metadata(self):
@@ -818,14 +823,9 @@ class TestCommandLine(unittest.TestCase):
     def test_decompress_infile_outfile_error(self):
         rc, out, err = assert_python_failure('-m', 'isal.igzip', '-d',
                                              'thisisatest.out')
-        # We take a divide from the original gzip module here. Error messages
-        # should be printed in stderr. Also exit code should not be 0!
-        # in python -m gzip -d mycompressedfile > decompressed
-        # will simply make decompressed contents 'filename doesn't end in .gz'
-        # without throwing an error. Crazy!
-        # TODO: Report a bug in CPython for gzip module
-        self.assertIn(b"filename doesn't end in .gz:", err)
-        self.assertNotEqual(rc, 0)
+        self.assertEqual(b"filename doesn't end in .gz: 'thisisatest.out'",
+                         err.strip())
+        self.assertEqual(rc, 1)
         self.assertEqual(out, b'')
 
     @create_and_remove_directory(TEMPDIR)
