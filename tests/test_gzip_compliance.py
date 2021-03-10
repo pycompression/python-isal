@@ -823,7 +823,8 @@ class TestCommandLine(unittest.TestCase):
     def test_decompress_infile_outfile_error(self):
         rc, out, err = assert_python_failure('-m', 'isal.igzip', '-d',
                                              'thisisatest.out')
-        self.assertEqual(b"filename doesn't end in .gz: 'thisisatest.out'",
+        self.assertEqual(b"filename doesn't end in .gz: 'thisisatest.out'. "
+                         b"Cannot determine output filename.",
                          err.strip())
         self.assertEqual(rc, 1)
         self.assertEqual(out, b'')
