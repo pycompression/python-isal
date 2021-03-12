@@ -608,10 +608,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco.flush()
         self.assertFalse(dco.eof)
 
-    @pytest.mark.xfail(reason="Decompress object does not work as expected"
-                              " with regards to unconsumed tails/data due to "
-                              "the isa-l deflate process consuming too much"
-                              " data.")
     def test_decompress_unused_data(self):
         # Repeated calls to decompress() after EOF should accumulate data in
         # dco.unused_data, instead of just storing the arg to the last call.
@@ -787,10 +783,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         finally:
             comp = uncomp = data = None
 
-    @pytest.mark.xfail(reason="Decompress object does not work as expected"
-                              " with regards to unconsumed tails/data due to "
-                              "the isa-l deflate process consuming too much"
-                              " data.")
     @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=3)
     def test_large_unused_data(self, size):
@@ -805,10 +797,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         finally:
             unused = comp = do = None
 
-    @pytest.mark.xfail(reason="Decompress object does not work as expected"
-                              " with regards to unconsumed tails/data due to "
-                              "the isa-l deflate process consuming too much"
-                              " data.")
     @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=5)
     def test_large_unconsumed_tail(self, size):
