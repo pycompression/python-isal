@@ -69,9 +69,10 @@ ISAL_NO_FLUSH=NO_FLUSH
 ISAL_SYNC_FLUSH=SYNC_FLUSH 
 ISAL_FULL_FLUSH=FULL_FLUSH
 
-Z_NO_FLUSH=ISAL_NO_FLUSH
-Z_SYNC_FLUSH=ISAL_SYNC_FLUSH
-Z_FINISH=ISAL_FULL_FLUSH
+Z_NO_FLUSH=zlib.Z_NO_FLUSH
+Z_SYNC_FLUSH=zlib.Z_SYNC_FLUSH
+Z_FULL_FLUSH=zlib.Z_FULL_FLUSH
+Z_FINISH=zlib.Z_FINISH
 
 class IsalError(OSError):
     """Exception raised on compression and decompression errors."""
@@ -452,27 +453,34 @@ cdef class Compress:
         finally:
             PyBuffer_Release(buffer)
 
-    def flush(self, int mode=FULL_FLUSH):
+    def flush(self, mode=zlib.Z_FINISH):
         """
         All pending input is processed, and a bytes object containing the
         remaining compressed output is returned.
 
-        :param mode: Defaults to ISAL_FULL_FLUSH (Z_FINISH equivalent) which
+        :param mode: Defaults to Z_FINISH which
                      finishes the compressed stream and prevents compressing
-                     any more data. The only other supported method is
-                     ISAL_SYNC_FLUSH (Z_SYNC_FLUSH) equivalent.
+                     any more data. The only other supported methods are
+                     Z_SYNC_FLUSH and Z_FULL_FLUSH.
         """
-        if mode == NO_FLUSH:
+
+        if mode == zlib.Z_NO_FLUSH:
             # Flushing with no_flush does nothing.
             return b""
-
-        self.stream.end_of_stream = 1
-        self.stream.flush = mode
+        elif mode == zlib.Z_FINISH:
+            self.stream.flush = FULL_FLUSH
+            self.stream.end_of_stream = 1
+        elif mode == zlib.Z_FULL_FLUSH:
+            self.stream.flush = FULL_FLUSH
+        elif mode == zlib.Z_SYNC_FLUSH:
+            self.stream.flush=SYNC_FLUSH
+        else:
+            raise IsalError("Unsupported flush mode")
 
          # Initialise output buffer
         out = []
        
-        while self.stream.internal_state.state != ZSTATE_END:
+        while True:
             self.stream.next_out = self.obuf  # Reset output buffer.
             self.stream.avail_out = self.obuflen
             err = isal_deflate(&self.stream)
@@ -485,6 +493,10 @@ cdef class Compress:
             # the data is appended to a list.
             # TODO: Improve this with the buffer protocol.
             out.append(self.obuf[:self.obuflen - self.stream.avail_out])
+            if self.stream.internal_state.state != ZSTATE_END and mode == zlib.Z_FINISH:
+                continue
+            elif self.stream.avail_in == 0:
+                break
         return b"".join(out)
 
 cdef class Decompress:
