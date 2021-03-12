@@ -540,6 +540,14 @@ cdef class Decompress:
         if self.obuf is not NULL:
             PyMem_Free(self.obuf)
 
+    cdef bytes consume_read_in(self):
+        read_in_length = self.stream.read_in_length // 8
+        if read_in_length == 0:
+            return b""
+        read_in = self.stream.read_in
+        result = read_in.to_bytes(8, "little")[:read_in_length]
+        return read_in.to_bytes(8, "little")[:read_in_length]
+
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
         cdef bytes new_data
@@ -551,7 +559,7 @@ cdef class Decompress:
                 if left_size > (PY_SSIZE_T_MAX - old_size):
                     raise MemoryError()
                 new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
-                self.unused_data += new_data
+                self.unused_data = self.consume_read_in() +  new_data
         if self.stream.avail_in > 0 or self.unconsumed_tail:
             left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
             new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
