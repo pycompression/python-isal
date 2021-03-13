@@ -540,29 +540,32 @@ cdef class Decompress:
         if self.obuf is not NULL:
             PyMem_Free(self.obuf)
 
-    cdef bytes consume_read_in(self):
+    def _view_bitbuffer(self):
+        """Shows the 64-bitbuffer of the internal inflate_state. It contains
+        a maximum of 8 bytes. This data is already read-in so is not part
+        of the unconsumed tail."""
         read_in_length = self.stream.read_in_length // 8
         if read_in_length == 0:
             return b""
         read_in = self.stream.read_in
-        result = read_in.to_bytes(8, "little")[:read_in_length]
+        # The bytes are added by bitshifting, so in reverse order. Reading the
+        # 64-bit integer into 8 bytes little-endian provides the characters in
+        # the correct order.
         return read_in.to_bytes(8, "little")[:read_in_length]
 
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
         cdef bytes new_data
+        left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
+        new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
         if self.stream.block_state == ISAL_BLOCK_FINISH:
             self.eof = 1
-            if self.stream.avail_in > 0:
-                old_size = len(self.unused_data)
-                left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
-                if left_size > (PY_SSIZE_T_MAX - old_size):
-                    raise MemoryError()
-                new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
-                self.unused_data = self.consume_read_in() +  new_data
-        if self.stream.avail_in > 0 or self.unconsumed_tail:
-            left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
-            new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
+            if self.stream.avail_in > 0 or self._view_bitbuffer():
+                # The block is finished and this decompressobject can not be
+                # used anymore. Some unused data is in the bitbuffer and has to
+                # be recovered.
+                self.unused_data = self._view_bitbuffer() +  new_data
+        if self.stream.avail_in > 0:
             self.unconsumed_tail = new_data
 
     def decompress(self, data, Py_ssize_t max_length = 0):
