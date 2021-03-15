@@ -746,9 +746,6 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     elif 40 <= wbits <= 47:  # Accept gzip or zlib
         hist_bits[0] = wbits - 32
         crc_flag[0] = ISAL_GZIP if gzip else ISAL_ZLIB
-    elif 72 <=wbits <= 79:
-        hist_bits[0] = wbits - 64
-        crc_flag[0] = ISAL_GZIP_NO_HDR_VER
     else:
         raise ValueError("Invalid wbits value")
 
