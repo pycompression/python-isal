@@ -212,6 +212,11 @@ class _IGzipReader(gzip._GzipReader):
         self._stream_size += len(data)
 
 
+# Aliases for improved compatibility with CPython gzip module.
+GzipFile = IGzipFile
+_GzipReader = _IGzipReader
+
+
 # Plagiarized from gzip.py from python's stdlib.
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     """Compress data in one shot and return the compressed string.
