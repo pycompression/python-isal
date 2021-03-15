@@ -671,9 +671,9 @@ cdef class Decompress:
         cdef Py_ssize_t unused_bytes
 
         try:
-            while self.stream.block_state != ISAL_BLOCK_FINISH and ibuflen !=0:
+            while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
-                while (self.stream.block_state != ISAL_BLOCK_FINISH):
+                while True:
                     self.stream.next_out = obuf  # Reset output buffer.
                     self.stream.avail_out = obuflen
                     err = isal_inflate(&self.stream)
@@ -685,9 +685,15 @@ cdef class Decompress:
                     # Instead of output buffer resizing as the zlibmodule.c example
                     # the data is appended to a list.
                     # TODO: Improve this with the buffer protocol.
+                    if self.stream.avail_out == obuflen:
+                        break
                     bytes_written = obuflen - self.stream.avail_out
                     total_bytes += bytes_written
                     out.append(obuf[:bytes_written])
+                    if self.stream.avail_out != 0:
+                        break
+                if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen == 0:
+                    break
             self.save_unconsumed_input(buffer)
             return b"".join(out)
         finally:
