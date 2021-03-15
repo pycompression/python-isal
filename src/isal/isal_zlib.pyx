@@ -567,7 +567,8 @@ cdef class Decompress:
             # used anymore. Some unused data is in the bitbuffer and has to
             # be recovered.
             self.unused_data = self._view_bitbuffer() +  new_data
-        self.unconsumed_tail = new_data
+        else:
+            self.unconsumed_tail = new_data
 
     def decompress(self, data, Py_ssize_t max_length = 0):
         """
