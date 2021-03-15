@@ -206,24 +206,13 @@ class _IGzipReader(gzip._GzipReader):
     def __init__(self, fp):
         super().__init__(fp)
         self._decomp_factory = isal_zlib.decompressobj
-        self._decomp_args = dict(wbits=64+isal_zlib.MAX_WBITS)
-        # Set wbits such that ISAL_GZIP_NO_HDR_VER is used. This means that
-        # it does not read a header, and it verifies the trailer.
         self._decompressor = self._decomp_factory(**self._decomp_args)
 
     def _add_read_data(self, data):
-        # isa-l verifies the trailer data, so no need to keep track of the crc.
-        self._stream_size = self._stream_size + len(data)
-
-    def _read_eof(self):
-        # Gzip files can be padded with zeroes and still have archives.
-        # Consume all zero bytes and set the file position to the first
-        # non-zero byte. See http://www.gzip.org/#faq8
-        c = b"\x00"
-        while c == b"\x00":
-            c = self._fp.read(1)
-        if c:
-            self._fp.prepend(c)
+        # Use faster isal crc32 calculation and update the stream size in place
+        # compared to CPython gzip
+        self._crc = isal_zlib.crc32(data, self._crc)
+        self._stream_size += len(data)
 
 
 # Plagiarized from gzip.py from python's stdlib.
