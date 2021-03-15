@@ -131,9 +131,6 @@ Differences with zlib and gzip modules
   in ``isal_zlib`` and ``igzip`` this is the **lowest compression level**.
   This is a design choice that was inherited from the ISA-L library.
 + Compression levels range from 0 to 3, not 1 to 9.
-+ ``igzip`` contains a class ``IGzipFile`` instead of ``GzipFile``. Since the
-  compression levels are not compatible, a difference in naming was chosen to
-  reflect this.
 + ``zlib.Z_DEFAULT_STRATEGY``, ``zlib.Z_RLE`` etc. are exposed as
   ``isal_zlib.Z_DEFAULT_STRATEGY``, ``isal_zlib.Z_RLE`` etc. for compatibility
   reasons. However, ``isal_zlib`` only supports a default strategy and will
@@ -142,14 +139,11 @@ Differences with zlib and gzip modules
   ``isal_zlib`` supports memory levels smallest, small, medium, large and
   largest. These have been mapped to levels 1, 2-3, 4-6, 7-8 and 9. So
   ``isal_zlib`` can be used with zlib compatible memory levels.
-+ ``isal_zlib`` has a ``compressobj`` and ``decompressobj`` implementation.
-  However, the unused_data and unconsumed_tail for the Decompress object, only
-  work properly when using gzip compatible compression. (25 <= wbits <= 31).
-+ The flush implementation for the Compress object behavious differently from
-  the zlib equivalent. The flush implementation is sufficient for 
-  the ``igzip`` module to work 100% in compliance with the ``gzip`` tests from
-  CPython. It does not however work for all the ``zlib`` compliance tests 
-  (see above). This is an area that still needs work.
++ ``isal_zlib`` only supports ``NO_FLUSH``, ``SYNC_FLUSH``, ``FULL_FLUSH`` and
+  ``FINISH_FLUSH``. Other flush modes are not supported and will raise errors.
++ ``igzip.open`` returns a class ``IGzipFile`` instead of ``GzipFile``. Since
+  the compression levels are not compatible, a difference in naming was chosen
+  to reflect this. ``igzip.GzipFile`` does exist as an alias however.
 
 Contributing
 ------------
