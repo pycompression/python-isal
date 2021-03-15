@@ -556,18 +556,23 @@ cdef class Decompress:
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
         cdef bytes new_data
-        if self.stream.avail_in > 0:
-            left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
-            new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
-        else:
-            new_data = b""
         if self.stream.block_state == ISAL_BLOCK_FINISH:
             self.eof = 1
-            # The block is finished and this decompressobject can not be
-            # used anymore. Some unused data is in the bitbuffer and has to
-            # be recovered.
-            self.unused_data = self._view_bitbuffer() +  new_data
-        else:
+            if self.stream.avail_in > 0:
+                left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
+                new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
+            else:
+                new_data = b""
+            if not self.unused_data:
+                # The block is finished and this decompressobject can not be
+                # used anymore. Some unused data is in the bitbuffer and has to
+                # be recovered. Only when self.unused_data is empty. Otherwise
+                # we assume the bitbuffer data is already added.
+                self.unused_data = self._view_bitbuffer()
+            self.unused_data += new_data
+        elif self.stream.avail_in > 0 or self.unconsumed_tail:
+            left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
+            new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
             self.unconsumed_tail = new_data
 
     def decompress(self, data, Py_ssize_t max_length = 0):
