@@ -152,9 +152,6 @@ class IGzipFile(gzip.GzipFile):
         s = repr(self.fileobj)
         return '<igzip ' + s[1:-1] + ' ' + hex(id(self)) + '>'
 
-    def flush(self, zlib_mode=isal_zlib.Z_SYNC_FLUSH):
-        super().flush(zlib_mode)
-
     def _write_gzip_header(self, compresslevel=_COMPRESS_LEVEL_TRADEOFF):
         # Python 3.9 added a `compresslevel` parameter to write gzip header.
         # This only determines the value of one extra flag. Because this change
