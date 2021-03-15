@@ -544,14 +544,16 @@ cdef class Decompress:
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
         a maximum of 8 bytes. This data is already read-in so is not part
         of the unconsumed tail."""
-        read_in_length = self.stream.read_in_length // 8
+        bits_in_buffer = self.stream.read_in_length
+        read_in_length = bits_in_buffer // 8
         if read_in_length == 0:
             return b""
+        remainder = bits_in_buffer % 8
         read_in = self.stream.read_in
         # The bytes are added by bitshifting, so in reverse order. Reading the
         # 64-bit integer into 8 bytes little-endian provides the characters in
         # the correct order.
-        return read_in.to_bytes(8, "little")[:read_in_length]
+        return (read_in >> remainder).to_bytes(8, "little")[:read_in_length]
 
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
