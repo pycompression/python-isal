@@ -469,7 +469,6 @@ cdef class Compress:
             return b""
         elif mode == zlib.Z_FINISH:
             self.stream.flush = FULL_FLUSH
-            self.stream.end_of_stream = 1
         elif mode == zlib.Z_FULL_FLUSH:
             self.stream.flush = FULL_FLUSH
         elif mode == zlib.Z_SYNC_FLUSH:
@@ -493,10 +492,16 @@ cdef class Compress:
             # the data is appended to a list.
             # TODO: Improve this with the buffer protocol.
             out.append(self.obuf[:self.obuflen - self.stream.avail_out])
-            if self.stream.internal_state.state != ZSTATE_END and mode == zlib.Z_FINISH:
-                continue
-            elif self.stream.avail_in == 0:
-                break
+
+            if self.stream.avail_out != 0:  # All input is processed and therefore all output flushed.
+                if self.stream.internal_state.state != ZSTATE_END and mode == zlib.Z_FINISH:
+                    # If mode ==zlib.Z_FINISH we do one more round to finish the stream.
+                    self.stream.end_of_stream = 1
+                    continue
+                else:
+                    break
+        if self.stream.avail_in != 0:
+            raise AssertionError("There should be no available input after flushing.")
         return b"".join(out)
 
 cdef class Decompress:
