@@ -566,7 +566,8 @@ cdef class Decompress:
                 # we assume the bitbuffer data is already added.
                 self.unused_data = self._view_bitbuffer()
             self.unused_data += new_data
-            self.unconsumed_tail = b""  # When there is unused_data unconsumed tail should be b""
+            if self.unconsumed_tail:
+                self.unconsumed_tail = b""  # When there is unused_data unconsumed tail should be b""
         elif self.stream.avail_in > 0 or self.unconsumed_tail:
             left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
             new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
