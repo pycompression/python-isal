@@ -29,7 +29,7 @@ import zlib
 
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
-from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
+from libc.stdint cimport UINT64_MAX, UINT32_MAX
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cpython.buffer cimport PyBUF_READ, PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, \
     PyBuffer_Release
