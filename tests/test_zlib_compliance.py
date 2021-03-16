@@ -470,7 +470,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         ddata += dco.decompress(dco.unconsumed_tail)
         self.assertEqual(dco.unconsumed_tail, b"")
 
-    @pytest.mark.xfail(reason="Flush is not implemented in a compatible way.")
     def test_flushes(self):
         # Test flush() with the various options, using all the
         # different levels in order to provide more variations.
@@ -563,7 +562,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco = isal_zlib.decompressobj()
         self.assertRaises(isal_zlib.error, dco.decompress, cd)
 
-    @pytest.mark.xfail(reason="Flush is not implemented in a compatible way.")
     def test_dictionary_streaming(self):
         # This simulates the reuse of a compressor object for compressing
         # several separate data streams.
@@ -610,10 +608,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco.flush()
         self.assertFalse(dco.eof)
 
-    @pytest.mark.xfail(reason="Decompress object does not work as expected"
-                              " with regards to unconsumed tails/data due to "
-                              "the isa-l deflate process consuming too much"
-                              " data.")
     def test_decompress_unused_data(self):
         # Repeated calls to decompress() after EOF should accumulate data in
         # dco.unused_data, instead of just storing the arg to the last call.
@@ -649,7 +643,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         uncomp = dco.decompress(comp) + dco.flush()
         self.assertEqual(zdict, uncomp)
 
-    @pytest.mark.xfail(reason="Flush is not implemented in a compatible way.")
     def test_flush_with_freed_input(self):
         # Issue #16411: decompressor accesses input to last decompress() call
         # in flush(), even if this object has been freed in the meanwhile.
@@ -662,7 +655,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         data = isal_zlib.compress(input2)  # noqa: F841
         self.assertEqual(dco.flush(), input1[1:])
 
-    @pytest.mark.xfail(reason="Flush is not implemented in a compatible way.")
     @bigmemtest(size=_4G, memuse=1)
     def test_flush_large_length(self, size):
         # Test flush(length) parameter greater than internal limit UINT_MAX
@@ -672,7 +664,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco.decompress(data, 1)
         self.assertEqual(dco.flush(size), input[1:])
 
-    @pytest.mark.xfail(reason="Flush is not implemented in a compatible way.")
     def test_flush_custom_length(self):
         input = HAMLET_SCENE * 10
         data = isal_zlib.compress(input, 1)
@@ -792,10 +783,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         finally:
             comp = uncomp = data = None
 
-    @pytest.mark.xfail(reason="Decompress object does not work as expected"
-                              " with regards to unconsumed tails/data due to "
-                              "the isa-l deflate process consuming too much"
-                              " data.")
     @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=3)
     def test_large_unused_data(self, size):
@@ -810,10 +797,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         finally:
             unused = comp = do = None
 
-    @pytest.mark.xfail(reason="Decompress object does not work as expected"
-                              " with regards to unconsumed tails/data due to "
-                              "the isa-l deflate process consuming too much"
-                              " data.")
     @unittest.skipUnless(sys.maxsize > 2 ** 32, 'requires 64bit platform')
     @bigmemtest(size=_4G + 100, memuse=5)
     def test_large_unconsumed_tail(self, size):
