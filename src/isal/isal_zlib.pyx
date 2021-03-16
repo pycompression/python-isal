@@ -45,8 +45,6 @@ ISAL_DEFAULT_COMPRESSION = 2
 Z_BEST_SPEED = ISAL_BEST_SPEED
 Z_BEST_COMPRESSION = ISAL_BEST_COMPRESSION
 Z_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION
-cdef int ISAL_DEFAULT_COMPRESSION_I = ISAL_DEFAULT_COMPRESSION
-cdef int ZLIB_DEFAULT_COMPRESSION_I = zlib.Z_DEFAULT_COMPRESSION
 
 DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
 DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
@@ -142,7 +140,7 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
     remains[0] -= stream.avail_in
 
 def compress(data,
-             int level=ISAL_DEFAULT_COMPRESSION_I,
+             int level=ISAL_DEFAULT_COMPRESSION,
              int wbits = ISAL_DEF_MAX_HIST_BITS):
     """
     Compresses the bytes in *data*. Returns a bytes object with the
@@ -160,9 +158,6 @@ def compress(data,
                   -9 to -15 will generate a raw compressed string with
                   no headers and trailers.
     """
-    if level == ZLIB_DEFAULT_COMPRESSION_I:
-        level = ISAL_DEFAULT_COMPRESSION_I
-
     # Initialise stream
     cdef isal_zstream stream
     cdef unsigned int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
@@ -387,8 +382,6 @@ cdef class Compress:
             err = isal_deflate_set_dict(&self.stream, zdict, zdict_length)
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
-        if level == ZLIB_DEFAULT_COMPRESSION_I:
-            level = ISAL_DEFAULT_COMPRESSION_I
         self.stream.level = level
         self.stream.level_buf_size = zlib_mem_level_to_isal(level, memLevel)
         self.level_buf = <unsigned char *>PyMem_Malloc(self.stream.level_buf_size * sizeof(char))
