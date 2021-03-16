@@ -420,7 +420,7 @@ class TestGzip(BaseTest):
                 expectedXflByte = b'\x02'
             with self.subTest(name):
                 fWrite = igzip.GzipFile(self.filename, 'w',
-                                         compresslevel=level)
+                                        compresslevel=level)
                 with fWrite:
                     fWrite.write(data1)
                 with open(self.filename, 'rb') as fRead:
@@ -582,8 +582,8 @@ class TestGzip(BaseTest):
             for args in [(), (1,), (2,), (3,), (0,)]:
                 datac = igzip.compress(data, *args)
                 self.assertEqual(type(datac), bytes)
-                with igzip.GzipFile(fileobj=io.BytesIO(datac),
-                                     mode="rb") as f:
+                with igzip.GzipFile(fileobj=io.BytesIO(datac),  mode="rb"
+                                    ) as f:
                     self.assertEqual(f.read(), data)
 
     def test_compress_mtime(self):
@@ -593,8 +593,8 @@ class TestGzip(BaseTest):
                 with self.subTest(data=data, args=args):
                     datac = igzip.compress(data, *args, mtime=mtime)
                     self.assertEqual(type(datac), bytes)
-                    with igzip.GzipFile(fileobj=io.BytesIO(datac),
-                                         mode="rb") as f:
+                    with igzip.GzipFile(fileobj=io.BytesIO(datac), mode="rb"
+                                        ) as f:
                         f.read(1)  # to set mtime attribute
                         self.assertEqual(f.mtime, mtime)
 
