@@ -701,9 +701,6 @@ cdef class Decompress:
         finally:
             PyMem_Free(obuf)
 
-    @property
-    def crc(self):
-        return self.stream.crc
 
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
