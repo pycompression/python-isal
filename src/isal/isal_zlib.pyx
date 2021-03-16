@@ -127,12 +127,6 @@ def crc32(data, value = 0):
     finally:
         PyBuffer_Release(buffer)
 
-cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
-    if a <= b:
-        return a
-    else:
-        return b
-
 ctypedef fused stream_or_state:
     isal_zstream
     inflate_state
