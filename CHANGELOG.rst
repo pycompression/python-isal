@@ -7,7 +7,7 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 0.7.0-dev
+version 0.7.0
 -----------------
 + Remove workarounds in the ``igzip`` module for the ``unconsumed_tail``
   and ``unused_data`` bugs. ``igzip._IGzipReader`` now functions the same
@@ -19,7 +19,6 @@ version 0.7.0-dev
 + Correctly implement flush implementation on ``isal_zlib.Compress`` and
   ``isal_zlib.Decompress`` objects.
   It works the same as in CPython's zlib now.
-
 
 version 0.6.1
 -----------------
