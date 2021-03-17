@@ -7,6 +7,19 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.7.0
+-----------------
++ Remove workarounds in the ``igzip`` module for the ``unconsumed_tail``
+  and ``unused_data`` bugs. ``igzip._IGzipReader`` now functions the same
+  as ``gzip._GzipReader`` with only a few calls replaced with ``isal_zlib``
+  calls for speed.
++ Correctly implement ``unused_data`` and ``unconsumed_tail`` on
+  ``isal_zlib.Decompress`` objects.
+  It works the same as in CPython's zlib now.
++ Correctly implement flush implementation on ``isal_zlib.Compress`` and
+  ``isal_zlib.Decompress`` objects.
+  It works the same as in CPython's zlib now.
+
 version 0.6.1
 -----------------
 + Fix a crash that occurs when opening a file that did not end in ``.gz`` while

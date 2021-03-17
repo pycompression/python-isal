@@ -164,23 +164,8 @@ def test_decompress_igzip(data_size, level):
 
 
 @pytest.mark.parametrize(["unused_size", "wbits"],
-                         itertools.product([26], [31]))
-def test_unused_data_gzip(unused_size, wbits):
-    unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
-    compressor = zlib.compressobj(wbits=wbits)
-    data = b"A meaningful sentence stardts with a capital and ends with a."
-    compressed = compressor.compress(data) + compressor.flush()
-    decompressor = isal_zlib.decompressobj(wbits=wbits)
-    result = decompressor.decompress(compressed + unused_data)
-    assert result == data
-    assert decompressor.unused_data == unused_data
-
-
-@pytest.mark.xfail(reason="Unused data and unconsumed tail do not work "
-                          "properly for non-gzip compression.")
-@pytest.mark.parametrize(["unused_size", "wbits"],
-                         itertools.product([26], [-15, 15]))
-def test_unused_data_zlib_raw(unused_size, wbits):
+                         itertools.product([26], [-15, 15, 31]))
+def test_unused_data(unused_size, wbits):
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
     compressor = zlib.compressobj(wbits=wbits)
     data = b"A meaningful sentence starts with a capital and ends with a."

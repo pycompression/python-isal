@@ -29,7 +29,7 @@ import zlib
 
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
-from libc.stdint cimport UINT64_MAX, UINT32_MAX, uint32_t
+from libc.stdint cimport UINT64_MAX, UINT32_MAX
 from cpython.mem cimport PyMem_Malloc, PyMem_Free
 from cpython.buffer cimport PyBUF_READ, PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, \
     PyBuffer_Release
@@ -45,8 +45,6 @@ ISAL_DEFAULT_COMPRESSION = 2
 Z_BEST_SPEED = ISAL_BEST_SPEED
 Z_BEST_COMPRESSION = ISAL_BEST_COMPRESSION
 Z_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION
-cdef int ISAL_DEFAULT_COMPRESSION_I = ISAL_DEFAULT_COMPRESSION
-cdef int ZLIB_DEFAULT_COMPRESSION_I = zlib.Z_DEFAULT_COMPRESSION
 
 DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
 DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
@@ -65,13 +63,10 @@ Z_FILTERED=zlib.Z_FILTERED
 Z_FIXED=zlib.Z_FIXED
 
 # Flush methods
-ISAL_NO_FLUSH=NO_FLUSH 
-ISAL_SYNC_FLUSH=SYNC_FLUSH 
-ISAL_FULL_FLUSH=FULL_FLUSH
-
-Z_NO_FLUSH=ISAL_NO_FLUSH
-Z_SYNC_FLUSH=ISAL_SYNC_FLUSH
-Z_FINISH=ISAL_FULL_FLUSH
+Z_NO_FLUSH=zlib.Z_NO_FLUSH
+Z_SYNC_FLUSH=zlib.Z_SYNC_FLUSH
+Z_FULL_FLUSH=zlib.Z_FULL_FLUSH
+Z_FINISH=zlib.Z_FINISH
 
 class IsalError(OSError):
     """Exception raised on compression and decompression errors."""
@@ -126,12 +121,6 @@ def crc32(data, value = 0):
     finally:
         PyBuffer_Release(buffer)
 
-cdef Py_ssize_t Py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
-    if a <= b:
-        return a
-    else:
-        return b
-
 ctypedef fused stream_or_state:
     isal_zstream
     inflate_state
@@ -147,7 +136,7 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
     remains[0] -= stream.avail_in
 
 def compress(data,
-             int level=ISAL_DEFAULT_COMPRESSION_I,
+             int level=ISAL_DEFAULT_COMPRESSION,
              int wbits = ISAL_DEF_MAX_HIST_BITS):
     """
     Compresses the bytes in *data*. Returns a bytes object with the
@@ -165,9 +154,6 @@ def compress(data,
                   -9 to -15 will generate a raw compressed string with
                   no headers and trailers.
     """
-    if level == ZLIB_DEFAULT_COMPRESSION_I:
-        level = ISAL_DEFAULT_COMPRESSION_I
-
     # Initialise stream
     cdef isal_zstream stream
     cdef unsigned int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
@@ -352,7 +338,7 @@ def compressobj(int level=ISAL_DEFAULT_COMPRESSION,
                     no headers and trailers.
     :param memLevel: The amount of memory used for the internal compression
                      state. Higher values use more memory for better speed and
-                     smaller output.
+                     smaller output. Values between 1 and 9 are supported.
     :zdict:         A predefined compression dictionary. A sequence of bytes
                     that are expected to occur frequently in the to be
                     compressed data. The most common subsequences should come
@@ -392,8 +378,6 @@ cdef class Compress:
             err = isal_deflate_set_dict(&self.stream, zdict, zdict_length)
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
-        if level == ZLIB_DEFAULT_COMPRESSION_I:
-            level = ISAL_DEFAULT_COMPRESSION_I
         self.stream.level = level
         self.stream.level_buf_size = zlib_mem_level_to_isal(level, memLevel)
         self.level_buf = <unsigned char *>PyMem_Malloc(self.stream.level_buf_size * sizeof(char))
@@ -452,27 +436,34 @@ cdef class Compress:
         finally:
             PyBuffer_Release(buffer)
 
-    def flush(self, int mode=FULL_FLUSH):
+    def flush(self, mode=zlib.Z_FINISH):
         """
         All pending input is processed, and a bytes object containing the
         remaining compressed output is returned.
 
-        :param mode: Defaults to ISAL_FULL_FLUSH (Z_FINISH equivalent) which
+        :param mode: Defaults to Z_FINISH which
                      finishes the compressed stream and prevents compressing
-                     any more data. The only other supported method is
-                     ISAL_SYNC_FLUSH (Z_SYNC_FLUSH) equivalent.
+                     any more data. The other supported methods are
+                     Z_NO_FLUSH, Z_SYNC_FLUSH and Z_FULL_FLUSH.
         """
-        if mode == NO_FLUSH:
+
+        if mode == zlib.Z_NO_FLUSH:
             # Flushing with no_flush does nothing.
             return b""
-
-        self.stream.end_of_stream = 1
-        self.stream.flush = mode
+        elif mode == zlib.Z_FINISH:
+            self.stream.flush = FULL_FLUSH
+            self.stream.end_of_stream = 1
+        elif mode == zlib.Z_FULL_FLUSH:
+            self.stream.flush = FULL_FLUSH
+        elif mode == zlib.Z_SYNC_FLUSH:
+            self.stream.flush=SYNC_FLUSH
+        else:
+            raise IsalError("Unsupported flush mode")
 
          # Initialise output buffer
         out = []
        
-        while self.stream.internal_state.state != ZSTATE_END:
+        while True:
             self.stream.next_out = self.obuf  # Reset output buffer.
             self.stream.avail_out = self.obuflen
             err = isal_deflate(&self.stream)
@@ -485,6 +476,10 @@ cdef class Compress:
             # the data is appended to a list.
             # TODO: Improve this with the buffer protocol.
             out.append(self.obuf[:self.obuflen - self.stream.avail_out])
+            if self.stream.avail_out != 0:  # All input is processed and therefore all output flushed.
+                break
+        if self.stream.avail_in != 0:
+            raise AssertionError("There should be no available input after flushing.")
         return b"".join(out)
 
 cdef class Decompress:
@@ -528,19 +523,41 @@ cdef class Decompress:
         if self.obuf is not NULL:
             PyMem_Free(self.obuf)
 
+    def _view_bitbuffer(self):
+        """Shows the 64-bitbuffer of the internal inflate_state. It contains
+        a maximum of 8 bytes. This data is already read-in so is not part
+        of the unconsumed tail."""
+        bits_in_buffer = self.stream.read_in_length
+        read_in_length = bits_in_buffer // 8
+        if read_in_length == 0:
+            return b""
+        remainder = bits_in_buffer % 8
+        read_in = self.stream.read_in
+        # The bytes are added by bitshifting, so in reverse order. Reading the
+        # 64-bit integer into 8 bytes little-endian provides the characters in
+        # the correct order.
+        return (read_in >> remainder).to_bytes(8, "little")[:read_in_length]
+
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
         cdef bytes new_data
         if self.stream.block_state == ISAL_BLOCK_FINISH:
             self.eof = 1
             if self.stream.avail_in > 0:
-                old_size = len(self.unused_data)
                 left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
-                if left_size > (PY_SSIZE_T_MAX - old_size):
-                    raise MemoryError()
                 new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
-                self.unused_data += new_data
-        if self.stream.avail_in > 0 or self.unconsumed_tail:
+            else:
+                new_data = b""
+            if not self.unused_data:
+                # The block is finished and this decompressobject can not be
+                # used anymore. Some unused data is in the bitbuffer and has to
+                # be recovered. Only when self.unused_data is empty. Otherwise
+                # we assume the bitbuffer data is already added.
+                self.unused_data = self._view_bitbuffer()
+            self.unused_data += new_data
+            if self.unconsumed_tail:
+                self.unconsumed_tail = b""  # When there is unused_data unconsumed tail should be b""
+        elif self.stream.avail_in > 0 or self.unconsumed_tail:
             left_size = <unsigned char*>data.buf + data.len - self.stream.next_in
             new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, left_size)
             self.unconsumed_tail = new_data
@@ -646,9 +663,9 @@ cdef class Decompress:
         cdef Py_ssize_t unused_bytes
 
         try:
-            while self.stream.block_state != ISAL_BLOCK_FINISH and ibuflen !=0:
+            while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
-                while (self.stream.block_state != ISAL_BLOCK_FINISH):
+                while True:
                     self.stream.next_out = obuf  # Reset output buffer.
                     self.stream.avail_out = obuflen
                     err = isal_inflate(&self.stream)
@@ -660,17 +677,20 @@ cdef class Decompress:
                     # Instead of output buffer resizing as the zlibmodule.c example
                     # the data is appended to a list.
                     # TODO: Improve this with the buffer protocol.
+                    if self.stream.avail_out == obuflen:
+                        break
                     bytes_written = obuflen - self.stream.avail_out
                     total_bytes += bytes_written
                     out.append(obuf[:bytes_written])
+                    if self.stream.avail_out != 0:
+                        break
+                if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen == 0:
+                    break
             self.save_unconsumed_input(buffer)
             return b"".join(out)
         finally:
             PyMem_Free(obuf)
 
-    @property
-    def crc(self):
-        return self.stream.crc
 
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
@@ -707,9 +727,6 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     elif 40 <= wbits <= 47:  # Accept gzip or zlib
         hist_bits[0] = wbits - 32
         crc_flag[0] = ISAL_GZIP if gzip else ISAL_ZLIB
-    elif 72 <=wbits <= 79:
-        hist_bits[0] = wbits - 64
-        crc_flag[0] = ISAL_GZIP_NO_HDR_VER
     else:
         raise ValueError("Invalid wbits value")
 

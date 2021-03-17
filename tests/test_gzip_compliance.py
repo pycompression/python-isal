@@ -5,7 +5,6 @@ Python software license applies:
 https://github.com/python/cpython/blob/master/LICENSE
 
 Changes made:
-- All instances of igzip.GzipFile have been renamed to igzip.IGzipFile
 - removed test.support specific functionally that is not distributed with the
   binary releases of python:
     - tempfile module was used to create the temporary files and dirs
@@ -76,14 +75,14 @@ class BaseTest(unittest.TestCase):
 class TestGzip(BaseTest):
     def write_and_read_back(self, data, mode='b'):
         b_data = bytes(data)
-        with igzip.IGzipFile(self.filename, 'w' + mode) as f:
+        with igzip.GzipFile(self.filename, 'w' + mode) as f:
             length = f.write(data)
         self.assertEqual(length, len(b_data))
-        with igzip.IGzipFile(self.filename, 'r' + mode) as f:
+        with igzip.GzipFile(self.filename, 'r' + mode) as f:
             self.assertEqual(f.read(), b_data)
 
     def test_write(self):
-        with igzip.IGzipFile(self.filename, 'wb') as f:
+        with igzip.GzipFile(self.filename, 'wb') as f:
             f.write(data1 * 50)
 
             # Try flush and fileno.
@@ -98,12 +97,12 @@ class TestGzip(BaseTest):
 
     def test_write_read_with_pathlike_file(self):
         filename = pathlib.Path(self.filename)
-        with igzip.IGzipFile(filename, 'w') as f:
+        with igzip.GzipFile(filename, 'w') as f:
             f.write(data1 * 50)
         self.assertIsInstance(f.name, str)
-        with igzip.IGzipFile(filename, 'a') as f:
+        with igzip.GzipFile(filename, 'a') as f:
             f.write(data1)
-        with igzip.IGzipFile(filename) as f:
+        with igzip.GzipFile(filename) as f:
             d = f.read()
         self.assertEqual(d, data1 * 51)
         self.assertIsInstance(f.name, str)
@@ -127,19 +126,19 @@ class TestGzip(BaseTest):
         # Test that non-bytes-like types raise TypeError.
         # Issue #21560: attempts to write incompatible types
         # should not affect the state of the fileobject
-        with igzip.IGzipFile(self.filename, 'wb') as f:
+        with igzip.GzipFile(self.filename, 'wb') as f:
             with self.assertRaises(TypeError):
                 f.write('')
             with self.assertRaises(TypeError):
                 f.write([])
             f.write(data1)
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             self.assertEqual(f.read(), data1)
 
     def test_read(self):
         self.test_write()
         # Try reading.
-        with igzip.IGzipFile(self.filename, 'r') as f:
+        with igzip.GzipFile(self.filename, 'r') as f:
             d = f.read()
         self.assertEqual(d, data1 * 50)
 
@@ -147,7 +146,7 @@ class TestGzip(BaseTest):
         self.test_write()
         blocks = []
         nread = 0
-        with igzip.IGzipFile(self.filename, 'r') as f:
+        with igzip.GzipFile(self.filename, 'r') as f:
             while True:
                 d = f.read1()
                 if not d:
@@ -163,7 +162,7 @@ class TestGzip(BaseTest):
         # Read chunk size over UINT_MAX should be supported, despite zlib's
         # limitation per low-level call
         compressed = igzip.compress(data1, compresslevel=1)
-        f = igzip.IGzipFile(fileobj=io.BytesIO(compressed), mode='rb')
+        f = igzip.GzipFile(fileobj=io.BytesIO(compressed), mode='rb')
         self.assertEqual(f.read(size), data1)
 
     def test_io_on_closed_object(self):
@@ -172,7 +171,7 @@ class TestGzip(BaseTest):
 
         # Write to a file, open it for reading, then close it.
         self.test_write()
-        f = igzip.IGzipFile(self.filename, 'r')
+        f = igzip.GzipFile(self.filename, 'r')
         fileobj = f.fileobj
         self.assertFalse(fileobj.closed)
         f.close()
@@ -184,7 +183,7 @@ class TestGzip(BaseTest):
         with self.assertRaises(ValueError):
             f.tell()
         # Open the file for writing, then close it.
-        f = igzip.IGzipFile(self.filename, 'w')
+        f = igzip.GzipFile(self.filename, 'w')
         fileobj = f.fileobj
         self.assertFalse(fileobj.closed)
         f.close()
@@ -197,10 +196,10 @@ class TestGzip(BaseTest):
     def test_append(self):
         self.test_write()
         # Append to the previous file
-        with igzip.IGzipFile(self.filename, 'ab') as f:
+        with igzip.GzipFile(self.filename, 'ab') as f:
             f.write(data2 * 15)
 
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             d = f.read()
         self.assertEqual(d, (data1 * 50) + (data2 * 15))
 
@@ -208,14 +207,14 @@ class TestGzip(BaseTest):
         # Bug #1074261 was triggered when reading a file that contained
         # many, many members.  Create such a file and verify that reading it
         # works.
-        with igzip.IGzipFile(self.filename, 'wb') as f:
+        with igzip.GzipFile(self.filename, 'wb') as f:
             f.write(b'a')
         for i in range(0, 200):
-            with igzip.IGzipFile(self.filename, "ab") as f:  # append
+            with igzip.GzipFile(self.filename, "ab") as f:  # append
                 f.write(b'a')
 
         # Try reading the file
-        with igzip.IGzipFile(self.filename, "rb") as zgfile:
+        with igzip.GzipFile(self.filename, "rb") as zgfile:
             contents = b""
             while 1:
                 ztxt = zgfile.read(8192)
@@ -225,19 +224,19 @@ class TestGzip(BaseTest):
         self.assertEqual(contents, b'a' * 201)
 
     def test_exclusive_write(self):
-        with igzip.IGzipFile(self.filename, 'xb') as f:
+        with igzip.GzipFile(self.filename, 'xb') as f:
             f.write(data1 * 50)
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             self.assertEqual(f.read(), data1 * 50)
         with self.assertRaises(FileExistsError):
-            igzip.IGzipFile(self.filename, 'xb')
+            igzip.GzipFile(self.filename, 'xb')
 
     def test_buffered_reader(self):
         # Issue #7471: a GzipFile can be wrapped in a BufferedReader for
         # performance.
         self.test_write()
 
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             with io.BufferedReader(f) as r:
                 lines = [line for line in r]
 
@@ -247,7 +246,7 @@ class TestGzip(BaseTest):
         self.test_write()
         # Try .readline() with varying line lengths
 
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             line_length = 0
             while 1:
                 L = f.readline(line_length)
@@ -260,10 +259,10 @@ class TestGzip(BaseTest):
         self.test_write()
         # Try .readlines()
 
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             L = f.readlines()
 
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             while 1:
                 L = f.readlines(150)
                 if L == []:
@@ -273,7 +272,7 @@ class TestGzip(BaseTest):
         self.test_write()
         # Try seek, read test
 
-        with igzip.IGzipFile(self.filename) as f:
+        with igzip.GzipFile(self.filename) as f:
             while 1:
                 oldpos = f.tell()
                 line1 = f.readline()
@@ -293,7 +292,7 @@ class TestGzip(BaseTest):
         self.test_write()
         # Try seek(whence=1), read test
 
-        with igzip.IGzipFile(self.filename) as f:
+        with igzip.GzipFile(self.filename) as f:
             f.read(10)
             f.seek(10, whence=1)
             y = f.read(10)
@@ -301,36 +300,36 @@ class TestGzip(BaseTest):
 
     def test_seek_write(self):
         # Try seek, write test
-        with igzip.IGzipFile(self.filename, 'w') as f:
+        with igzip.GzipFile(self.filename, 'w') as f:
             for pos in range(0, 256, 16):
                 f.seek(pos)
                 f.write(b'GZ\n')
 
     def test_mode(self):
         self.test_write()
-        with igzip.IGzipFile(self.filename, 'r') as f:
+        with igzip.GzipFile(self.filename, 'r') as f:
             self.assertEqual(f.myfileobj.mode, 'rb')
         os.unlink(self.filename)
-        with igzip.IGzipFile(self.filename, 'x') as f:
+        with igzip.GzipFile(self.filename, 'x') as f:
             self.assertEqual(f.myfileobj.mode, 'xb')
 
     def test_1647484(self):
         for mode in ('wb', 'rb'):
-            with igzip.IGzipFile(self.filename, mode) as f:
+            with igzip.GzipFile(self.filename, mode) as f:
                 self.assertTrue(hasattr(f, "name"))
                 self.assertEqual(f.name, self.filename)
 
     def test_paddedfile_getattr(self):
         self.test_write()
-        with igzip.IGzipFile(self.filename, 'rb') as f:
+        with igzip.GzipFile(self.filename, 'rb') as f:
             self.assertTrue(hasattr(f.fileobj, "name"))
             self.assertEqual(f.fileobj.name, self.filename)
 
     def test_mtime(self):
         mtime = 123456789
-        with igzip.IGzipFile(self.filename, 'w', mtime=mtime) as fWrite:
+        with igzip.GzipFile(self.filename, 'w', mtime=mtime) as fWrite:
             fWrite.write(data1)
-        with igzip.IGzipFile(self.filename) as fRead:
+        with igzip.GzipFile(self.filename) as fRead:
             self.assertTrue(hasattr(fRead, 'mtime'))
             self.assertIsNone(fRead.mtime)
             dataRead = fRead.read()
@@ -340,7 +339,7 @@ class TestGzip(BaseTest):
     def test_metadata(self):
         mtime = 123456789
 
-        with igzip.IGzipFile(self.filename, 'w', mtime=mtime) as fWrite:
+        with igzip.GzipFile(self.filename, 'w', mtime=mtime) as fWrite:
             fWrite.write(data1)
 
         with open(self.filename, 'rb') as fRead:
@@ -420,8 +419,8 @@ class TestGzip(BaseTest):
                 # earlier versions
                 expectedXflByte = b'\x02'
             with self.subTest(name):
-                fWrite = igzip.IGzipFile(self.filename, 'w',
-                                         compresslevel=level)
+                fWrite = igzip.GzipFile(self.filename, 'w',
+                                        compresslevel=level)
                 with fWrite:
                     fWrite.write(data1)
                 with open(self.filename, 'rb') as fRead:
@@ -431,9 +430,9 @@ class TestGzip(BaseTest):
 
     def test_with_open(self):
         # GzipFile supports the context management protocol
-        with igzip.IGzipFile(self.filename, "wb") as f:
+        with igzip.GzipFile(self.filename, "wb") as f:
             f.write(b"xxx")
-        f = igzip.IGzipFile(self.filename, "rb")
+        f = igzip.GzipFile(self.filename, "rb")
         f.close()
         try:
             with f:
@@ -443,7 +442,7 @@ class TestGzip(BaseTest):
         else:
             self.fail("__enter__ on a closed file didn't raise an exception")
         try:
-            with igzip.IGzipFile(self.filename, "wb") as f:
+            with igzip.GzipFile(self.filename, "wb") as f:
                 1 / 0
         except ZeroDivisionError:
             pass
@@ -451,14 +450,14 @@ class TestGzip(BaseTest):
             self.fail("1/0 didn't raise an exception")
 
     def test_zero_padded_file(self):
-        with igzip.IGzipFile(self.filename, "wb") as f:
+        with igzip.GzipFile(self.filename, "wb") as f:
             f.write(data1 * 50)
 
         # Pad the file with zeroes
         with open(self.filename, "ab") as f:
             f.write(b"\x00" * 50)
 
-        with igzip.IGzipFile(self.filename, "rb") as f:
+        with igzip.GzipFile(self.filename, "rb") as f:
             d = f.read()
             self.assertEqual(d, data1 * 50, "Incorrect data in file")
 
@@ -469,22 +468,22 @@ class TestGzip(BaseTest):
         major, minor, _, _, _ = sys.version_info
         with open(self.filename, 'wb') as file:
             file.write(data1 * 50)
-        with igzip.IGzipFile(self.filename, 'r') as file:
+        with igzip.GzipFile(self.filename, 'r') as file:
             self.assertRaises(igzip.BadGzipFile, file.readlines)
 
     def test_non_seekable_file(self):
         uncompressed = data1 * 50
         buf = UnseekableIO()
-        with igzip.IGzipFile(fileobj=buf, mode="wb") as f:
+        with igzip.GzipFile(fileobj=buf, mode="wb") as f:
             f.write(uncompressed)
         compressed = buf.getvalue()
         buf = UnseekableIO(compressed)
-        with igzip.IGzipFile(fileobj=buf, mode="rb") as f:
+        with igzip.GzipFile(fileobj=buf, mode="rb") as f:
             self.assertEqual(f.read(), uncompressed)
 
     def test_peek(self):
         uncompressed = data1 * 200
-        with igzip.IGzipFile(self.filename, "wb") as f:
+        with igzip.GzipFile(self.filename, "wb") as f:
             f.write(uncompressed)
 
         def sizes():
@@ -492,7 +491,7 @@ class TestGzip(BaseTest):
                 for n in range(5, 50, 10):
                     yield n
 
-        with igzip.IGzipFile(self.filename, "rb") as f:
+        with igzip.GzipFile(self.filename, "rb") as f:
             f.max_read_chunk = 33
             nread = 0
             for n in sizes():
@@ -508,7 +507,7 @@ class TestGzip(BaseTest):
         # Issue #10791: TextIOWrapper.readlines() fails when wrapping GzipFile.
         lines = (data1 * 50).decode("ascii").splitlines(keepends=True)
         self.test_write()
-        with igzip.IGzipFile(self.filename, 'r') as f:
+        with igzip.GzipFile(self.filename, 'r') as f:
             with io.TextIOWrapper(f, encoding="ascii") as t:
                 self.assertEqual(t.readlines(), lines)
 
@@ -517,25 +516,25 @@ class TestGzip(BaseTest):
         # fileobj created with os.fdopen().
         fd = os.open(self.filename, os.O_WRONLY | os.O_CREAT)
         with os.fdopen(fd, "wb") as f:
-            with igzip.IGzipFile(fileobj=f, mode="w"):
+            with igzip.GzipFile(fileobj=f, mode="w"):
                 pass
 
     def test_fileobj_mode(self):
-        igzip.IGzipFile(self.filename, "wb").close()
+        igzip.GzipFile(self.filename, "wb").close()
         with open(self.filename, "r+b") as f:
-            with igzip.IGzipFile(fileobj=f, mode='r') as g:
+            with igzip.GzipFile(fileobj=f, mode='r') as g:
                 self.assertEqual(g.mode, gzip.READ)
-            with igzip.IGzipFile(fileobj=f, mode='w') as g:
+            with igzip.GzipFile(fileobj=f, mode='w') as g:
                 self.assertEqual(g.mode, gzip.WRITE)
-            with igzip.IGzipFile(fileobj=f, mode='a') as g:
+            with igzip.GzipFile(fileobj=f, mode='a') as g:
                 self.assertEqual(g.mode, gzip.WRITE)
-            with igzip.IGzipFile(fileobj=f, mode='x') as g:
+            with igzip.GzipFile(fileobj=f, mode='x') as g:
                 self.assertEqual(g.mode, gzip.WRITE)
             with self.assertRaises(ValueError):
-                igzip.IGzipFile(fileobj=f, mode='z')
+                igzip.GzipFile(fileobj=f, mode='z')
         for mode in "rb", "r+b":
             with open(self.filename, mode) as f:
-                with igzip.IGzipFile(fileobj=f) as g:
+                with igzip.GzipFile(fileobj=f) as g:
                     self.assertEqual(g.mode, gzip.READ)
         for mode in "wb", "ab", "xb":
             if "x" in mode:
@@ -544,9 +543,9 @@ class TestGzip(BaseTest):
                 major, minor, _, _, _ = sys.version_info
                 if major == 3 and minor >= 9 or major > 3:
                     with self.assertWarns(FutureWarning):
-                        g = igzip.IGzipFile(fileobj=f)
+                        g = igzip.GzipFile(fileobj=f)
                 else:
-                    g = igzip.IGzipFile(fileobj=f)
+                    g = igzip.GzipFile(fileobj=f)
                 with g:
                     self.assertEqual(g.mode, gzip.WRITE)
 
@@ -556,12 +555,12 @@ class TestGzip(BaseTest):
             bytes_filename = str_filename.encode("ascii")
         except UnicodeEncodeError:
             self.skipTest("Temporary file name needs to be ASCII")
-        with igzip.IGzipFile(bytes_filename, "wb") as f:
+        with igzip.GzipFile(bytes_filename, "wb") as f:
             f.write(data1 * 50)
-        with igzip.IGzipFile(bytes_filename, "rb") as f:
+        with igzip.GzipFile(bytes_filename, "rb") as f:
             self.assertEqual(f.read(), data1 * 50)
         # Sanity check that we are actually operating on the right file.
-        with igzip.IGzipFile(str_filename, "rb") as f:
+        with igzip.GzipFile(str_filename, "rb") as f:
             self.assertEqual(f.read(), data1 * 50)
 
     def test_decompress_limited(self):
@@ -570,7 +569,7 @@ class TestGzip(BaseTest):
         self.assertLess(len(bomb), io.DEFAULT_BUFFER_SIZE)
 
         bomb = io.BytesIO(bomb)
-        decomp = igzip.IGzipFile(fileobj=bomb)
+        decomp = igzip.GzipFile(fileobj=bomb)
         self.assertEqual(decomp.read(1), b'\0')
         max_decomp = 1 + io.DEFAULT_BUFFER_SIZE
         self.assertLessEqual(decomp._buffer.raw.tell(), max_decomp,
@@ -583,8 +582,8 @@ class TestGzip(BaseTest):
             for args in [(), (1,), (2,), (3,), (0,)]:
                 datac = igzip.compress(data, *args)
                 self.assertEqual(type(datac), bytes)
-                with igzip.IGzipFile(fileobj=io.BytesIO(datac),
-                                     mode="rb") as f:
+                with igzip.GzipFile(fileobj=io.BytesIO(datac),  mode="rb"
+                                    ) as f:
                     self.assertEqual(f.read(), data)
 
     def test_compress_mtime(self):
@@ -594,15 +593,15 @@ class TestGzip(BaseTest):
                 with self.subTest(data=data, args=args):
                     datac = igzip.compress(data, *args, mtime=mtime)
                     self.assertEqual(type(datac), bytes)
-                    with igzip.IGzipFile(fileobj=io.BytesIO(datac),
-                                         mode="rb") as f:
+                    with igzip.GzipFile(fileobj=io.BytesIO(datac), mode="rb"
+                                        ) as f:
                         f.read(1)  # to set mtime attribute
                         self.assertEqual(f.mtime, mtime)
 
     def test_decompress(self):
         for data in (data1, data2):
             buf = io.BytesIO()
-            with igzip.IGzipFile(fileobj=buf, mode="wb") as f:
+            with igzip.GzipFile(fileobj=buf, mode="wb") as f:
                 f.write(data)
             self.assertEqual(igzip.decompress(buf.getvalue()), data)
             # Roundtrip with compress
@@ -613,14 +612,14 @@ class TestGzip(BaseTest):
         data = data1 * 50
         # Drop the CRC (4 bytes) and file size (4 bytes).
         truncated = igzip.compress(data)[:-8]
-        with igzip.IGzipFile(fileobj=io.BytesIO(truncated)) as f:
+        with igzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
             self.assertRaises(EOFError, f.read)
-        with igzip.IGzipFile(fileobj=io.BytesIO(truncated)) as f:
+        with igzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
             self.assertEqual(f.read(len(data)), data)
             self.assertRaises(EOFError, f.read, 1)
         # Incomplete 10-byte header.
         for i in range(2, 10):
-            with igzip.IGzipFile(fileobj=io.BytesIO(truncated[:i])) as f:
+            with igzip.GzipFile(fileobj=io.BytesIO(truncated[:i])) as f:
                 self.assertRaises(EOFError, f.read, 1)
 
     def test_read_with_extra(self):
@@ -628,7 +627,7 @@ class TestGzip(BaseTest):
         gzdata = (b'\x1f\x8b\x08\x04\xb2\x17cQ\x02\xff'
                   b'\x05\x00Extra'
                   b'\x0bI-.\x01\x002\xd1Mx\x04\x00\x00\x00')
-        with igzip.IGzipFile(fileobj=io.BytesIO(gzdata)) as f:
+        with igzip.GzipFile(fileobj=io.BytesIO(gzdata)) as f:
             self.assertEqual(f.read(), b'Test')
 
     def test_prepend_error(self):
@@ -795,7 +794,7 @@ class TestCommandLine(unittest.TestCase):
 
     def test_decompress_stdin_stdout(self):
         with io.BytesIO() as bytes_io:
-            with igzip.IGzipFile(fileobj=bytes_io, mode='wb') as igzip_file:
+            with igzip.GzipFile(fileobj=bytes_io, mode='wb') as igzip_file:
                 igzip_file.write(self.data)
 
             args = sys.executable, '-m', 'isal.igzip', '-d'
