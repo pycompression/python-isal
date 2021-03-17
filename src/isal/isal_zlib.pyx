@@ -153,13 +153,14 @@ cdef arrange_output_buffer_with_maximum(stream_or_state *stream,
                 new_length = length << 1
             else:
                 new_length = max_length
-            if PyMem_Realloc(buffer[0], new_length) == NULL:
+            new_buffer = <unsigned char *>PyMem_Realloc(buffer[0], new_length + 1)
+            if new_buffer == NULL:
                 new_buffer = <unsigned char*>PyMem_Malloc(new_length * sizeof(char))
                 if new_buffer == NULL:
                     raise MemoryError("Unssufficient memory for buffer allocation")
                 strncpy(<char *>new_buffer, <char *>buffer[0], occupied)
                 PyMem_Free(buffer[0])
-                buffer[0] = new_buffer
+            buffer[0] = new_buffer
             length = new_length
     stream.avail_out = unsigned_int_min(length - occupied, UINT32_MAX)
     stream.next_out = buffer[0] + occupied
