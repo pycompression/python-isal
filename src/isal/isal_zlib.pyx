@@ -338,7 +338,7 @@ def compressobj(int level=ISAL_DEFAULT_COMPRESSION,
                     no headers and trailers.
     :param memLevel: The amount of memory used for the internal compression
                      state. Higher values use more memory for better speed and
-                     smaller output.
+                     smaller output. Values between 1 and 9 are supported.
     :zdict:         A predefined compression dictionary. A sequence of bytes
                     that are expected to occur frequently in the to be
                     compressed data. The most common subsequences should come
@@ -443,8 +443,8 @@ cdef class Compress:
 
         :param mode: Defaults to Z_FINISH which
                      finishes the compressed stream and prevents compressing
-                     any more data. The only other supported methods are
-                     Z_SYNC_FLUSH and Z_FULL_FLUSH.
+                     any more data. The other supported methods are
+                     Z_NO_FLUSH, Z_SYNC_FLUSH and Z_FULL_FLUSH.
         """
 
         if mode == zlib.Z_NO_FLUSH:
