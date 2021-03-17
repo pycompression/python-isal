@@ -379,8 +379,6 @@ cdef class Compress:
     """Compress object for handling streaming compression."""
     cdef isal_zstream stream
     cdef unsigned char * level_buf
-    cdef unsigned char * obuf
-    cdef unsigned int obuflen
 
     def __cinit__(self,
                   int level = ISAL_DEFAULT_COMPRESSION,
@@ -411,12 +409,7 @@ cdef class Compress:
         self.level_buf = <unsigned char *>PyMem_Malloc(self.stream.level_buf_size * sizeof(char))
         self.stream.level_buf = self.level_buf
 
-        self.obuflen = DEF_BUF_SIZE
-        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
-
     def __dealloc__(self):
-        if self.obuf is not NULL:
-            PyMem_Free(self.obuf)
         if self.level_buf is not NULL:
             PyMem_Free(self.level_buf)
 
@@ -428,7 +421,8 @@ cdef class Compress:
         Some input may be kept in internal buffers for later processing.
         """
         # Initialise output buffer
-        out = []
+        cdef unsigned char * obuf = NULL
+        cdef Py_ssize_t obuflen = DEF_BUF_SIZE
 
         # initialise input
         cdef Py_buffer buffer_data
@@ -442,25 +436,26 @@ cdef class Compress:
         # initialise helper variables
         cdef int err
         try:
-            while ibuflen !=0:
+            while True: #ibuflen !=0:
                 # This loop runs n times (at least twice). n-1 times to fill the input
                 # buffer with data. The nth time the input is empty. In that case
                 # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
                 arrange_input_buffer(&self.stream, &ibuflen)
-                while self.stream.avail_in != 0:
-                    self.stream.next_out = self.obuf  # Reset output buffer.
-                    self.stream.avail_out = self.obuflen
+                while True: #self.stream.avail_in != 0:
+                    obuflen = arrange_output_buffer(&self.stream, &obuf, obuflen)
                     err = isal_deflate(&self.stream)
                     if err != COMP_OK:
                         # There is some python interacting when possible exceptions
                         # Are raised. So we remain in pure C code if we check for
                         # COMP_OK first.
                         check_isal_deflate_rc(err)
-                    # Instead of output buffer resizing as the zlibmodule.c example
-                    # the data is appended to a list.
-                    # TODO: Improve this with the buffer protocol.
-                    out.append(self.obuf[:self.obuflen - self.stream.avail_out])
-            return b"".join(out)
+                    if self.stream.avail_out != 0:
+                        break
+                if self.stream.avail_in != 0:
+                    raise AssertionError("Input stream should be empty")
+                if ibuflen == 0:
+                    break
+            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
         finally:
             PyBuffer_Release(buffer)
 
@@ -488,27 +483,22 @@ cdef class Compress:
         else:
             raise IsalError("Unsupported flush mode")
 
-         # Initialise output buffer
-        out = []
+        cdef Py_ssize_t length = DEF_BUF_SIZE
+        cdef unsigned char * obuf = NULL
        
         while True:
-            self.stream.next_out = self.obuf  # Reset output buffer.
-            self.stream.avail_out = self.obuflen
+            length = arrange_output_buffer(&self.stream, &obuf, length)
             err = isal_deflate(&self.stream)
             if err != COMP_OK:
                 # There is some python interacting when possible exceptions
                 # Are raised. So we remain in pure C code if we check for
                 # COMP_OK first.
                 check_isal_deflate_rc(err)
-            # Instead of output buffer resizing as the zlibmodule.c example
-            # the data is appended to a list.
-            # TODO: Improve this with the buffer protocol.
-            out.append(self.obuf[:self.obuflen - self.stream.avail_out])
             if self.stream.avail_out != 0:  # All input is processed and therefore all output flushed.
                 break
         if self.stream.avail_in != 0:
             raise AssertionError("There should be no available input after flushing.")
-        return b"".join(out)
+        return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
 
 cdef class Decompress:
     """Decompress object for handling streaming decompression."""
