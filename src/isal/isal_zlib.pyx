@@ -162,7 +162,7 @@ cdef arrange_output_buffer_with_maximum(stream_or_state *stream,
                 buffer[0] = new_buffer
             length = new_length
     stream.avail_out = unsigned_int_min(length - occupied, UINT32_MAX)
-    stream.next_out = buffer[0]
+    stream.next_out = buffer[0] + occupied
     return length
 
 cdef arrange_output_buffer(stream_or_state *stream, unsigned char **buffer, Py_ssize_t length):
