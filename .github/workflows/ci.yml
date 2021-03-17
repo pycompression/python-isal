@@ -157,8 +157,8 @@ jobs:
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
           # Fully test the build wheels again.
           CIBW_TEST_REQUIRES: "pytest"
-          # Simple test that requires the project to be build correctly
-          CIBW_TEST_COMMAND: "pytest {project}/tests/test_igzip.py"
+          # Test everything to be sure.
+          CIBW_TEST_COMMAND: "pytest {project}/tests"
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
