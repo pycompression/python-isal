@@ -458,6 +458,7 @@ cdef class Compress:
             return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
         finally:
             PyBuffer_Release(buffer)
+            PyMem_Free(obuf)
 
     def flush(self, mode=zlib.Z_FINISH):
         """
@@ -485,20 +486,23 @@ cdef class Compress:
 
         cdef Py_ssize_t length = DEF_BUF_SIZE
         cdef unsigned char * obuf = NULL
-       
-        while True:
-            length = arrange_output_buffer(&self.stream, &obuf, length)
-            err = isal_deflate(&self.stream)
-            if err != COMP_OK:
-                # There is some python interacting when possible exceptions
-                # Are raised. So we remain in pure C code if we check for
-                # COMP_OK first.
-                check_isal_deflate_rc(err)
-            if self.stream.avail_out != 0:  # All input is processed and therefore all output flushed.
-                break
-        if self.stream.avail_in != 0:
-            raise AssertionError("There should be no available input after flushing.")
-        return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
+
+        try:
+            while True:
+                length = arrange_output_buffer(&self.stream, &obuf, length)
+                err = isal_deflate(&self.stream)
+                if err != COMP_OK:
+                    # There is some python interacting when possible exceptions
+                    # Are raised. So we remain in pure C code if we check for
+                    # COMP_OK first.
+                    check_isal_deflate_rc(err)
+                if self.stream.avail_out != 0:  # All input is processed and therefore all output flushed.
+                    break
+            if self.stream.avail_in != 0:
+                raise AssertionError("There should be no available input after flushing.")
+            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
+        finally:
+            PyMem_Free(obuf)
 
 cdef class Decompress:
     """Decompress object for handling streaming decompression."""
