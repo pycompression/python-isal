@@ -30,7 +30,8 @@ import zlib
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
-from cpython.mem cimport PyMem_Malloc, PyMem_Free
+from libc.string cimport strncpy
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_READ, PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, \
     PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
@@ -131,6 +132,44 @@ cdef unsigned int unsigned_int_min(unsigned int a, unsigned int b):
     else:
         return b
 
+cdef arrange_output_buffer_with_maximum(stream_or_state *stream,
+                                        unsigned char **buffer,
+                                        Py_ssize_t length,
+                                        Py_ssize_t max_length):
+    cdef Py_ssize_t occupied
+    cdef Py_ssize_t new_length
+    cdef unsigned char * new_buffer
+    if buffer[0] == NULL:
+        buffer[0] = <unsigned char*>PyMem_Malloc(length * sizeof(char))
+        if buffer[0] == NULL:
+            raise MemoryError("Unsufficient memory for buffer allocation")
+        occupied = 0
+    else:
+        occupied = stream.next_out - buffer[0]
+        if length == occupied:
+            if length == max_length:
+                raise MemoryError("Buffer has reached maximum size")
+            if length <= max_length >> 1:
+                new_length = length << 1
+            else:
+                new_length = max_length
+            if PyMem_Realloc(buffer[0], new_length) == NULL:
+                new_buffer = <unsigned char*>PyMem_Malloc(new_length * sizeof(char))
+                if new_buffer == NULL:
+                    raise MemoryError("Unssufficient memory for buffer allocation")
+                strncpy(<char *>new_buffer, <char *>buffer[0], occupied)
+                PyMem_Free(buffer[0])
+                buffer[0] = new_buffer
+            length = new_length
+    stream.avail_out = unsigned_int_min(length - occupied, UINT32_MAX)
+    stream.next_out = buffer[0]
+    return length
+
+cdef arrange_output_buffer(stream_or_state *stream, unsigned char **buffer, Py_ssize_t length):
+    cdef Py_ssize_t ret
+    ret = arrange_output_buffer_with_maximum(stream, buffer, length, PY_SSIZE_T_MAX)
+    return ret
+
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
     stream.avail_in = unsigned_int_min(<unsigned int>remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
@@ -168,8 +207,7 @@ def compress(data,
 
     # Initialise output buffer
     cdef unsigned int obuflen = DEF_BUF_SIZE
-    cdef unsigned char * obuf = <unsigned char*> PyMem_Malloc(obuflen * sizeof(char))
-    out = []
+    cdef unsigned char * obuf = NULL
     
     # initialise input
     cdef Py_buffer buffer_data
@@ -185,7 +223,7 @@ def compress(data,
 
     # Implementation imitated from CPython's zlibmodule.c
     try:
-        while stream.internal_state.state != ZSTATE_END or ibuflen !=0:
+        while True: #stream.internal_state.state != ZSTATE_END or ibuflen !=0:
             # This loop runs n times (at least twice). n-1 times to fill the input
             # buffer with data. The nth time the input is empty. In that case
             # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
@@ -200,8 +238,7 @@ def compress(data,
             # because when flush = FULL_FLUSH the input buffer is empty. But
             # this loop still needs to run one time.
             while True:
-                stream.next_out = obuf  # Reset output buffer.
-                stream.avail_out = obuflen
+                obuflen = arrange_output_buffer(&stream, &obuf, obuflen)
                 err = isal_deflate(&stream)
                 if err != COMP_OK:
                     # There is some python interacting when possible exceptions
@@ -211,10 +248,11 @@ def compress(data,
                 # Instead of output buffer resizing as the zlibmodule.c example
                 # the data is appended to a list.
                 # TODO: Improve this with the buffer protocol.
-                out.append(obuf[:obuflen - stream.avail_out])
-                if stream.avail_in == 0:
+                if stream.avail_out != 0:
                     break
-        return b"".join(out)
+            if stream.internal_state.state == ZSTATE_END:
+                break
+        return PyBytes_FromStringAndSize(<char*>obuf, stream.next_out - obuf)
     finally:
         PyBuffer_Release(buffer)
         PyMem_Free(level_buf)
