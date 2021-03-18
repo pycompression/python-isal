@@ -125,7 +125,7 @@ ctypedef fused stream_or_state:
     isal_zstream
     inflate_state
 
-cdef unsigned int unsigned_int_min(unsigned int a, unsigned int b):
+cdef Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
     if a <= b:
         return a
     else:
@@ -159,7 +159,7 @@ cdef arrange_output_buffer_with_maximum(stream_or_state *stream,
                     raise MemoryError("Unssufficient memory for buffer allocation")
             buffer[0] = new_buffer
             length = new_length
-    stream.avail_out = unsigned_int_min(length - occupied, UINT32_MAX)
+    stream.avail_out = py_ssize_t_min(length - occupied, UINT32_MAX)
     stream.next_out = buffer[0] + occupied
     return length
 
@@ -169,7 +169,7 @@ cdef arrange_output_buffer(stream_or_state *stream, unsigned char **buffer, Py_s
     return ret
 
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
-    stream.avail_in = unsigned_int_min(<unsigned int>remains[0], UINT32_MAX)
+    stream.avail_in = py_ssize_t_min(remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
 
 def compress(data,
