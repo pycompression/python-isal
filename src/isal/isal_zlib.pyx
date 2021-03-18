@@ -147,7 +147,7 @@ cdef arrange_output_buffer_with_maximum(stream_or_state *stream,
         occupied = stream.next_out - buffer[0]
         if length == occupied:
             if length == max_length:
-                raise MemoryError("Buffer has reached maximum size")
+                return -2
             if length <= max_length >> 1:
                 new_length = length << 1
             else:
@@ -166,6 +166,8 @@ cdef arrange_output_buffer_with_maximum(stream_or_state *stream,
 cdef arrange_output_buffer(stream_or_state *stream, unsigned char **buffer, Py_ssize_t length):
     cdef Py_ssize_t ret
     ret = arrange_output_buffer_with_maximum(stream, buffer, length, PY_SSIZE_T_MAX)
+    if ret == -2:
+        raise MemoryError("Output buffer has reached maximum size")
     return ret
 
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
@@ -511,8 +513,6 @@ cdef class Decompress:
     cdef public bint eof
     cdef bint is_initialised
     cdef inflate_state stream
-    cdef unsigned char * obuf
-    cdef unsigned int obuflen
     cdef bint method_set
 
     def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
@@ -534,16 +534,10 @@ cdef class Decompress:
             err = isal_inflate_set_dict(&self.stream, zdict, zdict_length)
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
-        self.obuflen = DEF_BUF_SIZE
-        self.obuf = <unsigned char *>PyMem_Malloc(self.obuflen * sizeof(char))
         self.unused_data = b""
         self.unconsumed_tail = b""
-        self.eof = 0
+        self.eof = False
         self.is_initialised = 1
-
-    def __dealloc__(self):
-        if self.obuf is not NULL:
-            PyMem_Free(self.obuf)
 
     def _view_bitbuffer(self):
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
@@ -594,11 +588,13 @@ cdef class Decompress:
                            unconsumed_tail attribute.
         """
    
-        cdef Py_ssize_t total_bytes = 0
+        cdef Py_ssize_t hard_limit
         if max_length == 0:
-            max_length = PY_SSIZE_T_MAX
+            hard_limit = PY_SSIZE_T_MAX
         elif max_length < 0:
             raise ValueError("max_length can not be smaller than 0")
+        else:
+            hard_limit = max_length
 
         if not self.method_set:
             # Try to detect method from the first two bytes of the data.
@@ -613,50 +609,42 @@ cdef class Decompress:
         cdef Py_ssize_t ibuflen = buffer.len
         cdef unsigned char * ibuf = <unsigned char*>buffer.buf
         self.stream.next_in = ibuf
-        self.stream.avail_out = 0
-        cdef unsigned int prev_avail_out
-        cdef unsigned int bytes_written
-        cdef Py_ssize_t unused_bytes
+
         cdef int err
+        cdef bint max_length_reached = False
         
         # Initialise output buffer
-        out = []
+        cdef unsigned char *obuf = NULL
+        cdef Py_ssize_t obuflen = DEF_BUF_SIZE
+        if obuflen > max_length:
+            obuflen = max_length
 
-        cdef bint last_round = 0
         try:
             # This loop reads all the input bytes. If there are no input bytes
             # anymore the output is written.
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
-                while (self.stream.avail_out == 0 or self.stream.avail_in != 0):
-                    self.stream.next_out = self.obuf  # Reset output buffer.
-                    if total_bytes >= max_length:
+                while True:#(self.stream.avail_out == 0 or self.stream.avail_in != 0):
+                    obuflen = arrange_output_buffer_with_maximum(
+                              &self.stream, &obuf, obuflen, hard_limit)
+                    if obuflen == -2:
+                        max_length_reached = True
                         break
-                    elif total_bytes + self.obuflen >= max_length:
-                        self.stream.avail_out =  max_length - total_bytes
-                        # The inflate process may not fill all available bytes so
-                        # we make sure this is the last round.
-                        last_round = 1
-                    else:
-                        self.stream.avail_out = self.obuflen
-                    prev_avail_out = self.stream.avail_out
                     err = isal_inflate(&self.stream)
                     if err != ISAL_DECOMP_OK:
                         # There is some python interacting when possible exceptions
                         # Are raised. So we remain in pure C code if we check for
                         # COMP_OK first.
                         check_isal_inflate_rc(err)
-                    bytes_written = prev_avail_out - self.stream.avail_out
-                    total_bytes += bytes_written
-                    out.append(self.obuf[:bytes_written])
-                    if self.stream.block_state == ISAL_BLOCK_FINISH or last_round:
+                    if self.stream.avail_out != 0:
                         break
-                if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0:
+                if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0 or max_length_reached:
                     break
             self.save_unconsumed_input(buffer)
-            return b"".join(out)
+            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
         finally:
             PyBuffer_Release(buffer)
+            PyMem_Free(obuf)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
         """
@@ -667,8 +655,7 @@ cdef class Decompress:
         """
         if length <= 0:
             raise ValueError("Length must be greater than 0")
-        if length > UINT32_MAX:
-            raise ValueError("Length should not be larger than 4GB.")
+
         cdef Py_buffer buffer_data
         cdef Py_buffer* buffer = &buffer_data
         if PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_READ & PyBUF_C_CONTIGUOUS) != 0:
@@ -677,19 +664,14 @@ cdef class Decompress:
         cdef unsigned char * ibuf = <unsigned char*>buffer.buf
         self.stream.next_in = ibuf
 
-        cdef unsigned int total_bytes = 0
-        cdef unsigned int bytes_written
-        out = []
         cdef unsigned int obuflen = length
-        cdef unsigned char * obuf = <unsigned char *>PyMem_Malloc(obuflen * sizeof(char))
-        cdef Py_ssize_t unused_bytes
+        cdef unsigned char * obuf = NULL
 
         try:
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while True:
-                    self.stream.next_out = obuf  # Reset output buffer.
-                    self.stream.avail_out = obuflen
+                    obuflen = arrange_output_buffer(&self.stream, &obuf, obuflen)
                     err = isal_inflate(&self.stream)
                     if err != ISAL_DECOMP_OK:
                         # There is some python interacting when possible exceptions
@@ -699,18 +681,14 @@ cdef class Decompress:
                     # Instead of output buffer resizing as the zlibmodule.c example
                     # the data is appended to a list.
                     # TODO: Improve this with the buffer protocol.
-                    if self.stream.avail_out == obuflen:
-                        break
-                    bytes_written = obuflen - self.stream.avail_out
-                    total_bytes += bytes_written
-                    out.append(obuf[:bytes_written])
                     if self.stream.avail_out != 0:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen == 0:
                     break
             self.save_unconsumed_input(buffer)
-            return b"".join(out)
+            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
         finally:
+            PyBuffer_Release(buffer)
             PyMem_Free(obuf)
 
 
