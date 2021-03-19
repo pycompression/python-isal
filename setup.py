@@ -76,7 +76,7 @@ class BuildIsalExt(build_ext):
                 raise NotImplementedError(
                     f"Unsupported platform: {sys.platform}")
         else:
-            isa_l_prefix_dir = build_isa_l()
+            isa_l_prefix_dir = build_isa_l(" ".join(self.compiler.compiler))
             if SYSTEM_IS_UNIX:
                 ext.extra_objects = [
                     os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
@@ -113,7 +113,7 @@ class BuildIsalExt(build_ext):
 # 'cache' is only available from python 3.9 onwards.
 # see: https://docs.python.org/3/library/functools.html#functools.cache
 @functools.lru_cache(maxsize=None)
-def build_isa_l():
+def build_isa_l(compiler):
     # Creating temporary directories
     build_dir = tempfile.mktemp()
     temp_prefix = tempfile.mkdtemp()
@@ -123,7 +123,7 @@ def build_isa_l():
     # it.
     build_env = os.environ.copy()
     # Add -fPIC flag to allow static compilation
-    build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
+    build_env["CC"] = compiler + " -fPIC"
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
