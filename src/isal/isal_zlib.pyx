@@ -152,14 +152,12 @@ cdef arrange_output_buffer_with_maximum(stream_or_state *stream,
                 new_length = length << 1
             else:
                 new_length = max_length
-            new_buffer = <unsigned char *>PyMem_Realloc(buffer[0], new_length + 1)
+            new_buffer = <unsigned char *>PyMem_Realloc(buffer[0], new_length)
             if new_buffer == NULL:
-                new_buffer = <unsigned char*>PyMem_Malloc(new_length * sizeof(char))
-                if new_buffer == NULL:
-                    raise MemoryError("Unssufficient memory for buffer allocation")
+                raise MemoryError("Unssufficient memory for buffer allocation")
             buffer[0] = new_buffer
             length = new_length
-    stream.avail_out = py_ssize_t_min(length - occupied, UINT32_MAX)
+    stream.avail_out = <unsigned int>py_ssize_t_min(length - occupied, UINT32_MAX)
     stream.next_out = buffer[0] + occupied
     return length
 
@@ -171,7 +169,7 @@ cdef arrange_output_buffer(stream_or_state *stream, unsigned char **buffer, Py_s
     return ret
 
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
-    stream.avail_in = py_ssize_t_min(remains[0], UINT32_MAX)
+    stream.avail_in = <unsigned int>py_ssize_t_min(remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
 
 def compress(data,
@@ -616,8 +614,8 @@ cdef class Decompress:
         # Initialise output buffer
         cdef unsigned char *obuf = NULL
         cdef Py_ssize_t obuflen = DEF_BUF_SIZE
-        if obuflen > max_length:
-            obuflen = max_length
+        if obuflen > hard_limit:
+            obuflen = hard_limit
 
         try:
             # This loop reads all the input bytes. If there are no input bytes
@@ -636,7 +634,7 @@ cdef class Decompress:
                         # Are raised. So we remain in pure C code if we check for
                         # COMP_OK first.
                         check_isal_inflate_rc(err)
-                    if self.stream.avail_out != 0:
+                    if self.stream.block_state == ISAL_BLOCK_FINISH or self.stream.avail_out != 0:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0 or max_length_reached:
                     break
@@ -667,6 +665,8 @@ cdef class Decompress:
         cdef unsigned int obuflen = length
         cdef unsigned char * obuf = NULL
 
+        cdef int err
+
         try:
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
@@ -681,7 +681,7 @@ cdef class Decompress:
                     # Instead of output buffer resizing as the zlibmodule.c example
                     # the data is appended to a list.
                     # TODO: Improve this with the buffer protocol.
-                    if self.stream.avail_out != 0:
+                    if self.stream.avail_out != 0 or self.stream.block_state == ISAL_BLOCK_FINISH:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen == 0:
                     break
