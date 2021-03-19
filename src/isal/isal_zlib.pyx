@@ -200,7 +200,7 @@ def compress(data,
     """
     # Initialise stream
     cdef isal_zstream stream
-    cdef unsigned int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL)
+    cdef unsigned int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
     cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
     isal_deflate_init(&stream)
     stream.level = level
