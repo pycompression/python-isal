@@ -220,8 +220,7 @@ def compress(data,
     # Cython makes sure error is handled when acquiring buffer fails.
     PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
     cdef Py_ssize_t ibuflen = buffer.len
-    cdef unsigned char * ibuf = <unsigned char*>buffer.buf
-    stream.next_in = ibuf
+    stream.next_in = <unsigned char*>buffer.buf
 
     # initialise helper variables
     cdef int err
@@ -297,8 +296,7 @@ def decompress(data,
     # Cython makes sure error is handled when acquiring buffer fails.
     PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
     cdef Py_ssize_t ibuflen = buffer.len
-    cdef unsigned char * ibuf = <unsigned char*>buffer.buf
-    stream.next_in = ibuf
+    stream.next_in =  <unsigned char*>buffer.buf
 
     # Initialise output buffer
     cdef unsigned char * obuf = NULL
@@ -441,8 +439,7 @@ cdef class Compress:
         # Cython makes sure error is handled when acquiring buffer fails.
         PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
         cdef Py_ssize_t ibuflen = buffer.len
-        cdef unsigned char * ibuf = <unsigned char*>buffer.buf
-        self.stream.next_in = ibuf
+        self.stream.next_in = <unsigned char*>buffer.buf
 
         # initialise helper variables
         cdef int err
@@ -620,8 +617,7 @@ cdef class Decompress:
         # Cython makes sure error is handled when acquiring buffer fails.
         PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
         cdef Py_ssize_t ibuflen = buffer.len
-        cdef unsigned char * ibuf = <unsigned char*>buffer.buf
-        self.stream.next_in = ibuf
+        self.stream.next_in = <unsigned char*>buffer.buf
 
         cdef int err
         cdef bint max_length_reached = False
@@ -676,8 +672,7 @@ cdef class Decompress:
         # Cython makes sure error is handled when acquiring buffer fails.
         PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_SIMPLE)
         cdef Py_ssize_t ibuflen = buffer.len
-        cdef unsigned char * ibuf = <unsigned char*>buffer.buf
-        self.stream.next_in = ibuf
+        self.stream.next_in = <unsigned char*>buffer.buf
 
         cdef unsigned int obuflen = length
         cdef unsigned char * obuf = NULL
