@@ -24,6 +24,45 @@
 """
 Implementation of the zlib module using the ISA-L libraries.
 """
+###############################################################################
+###       README FOR DEVELOPERS: IMPLEMENTATION OF THIS MODULE              ###
+###############################################################################
+#
+# This module is implemented with zlibmodule.c as example. Since there is a lot
+# of duplication in zlibmodule.c there is a lot of duplication in this module.
+# It is not always possible to route repetitive calls to a subroutine.
+# Therefore the main methods are explained here.
+#
+# All compress, decompress and flush implementations are basically the same.
+# 1. Get a buffer from the input data
+# 2. Initialise an output buffer
+# 3. Initialise a isal_zstream(for compression) or inflate_state (for
+#    decompression). Hereafter referred as stream.
+# 4. The amount of available input bytes is set on the stream. This is either
+#    the maximum amount possible (in the case the input data is equal or larger
+#    than the maximum amount). Or the length of the (remaining) input data.
+# 5. The amount of available output bytes is set on the stream. Buffer is
+#    enlarged as needed.
+# 6. inflate/deflate/flush action
+# 7. Check for errors in the action.
+# 8. Was the output buffer completely filled? (stream.avail_out == 0). If so go
+#    to 5. Special case: decompressobj. If the output buffer is at max_length
+#    continue.
+# 9. Was all the input read? if not go to 4. Alternatively in the case of
+#    decompression: was the end of the stream reached? if not go to 4.
+# 10. In case of decompression with leftover input data. For a decompressobj
+#     this is stored in unconsumed_tail / unused_data.
+# 11. Convert output buffer to bytes object and return.
+#
+# Errors are raised in the main functions as much as possible to prevent cdef
+# functions returning PyObjects that need to be transformed in C variables.
+# In cases where this is not possible, C variables were set using pointers.
+# Allowing repeated use of functions while limiting the number of python
+# interactions.
+#
+###############################################################################
+
+
 import warnings
 import zlib
 
@@ -139,6 +178,9 @@ cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
                                                    unsigned char **buffer,
                                                    Py_ssize_t length,
                                                    Py_ssize_t max_length):
+    # The zlibmodule.c function builds a PyBytes object. A unsigned char *
+    # is build here because building raw PyObject * stuff in cython is somewhat
+    # harder due to cython's interference. FIXME
     cdef Py_ssize_t occupied
     cdef Py_ssize_t new_length
     cdef unsigned char * new_buffer
@@ -225,12 +267,8 @@ def compress(data,
     # initialise helper variables
     cdef int err
 
-    # Implementation imitated from CPython's zlibmodule.c
     try:
         while True:
-            # This loop runs n times (at least twice). n-1 times to fill the input
-            # buffer with data. The nth time the input is empty. In that case
-            # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
             arrange_input_buffer(&stream, &ibuflen)
             if ibuflen == 0:
                 stream.flush = FULL_FLUSH
@@ -238,18 +276,12 @@ def compress(data,
             else:
                 stream.flush = NO_FLUSH
 
-            # This loop reads all the input bytes. The check is at the end,
-            # because when flush = FULL_FLUSH the input buffer is empty. But
-            # this loop still needs to run one time.
             while True:
                 bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
                 if bufsize == -1:
                     raise MemoryError("Unsufficient memory for buffer allocation")
                 err = isal_deflate(&stream)
                 if err != COMP_OK:
-                    # There is some python interacting when possible exceptions
-                    # Are raised. So we remain in pure C code if we check for
-                    # COMP_OK first.
                     check_isal_deflate_rc(err)
                 if stream.avail_out != 0:
                     break
@@ -302,23 +334,16 @@ def decompress(data,
     cdef unsigned char * obuf = NULL
     cdef int err
 
-    # Implementation imitated from CPython's zlibmodule.c
     try:
         while True:
             arrange_input_buffer(&stream, &ibuflen)
 
-            # This loop reads all the input bytes. The check is at the end,
-            # because when the block state is not at FINISH, the function needs
-            # to be called again.
             while True:
                 bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
                 if bufsize == -1:
                     raise MemoryError("Unsufficient memory for buffer allocation")
                 err = isal_inflate(&stream)
                 if err != ISAL_DECOMP_OK:
-                    # There is some python interacting when possible exceptions
-                    # Are raised. So we remain in pure C code if we check for
-                    # COMP_OK first.
                     check_isal_inflate_rc(err)
                 if stream.avail_out != 0:
                     break
@@ -445,9 +470,6 @@ cdef class Compress:
         cdef int err
         try:
             while True:
-                # This loop runs n times (at least twice). n-1 times to fill the input
-                # buffer with data. The nth time the input is empty. In that case
-                # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while True:
                     obuflen = arrange_output_buffer(&self.stream, &obuf, obuflen)
@@ -455,9 +477,6 @@ cdef class Compress:
                         raise MemoryError("Unsufficient memory for buffer allocation")
                     err = isal_deflate(&self.stream)
                     if err != COMP_OK:
-                        # There is some python interacting when possible exceptions
-                        # Are raised. So we remain in pure C code if we check for
-                        # COMP_OK first.
                         check_isal_deflate_rc(err)
                     if self.stream.avail_out != 0:
                         break
@@ -504,11 +523,8 @@ cdef class Compress:
                     raise MemoryError("Unsufficient memory for buffer allocation")
                 err = isal_deflate(&self.stream)
                 if err != COMP_OK:
-                    # There is some python interacting when possible exceptions
-                    # Are raised. So we remain in pure C code if we check for
-                    # COMP_OK first.
                     check_isal_deflate_rc(err)
-                if self.stream.avail_out != 0:  # All input is processed and therefore all output flushed.
+                if self.stream.avail_out != 0:
                     break
             if self.stream.avail_in != 0:
                 raise AssertionError("There should be no available input after flushing.")
@@ -629,8 +645,6 @@ cdef class Decompress:
             obuflen = hard_limit
 
         try:
-            # This loop reads all the input bytes. If there are no input bytes
-            # anymore the output is written.
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while True:
@@ -643,9 +657,6 @@ cdef class Decompress:
                         break
                     err = isal_inflate(&self.stream)
                     if err != ISAL_DECOMP_OK:
-                        # There is some python interacting when possible exceptions
-                        # Are raised. So we remain in pure C code if we check for
-                        # COMP_OK first.
                         check_isal_inflate_rc(err)
                     if self.stream.block_state == ISAL_BLOCK_FINISH or self.stream.avail_out != 0:
                         break
@@ -688,13 +699,7 @@ cdef class Decompress:
                         raise MemoryError("Unsufficient memory for buffer allocation")
                     err = isal_inflate(&self.stream)
                     if err != ISAL_DECOMP_OK:
-                        # There is some python interacting when possible exceptions
-                        # Are raised. So we remain in pure C code if we check for
-                        # COMP_OK first.
                         check_isal_inflate_rc(err)
-                    # Instead of output buffer resizing as the zlibmodule.c example
-                    # the data is appended to a list.
-                    # TODO: Improve this with the buffer protocol.
                     if self.stream.avail_out != 0 or self.stream.block_state == ISAL_BLOCK_FINISH:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen == 0:
