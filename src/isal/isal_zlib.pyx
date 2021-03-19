@@ -304,7 +304,7 @@ def decompress(data,
 
     # Implementation imitated from CPython's zlibmodule.c
     try:
-        while True:#ibuflen != 0 or stream.block_state != ISAL_BLOCK_FINISH:
+        while True:
             arrange_input_buffer(&stream, &ibuflen)
 
             # This loop reads all the input bytes. The check is at the end,
@@ -444,12 +444,12 @@ cdef class Compress:
         # initialise helper variables
         cdef int err
         try:
-            while True: #ibuflen !=0:
+            while True:
                 # This loop runs n times (at least twice). n-1 times to fill the input
                 # buffer with data. The nth time the input is empty. In that case
                 # stream.flush is set to FULL_FLUSH and the end_of_stream is activated.
                 arrange_input_buffer(&self.stream, &ibuflen)
-                while True: #self.stream.avail_in != 0:
+                while True:
                     obuflen = arrange_output_buffer(&self.stream, &obuf, obuflen)
                     if obuflen== -1:
                         raise MemoryError("Unsufficient memory for buffer allocation")
@@ -633,7 +633,7 @@ cdef class Decompress:
             # anymore the output is written.
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
-                while True:#(self.stream.avail_out == 0 or self.stream.avail_in != 0):
+                while True:
                     obuflen = arrange_output_buffer_with_maximum(
                               &self.stream, &obuf, obuflen, hard_limit)
                     if obuflen == -1:
