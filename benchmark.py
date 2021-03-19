@@ -1,5 +1,6 @@
 import argparse
 import gzip
+import io  # noqa: F401 used in timeit strings
 import timeit
 import zlib
 from pathlib import Path
@@ -82,6 +83,8 @@ def argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--checksums", action="store_true")
     parser.add_argument("--functions", action="store_true")
     parser.add_argument("--gzip", action="store_true")
+    parser.add_argument("--sizes", action="store_true")
+    parser.add_argument("--objects", action="store_true")
     return parser
 
 
@@ -112,3 +115,18 @@ if __name__ == "__main__":
         benchmark("gzip decompression", compressed_sizes_gzip,
                   "igzip.decompress(data_block)",
                   "gzip.decompress(data_block)")
+    if args.objects or args.all:
+        benchmark("zlib Compress instantiation", {"": b""},
+                  "a = isal_zlib.compressobj()",
+                  "a = zlib.compressobj()")
+        benchmark("zlib Decompress instantiation", {"": b""},
+                  "a = isal_zlib.decompressobj()",
+                  "a = zlib.decompressobj()")
+        benchmark("Gzip Writer instantiation", {"": b""},
+                  "a = igzip.GzipFile(fileobj=io.BytesIO(), mode='wb' )",
+                  "a = gzip.GzipFile(fileobj=io.BytesIO(), mode='wb')")
+        benchmark("Gzip Reader instantiation", {"": b""},
+                  "a = igzip.GzipFile(fileobj=io.BytesIO(), mode='rb' )",
+                  "a = gzip.GzipFile(fileobj=io.BytesIO(), mode='rb')")
+    if args.sizes or args.all:
+        show_sizes()
