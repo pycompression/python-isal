@@ -65,12 +65,12 @@ def benchmark(name: str,
                              number=number, **kwargs)
         isal_time = timeit.timeit(isal_string, **timeit_kwargs)
         zlib_time = timeit.timeit(zlib_string, **timeit_kwargs)
-        isal_nanosecs = round(isal_time * (1_000_000 / number), 2)
-        zlib_nanosecs = round(zlib_time * (1_000_000 / number), 2)
+        isal_microsecs = round(isal_time * (1_000_000 / number), 2)
+        zlib_microsecs = round(zlib_time * (1_000_000 / number), 2)
         ratio = round(isal_time / zlib_time, 2)
         print("{0}\t{1}\t{2}\t{3}".format(name,
-                                          isal_nanosecs,
-                                          zlib_nanosecs,
+                                          isal_microsecs,
+                                          zlib_microsecs,
                                           ratio))
 
 
