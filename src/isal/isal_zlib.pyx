@@ -46,9 +46,14 @@ Z_BEST_SPEED = ISAL_BEST_SPEED
 Z_BEST_COMPRESSION = ISAL_BEST_COMPRESSION
 Z_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION
 
-DEF_BUF_SIZE = zlib.DEF_BUF_SIZE
-DEF_MEM_LEVEL = zlib.DEF_MEM_LEVEL
-cdef int DEF_MEM_LEVEL_I = zlib.DEF_MEM_LEVEL # Can not be manipulated by user.
+# Compile time constants with _I (for integer suffix) as names without
+# suffix should be exposed to the user.
+DEF DEF_BUF_SIZE_I = 16 * 1024
+DEF DEF_MEM_LEVEL_I = 8
+
+# Expose compile-time constants. Same names as zlib.
+DEF_BUF_SIZE = DEF_BUF_SIZE_I
+DEF_MEM_LEVEL = DEF_MEM_LEVEL_I
 MAX_WBITS = ISAL_DEF_MAX_HIST_BITS
 ISAL_DEFAULT_HIST_BITS=0
 
@@ -204,7 +209,7 @@ def compress(data,
                                         &stream.gzip_flag)
 
     # Initialise output buffer
-    cdef Py_ssize_t bufsize = DEF_BUF_SIZE
+    cdef Py_ssize_t bufsize = DEF_BUF_SIZE_I
     cdef unsigned char * obuf = NULL
     
     # initialise input
@@ -422,7 +427,7 @@ cdef class Compress:
         """
         # Initialise output buffer
         cdef unsigned char * obuf = NULL
-        cdef Py_ssize_t obuflen = DEF_BUF_SIZE
+        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
 
         # initialise input
         cdef Py_buffer buffer_data
@@ -484,7 +489,7 @@ cdef class Compress:
         else:
             raise IsalError("Unsupported flush mode")
 
-        cdef Py_ssize_t length = DEF_BUF_SIZE
+        cdef Py_ssize_t length = DEF_BUF_SIZE_I
         cdef unsigned char * obuf = NULL
 
         try:
@@ -613,7 +618,7 @@ cdef class Decompress:
         
         # Initialise output buffer
         cdef unsigned char *obuf = NULL
-        cdef Py_ssize_t obuflen = DEF_BUF_SIZE
+        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
         if obuflen > hard_limit:
             obuflen = hard_limit
 
