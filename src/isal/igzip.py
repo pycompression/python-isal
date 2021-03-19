@@ -233,7 +233,7 @@ def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    with IGzipFile(fileobj=io.BytesIO(data)) as f:
+    with _IGzipReader(io.BytesIO(data)) as f:
         return f.read()
 
 
