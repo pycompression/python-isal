@@ -96,8 +96,8 @@ def adler32(data, value = 1):
     cdef unsigned long init = PyLong_AsUnsignedLongMask(value)
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
-    if PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE) != 0:
-        raise TypeError("Failed to get buffer")
+    # Cython makes sure error is handled when acquiring buffer fails.
+    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
     try:
         if buffer.len > UINT64_MAX:
             raise ValueError("Data too big for adler32")
@@ -116,8 +116,8 @@ def crc32(data, value = 0):
     cdef unsigned long init = PyLong_AsUnsignedLongMask(value)
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
-    if PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE) != 0:
-        raise TypeError("Failed to get buffer")
+    # Cython makes sure error is handled when acquiring buffer fails.
+    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
     try:
         if buffer.len > UINT64_MAX:
             raise ValueError("Data too big for adler32")
@@ -217,8 +217,8 @@ def compress(data,
     # initialise input
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
-    if PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE) != 0:
-        raise TypeError("Failed to get buffer")
+    # Cython makes sure error is handled when acquiring buffer fails.
+    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
     cdef Py_ssize_t ibuflen = buffer.len
     cdef unsigned char * ibuf = <unsigned char*>buffer.buf
     stream.next_in = ibuf
@@ -294,8 +294,8 @@ def decompress(data,
     # initialise input
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
-    if PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE) != 0:
-        raise TypeError("Failed to get buffer")
+    # Cython makes sure error is handled when acquiring buffer fails.
+    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
     cdef Py_ssize_t ibuflen = buffer.len
     cdef unsigned char * ibuf = <unsigned char*>buffer.buf
     stream.next_in = ibuf
@@ -438,8 +438,8 @@ cdef class Compress:
         # initialise input
         cdef Py_buffer buffer_data
         cdef Py_buffer* buffer = &buffer_data
-        if PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE) != 0:
-            raise TypeError("Failed to get buffer")
+        # Cython makes sure error is handled when acquiring buffer fails.
+        PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
         cdef Py_ssize_t ibuflen = buffer.len
         cdef unsigned char * ibuf = <unsigned char*>buffer.buf
         self.stream.next_in = ibuf
@@ -617,8 +617,8 @@ cdef class Decompress:
         # initialise input
         cdef Py_buffer buffer_data
         cdef Py_buffer* buffer = &buffer_data
-        if PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE) != 0:
-            raise TypeError("Failed to get buffer")
+        # Cython makes sure error is handled when acquiring buffer fails.
+        PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
         cdef Py_ssize_t ibuflen = buffer.len
         cdef unsigned char * ibuf = <unsigned char*>buffer.buf
         self.stream.next_in = ibuf
@@ -673,8 +673,8 @@ cdef class Decompress:
 
         cdef Py_buffer buffer_data
         cdef Py_buffer* buffer = &buffer_data
-        if PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_SIMPLE) != 0:
-            raise TypeError("Failed to get buffer")
+        # Cython makes sure error is handled when acquiring buffer fails.
+        PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_SIMPLE)
         cdef Py_ssize_t ibuflen = buffer.len
         cdef unsigned char * ibuf = <unsigned char*>buffer.buf
         self.stream.next_in = ibuf
