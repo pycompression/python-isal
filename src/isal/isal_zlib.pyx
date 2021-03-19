@@ -200,7 +200,8 @@ def compress(data,
     """
     # Initialise stream
     cdef isal_zstream stream
-    cdef unsigned int level_buf_size = zlib_mem_level_to_isal(level, DEF_MEM_LEVEL_I)
+    cdef unsigned int level_buf_size
+    zlib_mem_level_to_isal_bufsize(level, DEF_MEM_LEVEL_I, &level_buf_size)
     cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
     isal_deflate_init(&stream)
     stream.level = level
@@ -416,7 +417,7 @@ cdef class Compress:
             if err != COMP_OK:
                 check_isal_deflate_rc(err)
         self.stream.level = level
-        self.stream.level_buf_size = zlib_mem_level_to_isal(level, memLevel)
+        zlib_mem_level_to_isal_bufsize(level, memLevel, &self.stream.level_buf_size)
         self.level_buf = <unsigned char *>PyMem_Malloc(self.stream.level_buf_size * sizeof(char))
         self.stream.level_buf = self.level_buf
 
@@ -749,7 +750,7 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     else:
         raise ValueError("Invalid wbits value")
 
-cdef zlib_mem_level_to_isal(int compression_level, int mem_level):
+cdef zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
     Convert zlib memory levels to isal equivalents
     """
@@ -763,59 +764,59 @@ cdef zlib_mem_level_to_isal(int compression_level, int mem_level):
     # Hence 7,8 return large. 9 returns extra large.
     if mem_level == DEF_MEM_LEVEL_I:
         if compression_level == 0:
-            return ISAL_DEF_LVL0_DEFAULT
+            bufsize[0] = ISAL_DEF_LVL0_DEFAULT
         elif compression_level == 1:
-            return ISAL_DEF_LVL1_DEFAULT
+            bufsize[0] = ISAL_DEF_LVL1_DEFAULT
         elif compression_level == 2:
-            return ISAL_DEF_LVL2_DEFAULT
+            bufsize[0] = ISAL_DEF_LVL2_DEFAULT
         elif compression_level == 3:
-            return ISAL_DEF_LVL3_DEFAULT
+            bufsize[0] = ISAL_DEF_LVL3_DEFAULT
     if mem_level == 1:
         if compression_level == 0:
-            return ISAL_DEF_LVL0_MIN
+            bufsize[0] = ISAL_DEF_LVL0_MIN
         elif compression_level == 1:
-            return ISAL_DEF_LVL1_MIN
+            bufsize[0] = ISAL_DEF_LVL1_MIN
         elif compression_level == 2:
-            return ISAL_DEF_LVL2_MIN
+            bufsize[0] = ISAL_DEF_LVL2_MIN
         elif compression_level == 3:
-            return ISAL_DEF_LVL3_MIN
+            bufsize[0] = ISAL_DEF_LVL3_MIN
     elif mem_level in [2,3]:
         if compression_level == 0:
-            return ISAL_DEF_LVL0_SMALL
+            bufsize[0] = ISAL_DEF_LVL0_SMALL
         elif compression_level == 1:
-            return ISAL_DEF_LVL1_SMALL
+            bufsize[0] = ISAL_DEF_LVL1_SMALL
         elif compression_level == 2:
-            return ISAL_DEF_LVL2_SMALL
+            bufsize[0] = ISAL_DEF_LVL2_SMALL
         elif compression_level == 3:
-            return ISAL_DEF_LVL3_SMALL
+            bufsize[0] = ISAL_DEF_LVL3_SMALL
     elif mem_level in [4,5,6]:
         if compression_level == 0:
-            return ISAL_DEF_LVL0_MEDIUM
+            bufsize[0] = ISAL_DEF_LVL0_MEDIUM
         elif compression_level == 1:
-            return ISAL_DEF_LVL1_MEDIUM
+            bufsize[0] = ISAL_DEF_LVL1_MEDIUM
         elif compression_level == 2:
-            return ISAL_DEF_LVL2_MEDIUM
+            bufsize[0] = ISAL_DEF_LVL2_MEDIUM
         elif compression_level == 3:
-            return ISAL_DEF_LVL3_MEDIUM
+            bufsize[0] = ISAL_DEF_LVL3_MEDIUM
     elif mem_level in [7,8]:
         if compression_level == 0:
-            return ISAL_DEF_LVL0_LARGE
+            bufsize[0] = ISAL_DEF_LVL0_LARGE
         elif compression_level == 1:
-            return ISAL_DEF_LVL1_LARGE
+            bufsize[0] = ISAL_DEF_LVL1_LARGE
         elif compression_level == 2:
-            return ISAL_DEF_LVL2_LARGE
+            bufsize[0] = ISAL_DEF_LVL2_LARGE
         elif compression_level == 3:
-            return ISAL_DEF_LVL3_LARGE
+            bufsize[0] = ISAL_DEF_LVL3_LARGE
     elif mem_level == 9:
         if compression_level == 0:
-            return ISAL_DEF_LVL0_EXTRA_LARGE
+            bufsize[0] = ISAL_DEF_LVL0_EXTRA_LARGE
         elif compression_level == 1:
-            return ISAL_DEF_LVL1_EXTRA_LARGE
+            bufsize[0] = ISAL_DEF_LVL1_EXTRA_LARGE
         elif compression_level == 2:
-            return ISAL_DEF_LVL2_EXTRA_LARGE
+            bufsize[0] = ISAL_DEF_LVL2_EXTRA_LARGE
         elif compression_level == 3:
-            return ISAL_DEF_LVL3_EXTRA_LARGE
-    raise ValueError("Incorrect memory level or compression level.")
+            bufsize[0] = ISAL_DEF_LVL3_EXTRA_LARGE
+
 
 cdef check_isal_deflate_rc(int rc):
     if rc == COMP_OK:
