@@ -96,19 +96,19 @@ if __name__ == "__main__":
                   "isal_zlib.adler32(data_block)",
                   "zlib.adler32(data_block)")
     if args.functions or args.all:
-        benchmark("Compression", sizes,
+        benchmark("zlib compression", sizes,
                   "isal_zlib.compress(data_block, 1)",
                   "zlib.compress(data_block, 1)")
 
-        benchmark("Decompression", compressed_sizes,
+        benchmark("zlib decompression", compressed_sizes,
                   "isal_zlib.decompress(data_block)",
                   "zlib.decompress(data_block)")
 
     if args.gzip or args.all:
-        benchmark("Compression", sizes,
+        benchmark("gzip compression", sizes,
                   "igzip.compress(data_block, 1)",
                   "gzip.compress(data_block, 1)")
 
-        benchmark("Decompression", compressed_sizes_gzip,
+        benchmark("gzip decompression", compressed_sizes_gzip,
                   "igzip.decompress(data_block)",
                   "gzip.decompress(data_block)")
