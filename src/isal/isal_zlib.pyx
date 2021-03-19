@@ -537,7 +537,6 @@ cdef class Decompress:
     cdef public bytes unused_data
     cdef public bytes unconsumed_tail
     cdef public bint eof
-    cdef bint is_initialised
     cdef inflate_state stream
     cdef bint method_set
 
@@ -563,7 +562,6 @@ cdef class Decompress:
         self.unused_data = b""
         self.unconsumed_tail = b""
         self.eof = False
-        self.is_initialised = 1
 
     def _view_bitbuffer(self):
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
