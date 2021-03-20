@@ -17,6 +17,7 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
+import copy
 import functools
 import os
 import shutil
@@ -76,7 +77,18 @@ class BuildIsalExt(build_ext):
                 raise NotImplementedError(
                     f"Unsupported platform: {sys.platform}")
         else:
-            isa_l_prefix_dir = build_isa_l(" ".join(self.compiler.compiler))
+            if self.compiler.compiler_type == "msvc":
+                compiler = copy.deepcopy(self.compiler)
+                compiler.initialize()
+                compiler_command = f'"{compiler.cc}"'
+                compiler_args = compiler.compile_options
+            elif self.compiler.compiler_type == "unix":
+                compiler_command = self.compiler.compiler[0]
+                compiler_args = self.compiler.compiler[1:]
+            else:
+                raise NotImplementedError("Unknown compiler")
+            isa_l_prefix_dir = build_isa_l(compiler_command,
+                                           " ".join(compiler_args))
             if SYSTEM_IS_UNIX:
                 ext.extra_objects = [
                     os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
@@ -113,7 +125,7 @@ class BuildIsalExt(build_ext):
 # 'cache' is only available from python 3.9 onwards.
 # see: https://docs.python.org/3/library/functools.html#functools.cache
 @functools.lru_cache(maxsize=None)
-def build_isa_l(compiler):
+def build_isa_l(compiler_command: str, compiler_options: str):
     # Creating temporary directories
     build_dir = tempfile.mktemp()
     temp_prefix = tempfile.mkdtemp()
@@ -123,7 +135,11 @@ def build_isa_l(compiler):
     # it.
     build_env = os.environ.copy()
     # Add -fPIC flag to allow static compilation
-    build_env["CC"] = compiler + " -fPIC"
+    build_env["CC"] = compiler_command
+    if SYSTEM_IS_UNIX:
+        build_env["CFLAGS"] = compiler_options + " -fPIC"
+    elif SYSTEM_IS_WINDOWS:
+        build_env["CFLAGS_REL"] = compiler_options
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
@@ -137,7 +153,7 @@ def build_isa_l(compiler):
                        **run_args)
         subprocess.run(["make", "install"], **run_args)
     elif SYSTEM_IS_WINDOWS:
-        subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
+        subprocess.run(["nmake", "/E", "/f", "Makefile.nmake"], **run_args)
         Path(temp_prefix, "include").mkdir()
         print(temp_prefix, file=sys.stderr)
         shutil.copytree(os.path.join(build_dir, "include"),
