@@ -139,6 +139,8 @@ def build_isa_l(compiler_command: str, compiler_options: str):
     if SYSTEM_IS_UNIX:
         build_env["CFLAGS"] = compiler_options + " -fPIC"
     elif SYSTEM_IS_WINDOWS:
+        # The nmake file has CLFAGS_REL for all the compiler options.
+        # This is added to CFLAGS with all the necessary include options.
         build_env["CFLAGS_REL"] = compiler_options
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
