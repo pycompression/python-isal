@@ -236,7 +236,8 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
 def _gzip_header_end(data: bytes) -> int:
     if len(data) < 10:
         raise ValueError("Gzip header should be 10 bytes or more")
-    magic, method, flags, mtime, xfl, os = struct.unpack("<HBBIBB", data[:10], )
+    # We are not interested in mtime, xfl and os flags.
+    magic, method, flags = struct.unpack("<HBB", data[:4])
     if magic != 0x8b1f:
         raise BadGzipFile(f"Not a gzipped file ({repr(data[:2])})")
     if method != 8:
