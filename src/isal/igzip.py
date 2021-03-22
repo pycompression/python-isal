@@ -270,8 +270,9 @@ def _gzip_header_end(data: bytes) -> int:
     if method != 8:
         raise BadGzipFile("Unknown compression method")
     pos = 10
-    failure = False
     if flags & FEXTRA:
+        if len(data) < pos + 2:
+            raise eof_error
         xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
         pos += 2 + xlen
     if flags & FNAME:
@@ -286,6 +287,8 @@ def _gzip_header_end(data: bytes) -> int:
             raise eof_error
         pos = fcomment_end
     if flags & FHCRC:
+        if len(data) < pos + 2:
+            raise eof_error
         header_crc = int.from_bytes(data[pos: pos + 2], "little", signed=False)
         # CRC is stored as a 16-bit integer by taking last bits of crc32.
         crc = isal_zlib.crc32(data[:pos]) & 0xFFFF
@@ -293,8 +296,6 @@ def _gzip_header_end(data: bytes) -> int:
             raise BadGzipFile(f"Corrupted header. Checksums do not "
                               f"match: {crc} != {header_crc}")
         pos += 2
-    if failure or pos > len(data):
-        raise eof_error
     return pos
 
 

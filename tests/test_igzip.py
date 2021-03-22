@@ -272,3 +272,19 @@ def test_header_corrupt():
         igzip.decompress(compressed)
     error.match(f"Corrupted header. "
                 f"Checksums do not match: {true_crc} != {crc}")
+
+
+TRUNCATED_HEADERS = [
+    b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00",  # Missing OS byte
+    b"\x1f\x8b\x08\x02\x00\x00\x00\x00\x00\xff",  # FHRC, but no checksum
+    b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff",  # FEXTRA, but no xlen
+    b"\x1f\x8b\x08\x04\x00\x00\x00\x00\x00\xff\xaa\x00",  # FEXTRA, xlen, but no data # noqa: E501
+    b"\x1f\x8b\x08\x08\x00\x00\x00\x00\x00\xff",  # FNAME but no fname
+    b"\x1f\x8b\x08\x10\x00\x00\x00\x00\x00\xff",  # FCOMMENT, but no fcomment
+]
+
+
+@pytest.mark.parametrize("trunc", TRUNCATED_HEADERS)
+def test_truncated_header(trunc):
+    with pytest.raises(EOFError):
+        igzip.decompress(trunc)
