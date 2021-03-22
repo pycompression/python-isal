@@ -28,7 +28,6 @@ Z_DEFAULT_COMPRESSION: int
 DEF_BUF_SIZE: int
 DEF_MEM_LEVEL: int
 MAX_WBITS: int
-ISAL_DEFAULT_HIST_BITS: int
 
 DEFLATED: int
 
@@ -38,12 +37,9 @@ Z_HUFFMAN_ONLY: int
 Z_FILTERED: int
 Z_FIXED: int
 
-ISAL_NO_FLUSH: int
-ISAL_SYNC_FLUSH: int
-ISAL_FULL_FLUSH: int
-
 Z_NO_FLUSH: int
 Z_SYNC_FLUSH: int
+Z_FULL_FLUSH: int
 Z_FINISH: int
 
 class IsalError(OSError): ...

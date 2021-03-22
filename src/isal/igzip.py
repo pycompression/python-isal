@@ -25,7 +25,10 @@ import argparse
 import gzip
 import io
 import os
+import struct
 import sys
+import time
+from typing import List, Optional, SupportsInt
 
 from . import isal_zlib
 
@@ -34,6 +37,8 @@ __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
+
+FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
 try:
     BadGzipFile = gzip.BadGzipFile  # type: ignore
@@ -52,7 +57,7 @@ def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
 
     The mode argument can be "r", "rb", "w", "wb", "x", "xb", "a" or "ab" for
     binary mode, or "rt", "wt", "xt" or "at" for text mode. The default mode is
-    "rb", and the default compresslevel is 9.
+    "rb", and the default compresslevel is 2.
 
     For binary mode, this function is equivalent to the GzipFile constructor:
     GzipFile(filename, mode, compresslevel). In this case, the encoding, errors
@@ -217,24 +222,105 @@ GzipFile = IGzipFile
 _GzipReader = _IGzipReader
 
 
-# Plagiarized from gzip.py from python's stdlib.
+def _create_simple_gzip_header(compresslevel: int,
+                               mtime: Optional[SupportsInt] = None) -> bytes:
+    """
+    Write a simple gzip header with no extra fields.
+    :param compresslevel: Compresslevel used to determine the xfl bytes.
+    :param mtime: The mtime (must support conversion to a 32-bit integer).
+    :return: A bytes object representing the gzip header.
+    """
+    if mtime is None:
+        mtime = time.time()
+    # There is no best compression level. ISA-L only provides algorithms for
+    # fast and medium levels.
+    xfl = 4 if compresslevel == _COMPRESS_LEVEL_FAST else 0
+    # Pack ID1 and ID2 magic bytes, method (8=deflate), header flags (no extra
+    # fields added to header), mtime, xfl and os (255 for unknown OS).
+    return struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, int(mtime), xfl, 255)
+
+
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     """Compress data in one shot and return the compressed string.
     Optional argument is the compression level, in range of 0-3.
     """
-    buf = io.BytesIO()
-    with IGzipFile(fileobj=buf, mode='wb',
-                   compresslevel=compresslevel, mtime=mtime) as f:
-        f.write(data)
-    return buf.getvalue()
+    header = _create_simple_gzip_header(compresslevel, mtime)
+    # Compress the data without header or trailer in a raw deflate block.
+    compressed = isal_zlib.compress(data, compresslevel, wbits=-15)
+    length = len(data) & 0xFFFFFFFF
+    crc = isal_zlib.crc32(data)
+    trailer = struct.pack("<LL", crc, length)
+    return header + compressed + trailer
+
+
+def _gzip_header_end(data: bytes) -> int:
+    """
+    Find the start of the raw deflate block in a gzip file.
+    :param data: Compressed data that starts with a gzip header.
+    :return: The end of the header / start of the raw deflate block.
+    """
+    eof_error = EOFError("Compressed file ended before the end-of-stream "
+                         "marker was reached")
+    if len(data) < 10:
+        raise eof_error
+    # We are not interested in mtime, xfl and os flags.
+    magic, method, flags = struct.unpack("<HBB", data[:4])
+    if magic != 0x8b1f:
+        raise BadGzipFile(f"Not a gzipped file ({repr(data[:2])})")
+    if method != 8:
+        raise BadGzipFile("Unknown compression method")
+    pos = 10
+    if flags & FEXTRA:
+        if len(data) < pos + 2:
+            raise eof_error
+        xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        pos += 2 + xlen
+    if flags & FNAME:
+        pos = data.find(b"\x00", pos) + 1
+        # pos will be -1 + 1 when null byte not found.
+        if not pos:
+            raise eof_error
+    if flags & FCOMMENT:
+        pos = data.find(b"\x00", pos) + 1
+        if not pos:
+            raise eof_error
+    if flags & FHCRC:
+        if len(data) < pos + 2:
+            raise eof_error
+        header_crc = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        # CRC is stored as a 16-bit integer by taking last bits of crc32.
+        crc = isal_zlib.crc32(data[:pos]) & 0xFFFF
+        if header_crc != crc:
+            raise BadGzipFile(f"Corrupted header. Checksums do not "
+                              f"match: {crc} != {header_crc}")
+        pos += 2
+    return pos
 
 
 def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    with IGzipFile(fileobj=io.BytesIO(data)) as f:
-        return f.read()
+    all_blocks: List[bytes] = []
+    while True:
+        if data == b"":
+            break
+        header_end = _gzip_header_end(data)
+        do = isal_zlib.decompressobj(-15)
+        block = do.decompress(data[header_end:]) + do.flush()
+        if not do.eof or len(do.unused_data) < 8:
+            raise EOFError("Compressed file ended before the end-of-stream "
+                           "marker was reached")
+        checksum, length = struct.unpack("<II", do.unused_data[:8])
+        crc = isal_zlib.crc32(block)
+        if crc != checksum:
+            raise BadGzipFile("CRC check failed")
+        if length != len(block):
+            raise BadGzipFile("Incorrect length of data produced")
+        all_blocks.append(block)
+        # Remove all padding null bytes and start next block.
+        data = do.unused_data[8:].lstrip(b"\x00")
+    return b"".join(all_blocks)
 
 
 def main():
