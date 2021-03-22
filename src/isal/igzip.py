@@ -276,16 +276,14 @@ def _gzip_header_end(data: bytes) -> int:
         xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
         pos += 2 + xlen
     if flags & FNAME:
-        fname_end = data.find(b"\x00", pos) + 1
-        # fname_end will be -1 + 1 when null byte not found.
-        if not fname_end:
+        pos = data.find(b"\x00", pos) + 1
+        # pos will be -1 + 1 when null byte not found.
+        if not pos:
             raise eof_error
-        pos = fname_end
     if flags & FCOMMENT:
-        fcomment_end = data.find(b"\x00", pos) + 1
-        if not fcomment_end:
+        pos = data.find(b"\x00", pos) + 1
+        if not pos:
             raise eof_error
-        pos = fcomment_end
     if flags & FHCRC:
         if len(data) < pos + 2:
             raise eof_error
