@@ -27,7 +27,8 @@ import io
 import os
 import struct
 import sys
-from typing import List
+import time
+from typing import List, Optional
 
 from . import isal_zlib
 
@@ -221,16 +222,29 @@ GzipFile = IGzipFile
 _GzipReader = _IGzipReader
 
 
-# Plagiarized from gzip.py from python's stdlib.
+def _create_simple_gzip_header(compresslevel: int,
+                               mtime: Optional[int] = None) -> bytes:
+    if mtime is None:
+        mtime = int(time.time())
+    # There is no best compression level. ISA-L only provides algorithms for
+    # fast and medium levels.
+    xfl = 4 if compresslevel == _COMPRESS_LEVEL_FAST else 0
+    # Pack ID1 and ID2 magic bytes, method (8=deflate), header flags (no extra
+    # fields added to header), mtime, xfl and os (255 for unknown OS).
+    return struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, mtime, xfl, 255)
+
+
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     """Compress data in one shot and return the compressed string.
     Optional argument is the compression level, in range of 0-3.
     """
-    buf = io.BytesIO()
-    with IGzipFile(fileobj=buf, mode='wb',
-                   compresslevel=compresslevel, mtime=mtime) as f:
-        f.write(data)
-    return buf.getvalue()
+    header = _create_simple_gzip_header(compresslevel, mtime)
+    # Compress the data without header or trailer in a raw deflate block.
+    compressed = isal_zlib.compress(data, compresslevel, wbits=-15)
+    length = len(data) & 0xFFFFFFFF
+    crc = isal_zlib.crc32(data)
+    trailer = struct.pack("<LL", crc, length)
+    return header + compressed + trailer
 
 
 def _gzip_header_end(data: bytes) -> int:
@@ -244,8 +258,8 @@ def _gzip_header_end(data: bytes) -> int:
         raise BadGzipFile("Unknown compression method")
     pos = 10
     if flags & FHEXTRA:
-        xlen = struct.unpack("<H", data[pos: pos+2])
-        pos += xlen
+        xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        pos += 2 + xlen
     if flags & FNAME:
         fname_end = data.index(b"\x00", pos) + 1
         pos = fname_end
