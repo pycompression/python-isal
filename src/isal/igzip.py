@@ -38,7 +38,7 @@ _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
-FTEXT, FHCRC, FHEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
+FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
 try:
     BadGzipFile = gzip.BadGzipFile  # type: ignore
@@ -259,8 +259,10 @@ def _gzip_header_end(data: bytes) -> int:
     :param data: Compressed data that starts with a gzip header.
     :return: The end of the header / start of the raw deflate block.
     """
+    eof_error = EOFError("Compressed file ended before the end-of-stream "
+                         "marker was reached")
     if len(data) < 10:
-        raise BadGzipFile("Gzip header should be 10 bytes or more")
+        raise eof_error
     # We are not interested in mtime, xfl and os flags.
     magic, method, flags = struct.unpack("<HBB", data[:4])
     if magic != 0x8b1f:
@@ -268,23 +270,31 @@ def _gzip_header_end(data: bytes) -> int:
     if method != 8:
         raise BadGzipFile("Unknown compression method")
     pos = 10
-    if flags & FHEXTRA:
+    failure = False
+    if flags & FEXTRA:
         xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
         pos += 2 + xlen
     if flags & FNAME:
-        fname_end = data.index(b"\x00", pos) + 1
+        fname_end = data.find(b"\x00", pos) + 1
+        # fname_end will be -1 + 1 when null byte not found.
+        if not fname_end:
+            raise eof_error
         pos = fname_end
     if flags & FCOMMENT:
-        fcomment_end = data.index(b"\x00", pos) + 1
+        fcomment_end = data.find(b"\x00", pos) + 1
+        if not fcomment_end:
+            raise eof_error
         pos = fcomment_end
     if flags & FHCRC:
-        pos += 2
         header_crc = int.from_bytes(data[pos: pos + 2], "little", signed=False)
         # CRC is stored as a 16-bit integer by taking last bits of crc32.
         crc = isal_zlib.crc32(data[:pos]) & 0xFFFF
         if header_crc != crc:
             raise BadGzipFile(f"Corrupted header. Checksums do not "
                               f"match: {crc} != {header_crc}")
+        pos += 2
+    if failure or pos > len(data):
+        raise eof_error
     return pos
 
 

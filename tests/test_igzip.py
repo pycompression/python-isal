@@ -30,9 +30,10 @@ import shutil
 import sys
 import tempfile
 import zlib
+from gzip import FCOMMENT, FEXTRA, FHCRC, FNAME, FTEXT  # type: ignore
 from pathlib import Path
 
-from isal import igzip
+from isal import igzip, isal_zlib
 
 import pytest
 
@@ -214,3 +215,60 @@ def test_decompress_unknown_compression_method():
 
 def test_decompress_empty():
     assert igzip.decompress(b"") == b""
+
+
+def headers():
+    magic = b"\x1f\x8b"
+    method = b"\x08"
+    mtime = b"\x00\x00\x00\x00"
+    xfl = b"\x00"
+    os = b"\xff"
+    common_hdr_start = magic + method
+    common_hdr_end = mtime + xfl + os
+    xtra = b"METADATA"
+    xlen = len(xtra)
+    fname = b"my_data.tar"
+    fcomment = b"I wrote this header with my bare hands"
+    yield (common_hdr_start + FEXTRA.to_bytes(1, "little") +
+           common_hdr_end + xlen.to_bytes(2, "little") + xtra)
+    yield (common_hdr_start + FNAME.to_bytes(1, "little") +
+           common_hdr_end + fname + b"\x00")
+    yield (common_hdr_start + FCOMMENT.to_bytes(1, "little") +
+           common_hdr_end + fcomment + b"\x00")
+    flag = FHCRC.to_bytes(1, "little")
+    header = common_hdr_start + flag + common_hdr_end
+    crc = zlib.crc32(header) & 0xFFFF
+    yield(header + crc.to_bytes(2, "little"))
+    flag_bits = FTEXT | FEXTRA | FNAME | FCOMMENT | FHCRC
+    flag = flag_bits.to_bytes(1, "little")
+    header = (common_hdr_start + flag + common_hdr_end +
+              xlen.to_bytes(2, "little") + xtra + fname + b"\x00" +
+              fcomment + b"\x00")
+    crc = zlib.crc32(header) & 0xFFFF
+    yield header + crc.to_bytes(2, "little")
+
+
+@pytest.mark.parametrize("header", list(headers()))
+def test_gzip_header_end(header):
+    assert igzip._gzip_header_end(header) == len(header)
+
+
+def test_header_too_short():
+    with pytest.raises(igzip.BadGzipFile):
+        gzip.decompress(b"00")
+
+
+def test_header_corrupt():
+    header = b"\x1f\x8b\x08\x02\x00\x00\x00\x00\x00\xff"
+    # Create corrupt checksum by using wrong seed.
+    crc = zlib.crc32(header, 50) & 0xFFFF
+    true_crc = zlib.crc32(header) & 0xFFFF
+    header += crc.to_bytes(2, "little")
+
+    data = isal_zlib.compress(b"", wbits=-15)
+    trailer = b"\x00" * 8
+    compressed = header + data + trailer
+    with pytest.raises(igzip.BadGzipFile) as error:
+        igzip.decompress(compressed)
+    error.match(f"Corrupted header. "
+                f"Checksums do not match: {true_crc} != {crc}")
