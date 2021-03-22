@@ -1,5 +1,6 @@
 import argparse
 import gzip
+import io  # noqa: F401 used in timeit strings
 import timeit
 import zlib
 from pathlib import Path
@@ -65,12 +66,12 @@ def benchmark(name: str,
                              number=number, **kwargs)
         isal_time = timeit.timeit(isal_string, **timeit_kwargs)
         zlib_time = timeit.timeit(zlib_string, **timeit_kwargs)
-        isal_nanosecs = round(isal_time * (1_000_000 / number), 2)
-        zlib_nanosecs = round(zlib_time * (1_000_000 / number), 2)
+        isal_microsecs = round(isal_time * (1_000_000 / number), 2)
+        zlib_microsecs = round(zlib_time * (1_000_000 / number), 2)
         ratio = round(isal_time / zlib_time, 2)
         print("{0}\t{1}\t{2}\t{3}".format(name,
-                                          isal_nanosecs,
-                                          zlib_nanosecs,
+                                          isal_microsecs,
+                                          zlib_microsecs,
                                           ratio))
 
 
@@ -82,6 +83,8 @@ def argument_parser() -> argparse.ArgumentParser:
     parser.add_argument("--checksums", action="store_true")
     parser.add_argument("--functions", action="store_true")
     parser.add_argument("--gzip", action="store_true")
+    parser.add_argument("--sizes", action="store_true")
+    parser.add_argument("--objects", action="store_true")
     return parser
 
 
@@ -96,19 +99,34 @@ if __name__ == "__main__":
                   "isal_zlib.adler32(data_block)",
                   "zlib.adler32(data_block)")
     if args.functions or args.all:
-        benchmark("Compression", sizes,
+        benchmark("zlib compression", sizes,
                   "isal_zlib.compress(data_block, 1)",
                   "zlib.compress(data_block, 1)")
 
-        benchmark("Decompression", compressed_sizes,
+        benchmark("zlib decompression", compressed_sizes,
                   "isal_zlib.decompress(data_block)",
                   "zlib.decompress(data_block)")
 
     if args.gzip or args.all:
-        benchmark("Compression", sizes,
+        benchmark("gzip compression", sizes,
                   "igzip.compress(data_block, 1)",
                   "gzip.compress(data_block, 1)")
 
-        benchmark("Decompression", compressed_sizes_gzip,
+        benchmark("gzip decompression", compressed_sizes_gzip,
                   "igzip.decompress(data_block)",
                   "gzip.decompress(data_block)")
+    if args.objects or args.all:
+        benchmark("zlib Compress instantiation", {"": b""},
+                  "a = isal_zlib.compressobj()",
+                  "a = zlib.compressobj()")
+        benchmark("zlib Decompress instantiation", {"": b""},
+                  "a = isal_zlib.decompressobj()",
+                  "a = zlib.decompressobj()")
+        benchmark("Gzip Writer instantiation", {"": b""},
+                  "a = igzip.GzipFile(fileobj=io.BytesIO(), mode='wb' )",
+                  "a = gzip.GzipFile(fileobj=io.BytesIO(), mode='wb')")
+        benchmark("Gzip Reader instantiation", {"": b""},
+                  "a = igzip.GzipFile(fileobj=io.BytesIO(), mode='rb' )",
+                  "a = gzip.GzipFile(fileobj=io.BytesIO(), mode='rb')")
+    if args.sizes or args.all:
+        show_sizes()

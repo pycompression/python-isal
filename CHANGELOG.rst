@@ -7,6 +7,18 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.8.0-dev
+-----------------
++ Speed up ``igzip.compress`` and ``igzip.decompress`` by improving the
+  implementation.
++ Make sure compiler arguments are passed to ISA-L compilation step. Previously
+  ISA-L was compiled without optimisation steps, causing the statically linked
+  library to be significantly slower.
++ A unused constant from the ``isal_zlib`` library was removed:
+  ``ISAL_DEFAULT_HIST_BITS``.
++ Refactor isal_zlib.pyx to work almost the same as zlibmodule.c. This has made
+  the code look cleaner and has reduced some overhead.
+
 version 0.7.0
 -----------------
 + Remove workarounds in the ``igzip`` module for the ``unconsumed_tail``
