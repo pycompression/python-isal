@@ -57,7 +57,7 @@ def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
 
     The mode argument can be "r", "rb", "w", "wb", "x", "xb", "a" or "ab" for
     binary mode, or "rt", "wt", "xt" or "at" for text mode. The default mode is
-    "rb", and the default compresslevel is 9.
+    "rb", and the default compresslevel is 2.
 
     For binary mode, this function is equivalent to the GzipFile constructor:
     GzipFile(filename, mode, compresslevel). In this case, the encoding, errors
