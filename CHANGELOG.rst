@@ -7,7 +7,7 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 0.8.0-dev
+version 0.8.0
 -----------------
 + Speed up ``igzip.compress`` and ``igzip.decompress`` by improving the
   implementation.
