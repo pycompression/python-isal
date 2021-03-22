@@ -25,7 +25,9 @@ import argparse
 import gzip
 import io
 import os
+import struct
 import sys
+from typing import List
 
 from . import isal_zlib
 
@@ -34,6 +36,8 @@ __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
+
+FTEXT, FHCRC, FHEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
 try:
     BadGzipFile = gzip.BadGzipFile  # type: ignore
@@ -229,12 +233,53 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     return buf.getvalue()
 
 
+def _gzip_header_end(data: bytes) -> int:
+    if len(data) < 10:
+        raise ValueError("Gzip header should be 10 bytes or more")
+    magic, method, flags, mtime, xfl, os = struct.unpack("<HBBIBB", data[:10], )
+    if magic != 0x8b1f:
+        raise BadGzipFile(f"Not a gzipped file ({repr(data[:2])})")
+    if method != 8:
+        raise BadGzipFile("Unknown compression method")
+    pos = 10
+    if flags & FHEXTRA:
+        xlen = struct.unpack("<H", data[pos: pos+2])
+        pos += xlen
+    if flags & FNAME:
+        fname_end = data.index(b"\x00", pos) + 1
+        pos = fname_end
+    if flags & FCOMMENT:
+        fcomment_end = data.index(b"\x00", pos) + 1
+        pos = fcomment_end
+    if flags & FHCRC:
+        pos += 2
+    return pos
+
+
 def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    with _IGzipReader(io.BytesIO(data)) as f:
-        return f.read()
+    all_blocks: List[bytes] = []
+    while True:
+        if data == b"":
+            break
+        header_end = _gzip_header_end(data)
+        do = isal_zlib.decompressobj(-15)
+        block = do.decompress(data[header_end:]) + do.flush()
+        if not do.eof or len(do.unused_data) < 8:
+            raise EOFError("Compressed file ended before the end-of-stream "
+                           "marker was reached")
+        checksum, length = struct.unpack("<II", do.unused_data[:8])
+        crc = isal_zlib.crc32(block)
+        if crc != checksum:
+            raise BadGzipFile("CRC check failed")
+        if length != len(block):
+            raise BadGzipFile("Incorrect length of data produced")
+        all_blocks.append(block)
+        # Remove all padding null bytes and start next block.
+        data = do.unused_data[8:].lstrip(b"\x00")
+    return b"".join(all_blocks)
 
 
 def main():
