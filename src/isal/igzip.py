@@ -28,7 +28,7 @@ import os
 import struct
 import sys
 import time
-from typing import List, Optional
+from typing import List, Optional, SupportsInt
 
 from . import isal_zlib
 
@@ -223,15 +223,21 @@ _GzipReader = _IGzipReader
 
 
 def _create_simple_gzip_header(compresslevel: int,
-                               mtime: Optional[int] = None) -> bytes:
+                               mtime: Optional[SupportsInt] = None) -> bytes:
+    """
+    Write a simple gzip header with no extra fields.
+    :param compresslevel: Compresslevel used to determine the xfl bytes.
+    :param mtime: The mtime (must support conversion to a 32-bit integer).
+    :return: A bytes object representing the gzip header.
+    """
     if mtime is None:
-        mtime = int(time.time())
+        mtime = time.time()
     # There is no best compression level. ISA-L only provides algorithms for
     # fast and medium levels.
     xfl = 4 if compresslevel == _COMPRESS_LEVEL_FAST else 0
     # Pack ID1 and ID2 magic bytes, method (8=deflate), header flags (no extra
     # fields added to header), mtime, xfl and os (255 for unknown OS).
-    return struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, mtime, xfl, 255)
+    return struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, int(mtime), xfl, 255)
 
 
 def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
@@ -248,6 +254,11 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
 
 
 def _gzip_header_end(data: bytes) -> int:
+    """
+    Find the start of the raw deflate block in a gzip file.
+    :param data: Compressed data that starts with a gzip header.
+    :return: The end of the header / start of the raw deflate block.
+    """
     if len(data) < 10:
         raise BadGzipFile("Gzip header should be 10 bytes or more")
     # We are not interested in mtime, xfl and os flags.
