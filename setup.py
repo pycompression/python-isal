@@ -151,9 +151,8 @@ def build_isa_l(compiler_command: str, compiler_options: str):
         subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
         subprocess.run([os.path.join(build_dir, "configure"),
                         "--prefix", temp_prefix], **run_args)
-        subprocess.run(["make", "-j", str(cpu_count)],
-                       **run_args)
-        subprocess.run(["make", "install"], **run_args)
+        subprocess.run(["make", "-j", str(cpu_count)], **run_args)
+        subprocess.run(["make", "-j", str(cpu_count), "install"], **run_args)
     elif SYSTEM_IS_WINDOWS:
         subprocess.run(["nmake", "/E", "/f", "Makefile.nmake"], **run_args)
         Path(temp_prefix, "include").mkdir()
