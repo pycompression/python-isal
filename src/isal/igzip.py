@@ -279,6 +279,12 @@ def _gzip_header_end(data: bytes) -> int:
         pos = fcomment_end
     if flags & FHCRC:
         pos += 2
+        header_crc = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        # CRC is stored as a 16-bit integer by taking last bits of crc32.
+        crc = isal_zlib.crc32(data[:pos]) & 0xFFFF
+        if header_crc != crc:
+            raise BadGzipFile(f"Corrupted header. Checksums do not "
+                              f"match: {crc} != {header_crc}")
     return pos
 
 
