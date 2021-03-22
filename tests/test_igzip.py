@@ -25,9 +25,11 @@
 import gzip
 import io
 import os
+import re
 import shutil
 import sys
 import tempfile
+import zlib
 from pathlib import Path
 
 from isal import igzip
@@ -145,3 +147,70 @@ def test_compress_infile_stdout(capsysbinary, tmp_path):
     out, err = capsysbinary.readouterr()
     assert gzip.decompress(out) == DATA
     assert err == b''
+
+
+def test_decompress():
+    assert igzip.decompress(COMPRESSED_DATA) == DATA
+
+
+def test_decompress_concatenated():
+    assert igzip.decompress(COMPRESSED_DATA + COMPRESSED_DATA) == DATA + DATA
+
+
+def test_decompress_concatenated_with_nulls():
+    data = COMPRESSED_DATA + b"\x00\00\x00" + COMPRESSED_DATA
+    assert igzip.decompress(data) == DATA + DATA
+
+
+def test_decompress_missing_trailer():
+    with pytest.raises(EOFError) as error:
+        igzip.decompress(COMPRESSED_DATA[:-8])
+    error.match("Compressed file ended before the end-of-stream marker was "
+                "reached")
+
+
+def test_decompress_truncated_trailer():
+    with pytest.raises(EOFError) as error:
+        igzip.decompress(COMPRESSED_DATA[:-4])
+    error.match("Compressed file ended before the end-of-stream marker was "
+                "reached")
+
+
+def test_decompress_incorrect_length():
+    fake_length = 27890
+    # Assure our test is not bogus
+    assert fake_length != len(DATA)
+    incorrect_length_trailer = fake_length.to_bytes(4, "little", signed=False)
+    corrupted_data = COMPRESSED_DATA[:-4] + incorrect_length_trailer
+    with pytest.raises(igzip.BadGzipFile) as error:
+        igzip.decompress(corrupted_data)
+    error.match("Incorrect length of data produced")
+
+
+def test_decompress_incorrect_checksum():
+    # Create a wrong checksum by using a non-default seed.
+    wrong_checksum = zlib.crc32(DATA, 50)
+    wrong_crc_bytes = wrong_checksum.to_bytes(4, "little", signed=False)
+    corrupted_data = (COMPRESSED_DATA[:-8] +
+                      wrong_crc_bytes +
+                      COMPRESSED_DATA[-4:])
+    with pytest.raises(igzip.BadGzipFile) as error:
+        igzip.decompress(corrupted_data)
+    error.match("CRC check failed")
+
+
+def test_decompress_not_a_gzip():
+    with pytest.raises(igzip.BadGzipFile) as error:
+        igzip.decompress(b"This is not a gzip data stream.")
+    assert error.match(re.escape("Not a gzipped file (b'Th')"))
+
+
+def test_decompress_unknown_compression_method():
+    corrupted_data = COMPRESSED_DATA[:2] + b'\x09' + COMPRESSED_DATA[3:]
+    with pytest.raises(igzip.BadGzipFile) as error:
+        igzip.decompress(corrupted_data)
+    assert error.match("Unknown compression method")
+
+
+def test_decompress_empty():
+    assert igzip.decompress(b"") == b""
