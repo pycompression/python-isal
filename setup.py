@@ -169,7 +169,7 @@ def build_isa_l(compiler_command: str, compiler_options: str):
 
 setup(
     name="isal",
-    version="0.8.0",
+    version="0.9.0-dev",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",
@@ -197,7 +197,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Cython",
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
