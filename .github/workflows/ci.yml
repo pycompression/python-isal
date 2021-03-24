@@ -81,7 +81,7 @@ jobs:
         run: sudo apt install yasm
         if: runner.os == 'Linux'
       - name: Install build dependencies (Macos)
-        run: brew install nasm automake autoconf
+        run: brew install yasm automake autoconf
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
         uses: ilammy/msvc-dev-cmd@v1.6.0
@@ -142,7 +142,7 @@ jobs:
       - name: Install cibuildwheel twine wheel
         run: python -m pip install cibuildwheel twine wheel
       - name: Install build dependencies (Macos)
-        run: brew install nasm automake autoconf
+        run: brew install yasm automake autoconf
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
         uses: ilammy/msvc-dev-cmd@v1.6.0
