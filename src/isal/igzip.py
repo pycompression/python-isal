@@ -29,6 +29,7 @@ import struct
 import sys
 import time
 from typing import List, Optional, SupportsInt
+import _compression  # noqa: I201  # Not third-party
 
 from . import isal_zlib
 
@@ -204,11 +205,35 @@ class IGzipFile(gzip.GzipFile):
         return length
 
 
+class _PaddedFile(gzip._PaddedFile):
+    # Overwrite _PaddedFile from gzip as its prepend method assumes that
+    # the prepended data is always read from its _buffer. Unfortunately in
+    # isal_zlib.decompressobj there is a bitbuffer as well which may be added.
+    # So an extra check is added to prepend to ensure no extra data in front
+    # of the buffer was present. (Negative self._read).
+    def prepend(self, prepend=b''):
+        if self._read is not None:
+            # Assume data was read since the last prepend() call
+            self._read -= len(prepend)
+            if self._read >= 0:
+                return
+            # If self._read is negative the data was read further back and
+            # the buffer needs to be reset.
+        self._buffer = prepend
+        self._length = len(self._buffer)
+        self._read = 0
+
+
 class _IGzipReader(gzip._GzipReader):
     def __init__(self, fp):
-        super().__init__(fp)
-        self._decomp_factory = isal_zlib.decompressobj
-        self._decompressor = self._decomp_factory(**self._decomp_args)
+        # Call the init method of gzip._GzipReader's parent here.
+        # It is not very invasive and allows us to override _PaddedFile
+        _compression.DecompressReader.__init__(
+            self, _PaddedFile(fp), isal_zlib.decompressobj,
+            wbits=-isal_zlib.MAX_WBITS)
+        # Set flag indicating start of a new member
+        self._new_member = True
+        self._last_mtime = None
 
     def _add_read_data(self, data):
         # Use faster isal crc32 calculation and update the stream size in place
