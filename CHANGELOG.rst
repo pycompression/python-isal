@@ -7,6 +7,12 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.8.1
+-----------------
++ Fix a bug where multi-member gzip files where read incorrectly due to an
+  offset error. This was caused by ISA-L's decompressobj having a small
+  bitbuffer which was not taken properly into account in some circumstances.
+
 version 0.8.0
 -----------------
 + Speed up ``igzip.compress`` and ``igzip.decompress`` by improving the
