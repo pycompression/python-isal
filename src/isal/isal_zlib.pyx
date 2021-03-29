@@ -99,10 +99,13 @@ DEFLATED = zlib.DEFLATED
 
 # Strategies
 Z_DEFAULT_STRATEGY=zlib.Z_DEFAULT_STRATEGY
-Z_RLE=zlib.Z_RLE 
 Z_HUFFMAN_ONLY=zlib.Z_HUFFMAN_ONLY
 Z_FILTERED=zlib.Z_FILTERED
-Z_FIXED=zlib.Z_FIXED
+# Following strategies not supported on all versions of zlib.
+if hasattr(zlib, "Z_RLE"):
+    Z_RLE = zlib.Z_RLE
+if hasattr(zlib, "Z_FIXED"):
+   Z_FIXED=zlib.Z_FIXED
 
 # Flush methods
 Z_NO_FLUSH=zlib.Z_NO_FLUSH
