@@ -12,3 +12,9 @@ dwgsim -N 10000 -e 0.0010 -E 0.0010 -1 152 -2 152 -c 0 -S1 -z 1 -Q 5 \
 reference.fasta test
 gzip -c -9 test.bwa.read1.fastq > test.fastq.gz
 ```
+
+concatenated.fastq.gz was created with:
+```
+gzip -cd tests/data/test.fastq.gz | head -n 1000 | gzip -c -1 >> test2.fastq.gz
+gzip -cd tests/data/test.fastq.gz | head -n 1000 | gzip -c -1 >> test2.fastq.gz
+```
