@@ -162,7 +162,8 @@ jobs:
           # Fully test the build wheels again.
           CIBW_TEST_REQUIRES: "pytest"
           # Simple test that requires the project to be build correctly
-          CIBW_TEST_COMMAND: "pytest {project}/tests/test_igzip.py"
+          CIBW_TEST_COMMAND: >-
+            pytest {project}/tests/test_igzip.py {project}/tests/test_isal.py
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
