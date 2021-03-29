@@ -288,3 +288,11 @@ TRUNCATED_HEADERS = [
 def test_truncated_header(trunc):
     with pytest.raises(EOFError):
         igzip.decompress(trunc)
+
+
+def test_concatenated_gzip():
+    concat = Path(__file__).parent / "data" / "concatenated.fastq.gz"
+    data = gzip.decompress(concat.read_bytes())
+    with igzip.open(concat, "rb") as igzip_h:
+        result = igzip_h.read()
+    assert data == result
