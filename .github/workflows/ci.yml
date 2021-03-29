@@ -156,7 +156,6 @@ jobs:
       - name: Build wheels
         run: cibuildwheel --output-dir dist
         env:
-          CIBW_BUILD: "cp3{6,7,8,9}-*,pp3{6,7}-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
           # Fully test the build wheels again.
