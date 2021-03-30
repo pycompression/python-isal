@@ -62,6 +62,7 @@ class BuildIsalExt(build_ext):
             for prefix in possible_prefixes:
                 if Path(prefix, "include", "isa-l").exists():
                     ext.include_dirs = [os.path.join(prefix, "include")]
+                    ext.library_dirs = [os.path.join(prefix, "lib")]
                     break   # Only one include directory is needed.
                 # On windows include is in Library apparently
                 elif Path(prefix, "Library", "include", "isa-l").exists():
