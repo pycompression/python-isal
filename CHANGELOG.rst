@@ -9,6 +9,9 @@ Changelog
 
 version 0.9.0-dev
 -----------------
++ Fix a bug where a AttributeError was triggered when zlib.Z_RLE or
+  zlib.Z_FIXED were not present.
++ Add support for Linux aarch64 builds.
 + Add support for pypy by adding pypy tests to the CI and setting up wheel
   building support.
 
