@@ -106,9 +106,9 @@ def test_compress_compressobj(data_size, level, wbits, memLevel):
                                         memLevel=memLevel)
     compressed = compressobj.compress(data) + compressobj.flush()
     if wbits in range(8, 16):
-        # In case a zlib header is used, determine the wbits automatically.
-        # For some reason it fails if wbits is set manually.
-        decompressed = zlib.decompress(compressed, wbits=0)
+        # TODO: Apparently the wbits level is not correctly implemented in
+        # ISA-L for the zlib stuff.
+        decompressed = zlib.decompress(compressed, wbits=15)
     else:
         decompressed = zlib.decompress(compressed, wbits=wbits)
     assert data == decompressed

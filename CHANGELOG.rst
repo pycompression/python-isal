@@ -7,6 +7,14 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.9.0
+-----------------
++ Fix a bug where a AttributeError was triggered when zlib.Z_RLE or
+  zlib.Z_FIXED were not present.
++ Add support for Linux aarch64 builds.
++ Add support for pypy by adding pypy tests to the CI and setting up wheel
+  building support.
+
 version 0.8.1
 -----------------
 + Fix a bug where multi-member gzip files where read incorrectly due to an
