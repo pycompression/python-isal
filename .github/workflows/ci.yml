@@ -117,10 +117,10 @@ jobs:
           distro: ${{ matrix.distro }}
           install: |
             apt-get update -q -y
-            apt-get install -q -y python3 python3-pip build-essential gcc binutils automake autoconf
+            apt-get install -q -y python3 python3-pip gcc binutils automake autoconf libtool
           run: |
             python3 -m pip install -U setuptools pip wheel tox
-            tox -e py3
+            tox
 
   # Test if the python-isal conda package can be build. Which is linked
   # dynamically to the conda isa-l package.
