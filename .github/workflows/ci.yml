@@ -154,7 +154,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1.6.0
         if: runner.os == 'Windows'
       - name: Run tests (dynamic link)
-        run: tox -e py3
+        run: tox
         env:
           PYTHON_ISAL_LINK_DYNAMIC: True
 
