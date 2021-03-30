@@ -57,10 +57,12 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - 3.6
-          - 3.7
-          - 3.8
-          - 3.9
+          - "3.6"
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "pypy-3.6"
+          - "pypy-3.7"
         os: ["ubuntu-latest"]
         include:
           - os: "macos-latest"
@@ -92,7 +94,7 @@ jobs:
         uses: ilammy/setup-nasm@v1.2.0
         if: runner.os == 'Windows'
       - name: Run tests
-        run: tox -e py3
+        run: tox
       - name: Upload coverage report
         uses: codecov/codecov-action@v1
 
@@ -154,13 +156,13 @@ jobs:
       - name: Build wheels
         run: cibuildwheel --output-dir dist
         env:
-          CIBW_BUILD: "cp3{6,7,8,9}-*"
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
           CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
           # Fully test the build wheels again.
           CIBW_TEST_REQUIRES: "pytest"
           # Simple test that requires the project to be build correctly
-          CIBW_TEST_COMMAND: "pytest {project}/tests/test_igzip.py"
+          CIBW_TEST_COMMAND: >-
+            pytest {project}/tests/test_igzip.py {project}/tests/test_isal.py
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist
