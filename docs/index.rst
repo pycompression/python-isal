@@ -10,14 +10,8 @@ Welcome to python-isal's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   isal_zlib
-   igzip
+.. include:: includes/Installation.rst
 
+.. include:: includes/isal_zlib.rst
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+.. include:: includes/igzip.rst
