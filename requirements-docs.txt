@@ -1,3 +1,4 @@
 sphinx
 setuptools
 sphinx-rtd-theme
+sphinx-argparse

@@ -348,7 +348,7 @@ def decompress(data):
     return b"".join(all_blocks)
 
 
-def main():
+def _argument_parser():
     parser = argparse.ArgumentParser()
     parser.description = (
         "A simple command line interface for the igzip module. "
@@ -371,9 +371,11 @@ def main():
         "-3", "--best", action="store_const", dest="compresslevel",
         const=_COMPRESS_LEVEL_BEST,
         help="use compression level 3 (best)")
+    compress_group.set_defaults(compress=True)
     compress_group.add_argument(
-        "-d", "--decompress", action="store_false",
+        "-d", "--decompress", action="store_const",
         dest="compress",
+        const=False,
         help="Decompress the file instead of compressing.")
     parser.add_argument("-c", "--stdout", action="store_true",
                         help="write on standard output")
@@ -383,7 +385,11 @@ def main():
     parser.add_argument("-b", "--buffer-size",
                         default=32 * 1024, type=int,
                         help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = _argument_parser().parse_args()
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 

@@ -57,6 +57,8 @@ Differences with zlib and gzip modules
 
 .. include:: includes/igzip.rst
 
+.. include:: includes/isal.igzip_usage.rst
+
 ============
 Contributing
 ============
