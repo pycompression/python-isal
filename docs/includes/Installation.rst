@@ -1,7 +1,8 @@
+============
 Installation
-------------
+============
 Installation with pip
-.....................
+---------------------
 
 ::
 
@@ -36,7 +37,7 @@ can be installed with::
   sudo apt install libisal-dev
 
 Installation via conda
-..................................
+----------------------
 Python-isal can be installed via conda, for example using
 the `miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ installer
 with a properly setup `conda-forge
