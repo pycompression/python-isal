@@ -34,6 +34,8 @@
 python-isal
 ===========
 
+.. introduction start
+
 Faster zlib and gzip compatible compression and decompression
 by providing Python bindings for the ISA-L library.
 
@@ -47,8 +49,12 @@ a variety of functions to provide zlib/gzip-compatible compression.
 ``igzip`` module which are usable as drop-in replacements for the ``zlib``
 and ``gzip`` modules from the stdlib (with some minor exceptions, see below).
 
-Usage
------
+.. introduction end
+
+Quickstart
+----------
+
+.. usage start
 
 Python-isal has faster versions of the stdlib's ``zlib`` and ``gzip`` module
 these are called ``isal_zlib`` and ``igzip`` respectively.
@@ -70,6 +76,8 @@ A full API documentation can be found on `our readthedocs page
 ``python -m isal.igzip`` implements a simple gzip-like command line
 application (just like ``python -m gzip``).
 
+.. usage end
+
 Installation
 ------------
 - with pip: ``pip install isal``
@@ -77,10 +85,12 @@ Installation
 
 Installation is supported on Linux, Windows and MacOS. For more advanced
 installation options check the `documentation
-<https://python-isal.readthedocs.io>`_.
+<https://python-isal.readthedocs.io/en/stable/index.html#installation>`_.
 
 Differences with zlib and gzip modules
 --------------------------------------
+
+.. differences start
 
 + Compression level 0 in ``zlib`` and ``gzip`` means **no compression**, while
   in ``isal_zlib`` and ``igzip`` this is the **lowest compression level**.
@@ -106,8 +116,14 @@ Differences with zlib and gzip modules
   to reflect this. ``igzip.GzipFile`` does exist as an alias of
   ``igzip.IGzipFile`` for compatibility reasons.
 
+.. differences end
+
 Contributing
 ------------
+.. contributing start
+
 Please make a PR or issue if you feel anything can be improved. Bug reports
 are also very welcome. Please report them on the `github issue tracker
 <https://github.com/rhpvorderman/python-isal/issues>`_.
+
+.. contributing end
