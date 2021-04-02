@@ -68,6 +68,7 @@ import zlib
 
 from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
+from . import igzip_lib
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
@@ -113,11 +114,8 @@ Z_SYNC_FLUSH=zlib.Z_SYNC_FLUSH
 Z_FULL_FLUSH=zlib.Z_FULL_FLUSH
 Z_FINISH=zlib.Z_FINISH
 
-class IsalError(OSError):
-    """Exception raised on compression and decompression errors."""
-    pass
-
 # Add error for compatibility
+IsalError = igzip_lib.IsalError
 error = IsalError
 
 
@@ -816,51 +814,3 @@ cdef zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsign
         elif compression_level == 3:
             bufsize[0] = ISAL_DEF_LVL3_EXTRA_LARGE
 
-
-cdef check_isal_deflate_rc(int rc):
-    if rc == COMP_OK:
-        return
-    elif rc == INVALID_FLUSH:
-        raise IsalError("Invalid flush type")
-    elif rc == INVALID_PARAM:
-        raise IsalError("Invalid parameter")
-    elif rc == STATELESS_OVERFLOW:
-        raise IsalError("Not enough room in output buffer")
-    elif rc == ISAL_INVALID_OPERATION:
-        raise IsalError("Invalid operation")
-    elif rc == ISAL_INVALID_STATE:
-        raise IsalError("Invalid state")
-    elif rc == ISAL_INVALID_LEVEL:
-        raise IsalError("Invalid compression level.")
-    elif rc == ISAL_INVALID_LEVEL_BUF:
-        raise IsalError("Level buffer too small.")
-    else:
-        raise IsalError("Unknown Error")
-
-cdef check_isal_inflate_rc(int rc):
-    if rc >= ISAL_DECOMP_OK:
-        return
-    if rc == ISAL_END_INPUT:
-        raise IsalError("End of input reached")
-    if rc == ISAL_OUT_OVERFLOW:
-        raise IsalError("End of output reached")
-    if rc == ISAL_NAME_OVERFLOW:
-        raise IsalError("End of gzip name buffer reached")
-    if rc == ISAL_COMMENT_OVERFLOW:
-        raise IsalError("End of gzip name buffer reached")
-    if rc == ISAL_EXTRA_OVERFLOW:
-        raise IsalError("End of extra buffer reached")
-    if rc == ISAL_NEED_DICT:
-        raise IsalError("Dictionary needed to continue")
-    if rc == ISAL_INVALID_BLOCK:
-        raise IsalError("Invalid deflate block found")
-    if rc == ISAL_INVALID_SYMBOL:
-        raise IsalError("Invalid deflate symbol found")
-    if rc == ISAL_INVALID_LOOKBACK:
-        raise IsalError("Invalid lookback distance found")
-    if rc == ISAL_INVALID_WRAPPER:
-        raise IsalError("Invalid gzip/zlib wrapper found")
-    if rc == ISAL_UNSUPPORTED_METHOD:
-        raise IsalError("Gzip/zlib wrapper specifies unsupported compress method")
-    if rc == ISAL_INCORRECT_CHECKSUM:
-        raise IsalError("Incorrect checksum found")

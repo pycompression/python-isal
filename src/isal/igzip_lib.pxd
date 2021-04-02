@@ -452,3 +452,9 @@ cdef extern from "<isa-l/igzip_lib.h>":
     unsigned int isal_adler32(unsigned int init,
                                const unsigned char *buf, 
                                unsigned long long len)
+
+############################
+# python-isal functions
+############################
+cdef check_isal_deflate_rc(int rc)
+cdef check_isal_inflate_rc(int rc)
