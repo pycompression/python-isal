@@ -41,7 +41,8 @@ class IsalExtension(Extension):
     pass
 
 
-MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"])]
+MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
+           IsalExtension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"])]
 if SYSTEM_IS_UNIX:
     MODULES.append(IsalExtension("isal._isal", ["src/isal/_isal.pyx"]))
 
