@@ -40,7 +40,8 @@ ISA-L does not support the same calls as zlib (See differences below).
 A full API documentation can be found below.
 
 ``python -m isal.igzip`` implements a simple gzip-like command line
-application (just like ``python -m gzip``).
+application (just like ``python -m gzip``). Full usage documentation can be
+found below.
 
 
 .. include:: includes/Installation.rst

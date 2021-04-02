@@ -74,7 +74,9 @@ A full API documentation can be found on `our readthedocs page
 <https://python-isal.readthedocs.io>`_.
 
 ``python -m isal.igzip`` implements a simple gzip-like command line
-application (just like ``python -m gzip``).
+application (just like ``python -m gzip``). Full usage documentation can be
+found on `our readthedocs page <https://python-isal.readthedocs.io>`_.
+
 
 .. usage end
 
