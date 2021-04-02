@@ -70,7 +70,7 @@ from .crc cimport crc32_gzip_refl
 from .igzip_lib cimport *
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
-from cpython.buffer cimport PyBUF_SIMPLE, PyObject_GetBuffer, PyBuffer_Release
+from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
 from cpython.long cimport PyLong_AsUnsignedLongMask
 
@@ -138,7 +138,7 @@ def adler32(data, value = 1):
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
+    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     try:
         if buffer.len > UINT64_MAX:
             raise ValueError("Data too big for adler32")
@@ -158,7 +158,7 @@ def crc32(data, value = 0):
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
+    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     try:
         if buffer.len > UINT64_MAX:
             raise ValueError("Data too big for adler32")
@@ -262,7 +262,7 @@ def compress(data,
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
+    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     cdef Py_ssize_t ibuflen = buffer.len
     stream.next_in = <unsigned char*>buffer.buf
 
@@ -328,7 +328,7 @@ def decompress(data,
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
+    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     cdef Py_ssize_t ibuflen = buffer.len
     stream.next_in =  <unsigned char*>buffer.buf
 
@@ -464,7 +464,7 @@ cdef class Compress:
         cdef Py_buffer buffer_data
         cdef Py_buffer* buffer = &buffer_data
         # Cython makes sure error is handled when acquiring buffer fails.
-        PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
+        PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
         cdef Py_ssize_t ibuflen = buffer.len
         self.stream.next_in = <unsigned char*>buffer.buf
 
@@ -631,7 +631,7 @@ cdef class Decompress:
         cdef Py_buffer buffer_data
         cdef Py_buffer* buffer = &buffer_data
         # Cython makes sure error is handled when acquiring buffer fails.
-        PyObject_GetBuffer(data, buffer, PyBUF_SIMPLE)
+        PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
         cdef Py_ssize_t ibuflen = buffer.len
         self.stream.next_in = <unsigned char*>buffer.buf
 
@@ -681,7 +681,7 @@ cdef class Decompress:
         cdef Py_buffer buffer_data
         cdef Py_buffer* buffer = &buffer_data
         # Cython makes sure error is handled when acquiring buffer fails.
-        PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_SIMPLE)
+        PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_C_CONTIGUOUS)
         cdef Py_ssize_t ibuflen = buffer.len
         self.stream.next_in = <unsigned char*>buffer.buf
 
