@@ -127,3 +127,36 @@ are also very welcome. Please report them on the `github issue tracker
 <https://github.com/rhpvorderman/python-isal/issues>`_.
 
 .. contributing end
+
+Acknowledgements
+----------------
+
+.. acknowledgements start
+
+This project builds upon the software and experience of many.  Many thanks to:
+
++ The `ISA-L contributors
+  <https://github.com/intel/isa-l/graphs/contributors>`_ for making ISA-L.
++ The `Cython contributors
+  <https://github.com/cython/cython/graphs/contributors>`_ for making it easy
+  to create an extension and helping a novice get start with pointer addresses.
++ The `CPython contributors
+  <https://github.com/python/cpython/graphs/contributors>`_.
+  Python-isal mimicks ``zlibmodule.c`` and ``igzip.py`` to make it easier for
+  python users to adopt it.
++ `@marcelm <https://github.com/marcelm>`_ for taking a chance on this project
+  and make it a dependency for his `xopen
+  <https://github.com/pycompression/xopen>`_ and by extension `cutadapt
+  <https://github.com/marcelm/cutadapt>`_ projects. This gave python-isal its
+  first users who used python-isal in production.
++ The `github actions team <https://github.com/orgs/actions/people>`_ for
+  creating the actions CI service that enables building and testing on all
+  three major operating systems.
++ `@animalize <https://github.com/animalize>`_ for explaining how to test and
+  build python-isal for ARM 64-bit platforms.
++ And last but not least: everyone who submitted a bug report or a feature
+  request. These make the project better!
+
+Python-isal would not have been possible without you!
+
+.. acknowledgements end

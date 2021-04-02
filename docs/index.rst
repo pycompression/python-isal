@@ -66,4 +66,11 @@ Contributing
    :start-after: .. contributing start
    :end-before: .. contributing end
 
+================
+Acknowledgements
+================
+.. include:: includes/README.rst
+   :start-after: .. acknowledgements start
+   :end-before: .. acknowledgements end
+
 .. include:: includes/CHANGELOG.rst
