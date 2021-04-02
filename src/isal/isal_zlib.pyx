@@ -164,61 +164,6 @@ def crc32(data, value = 0):
     finally:
         PyBuffer_Release(buffer)
 
-ctypedef fused stream_or_state:
-    isal_zstream
-    inflate_state
-
-cdef Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
-    if a <= b:
-        return a
-    else:
-        return b
-
-cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
-                                                   unsigned char **buffer,
-                                                   Py_ssize_t length,
-                                                   Py_ssize_t max_length):
-    # The zlibmodule.c function builds a PyBytes object. A unsigned char *
-    # is build here because building raw PyObject * stuff in cython is somewhat
-    # harder due to cython's interference. FIXME
-    cdef Py_ssize_t occupied
-    cdef Py_ssize_t new_length
-    cdef unsigned char * new_buffer
-    if buffer[0] == NULL:
-        buffer[0] = <unsigned char*>PyMem_Malloc(length * sizeof(char))
-        if buffer[0] == NULL:
-            return -1
-        occupied = 0
-    else:
-        occupied = stream.next_out - buffer[0]
-        if length == occupied:
-            if length == max_length:
-                return -2
-            if length <= max_length >> 1:
-                new_length = length << 1
-            else:
-                new_length = max_length
-            new_buffer = <unsigned char *>PyMem_Realloc(buffer[0], new_length)
-            if new_buffer == NULL:
-                return -1
-            buffer[0] = new_buffer
-            length = new_length
-    stream.avail_out = <unsigned int>py_ssize_t_min(length - occupied, UINT32_MAX)
-    stream.next_out = buffer[0] + occupied
-    return length
-
-cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
-                                      unsigned char **buffer,
-                                      Py_ssize_t length):
-    cdef Py_ssize_t ret
-    ret = arrange_output_buffer_with_maximum(stream, buffer, length, PY_SSIZE_T_MAX)
-    if ret == -2:  # Maximum reached.
-        return -1
-    return ret
-
-cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
-    stream.avail_in = <unsigned int>py_ssize_t_min(remains[0], UINT32_MAX)
-    remains[0] -= stream.avail_in
 
 def compress(data,
              int level=ISAL_DEFAULT_COMPRESSION,

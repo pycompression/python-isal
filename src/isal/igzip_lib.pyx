@@ -72,15 +72,7 @@ class IsalError(OSError):
     """Exception raised on compression and decompression errors."""
     pass
 
-ctypedef fused stream_or_state:
-    isal_zstream
-    inflate_state
 
-cdef Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
-    if a <= b:
-        return a
-    else:
-        return b
 
 cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
                                                    unsigned char **buffer,

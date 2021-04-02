@@ -458,3 +458,25 @@ cdef extern from "<isa-l/igzip_lib.h>":
 ############################
 cdef check_isal_deflate_rc(int rc)
 cdef check_isal_inflate_rc(int rc)
+
+ctypedef fused stream_or_state:
+    isal_zstream
+    inflate_state
+
+cdef inline Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
+    if a <= b:
+        return a
+    else:
+        return b
+
+cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
+                                                   unsigned char **buffer,
+                                                   Py_ssize_t length,
+                                                   Py_ssize_t max_length)
+
+
+cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
+                                      unsigned char **buffer,
+                                      Py_ssize_t length)
+
+cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains)
