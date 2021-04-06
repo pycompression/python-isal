@@ -83,6 +83,7 @@ from .igzip_lib cimport(
     MEM_LEVEL_SMALL_I, MEM_LEVEL_MEDIUM_I, MEM_LEVEL_LARGE_I,
     MEM_LEVEL_EXTRA_LARGE_I, ISAL_DEFAULT_COMPRESSION_I, mem_level_to_bufsize,)
 
+# Alias igzip_lib compress and decompress functions
 from .igzip_lib cimport compress as igzip_compress
 from .igzip_lib cimport decompress as igzip_decompress
 
@@ -96,9 +97,9 @@ from cpython.long cimport PyLong_AsUnsignedLongMask
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
 
-ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
-ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
-ISAL_DEFAULT_COMPRESSION = 2
+ISAL_BEST_SPEED = igzip_lib.ISAL_BEST_SPEED
+ISAL_BEST_COMPRESSION = igzip_lib.ISAL_BEST_COMPRESSION
+ISAL_DEFAULT_COMPRESSION = igzip_lib.ISAL_DEFAULT_COMPRESSION
 Z_BEST_SPEED = ISAL_BEST_SPEED
 Z_BEST_COMPRESSION = ISAL_BEST_COMPRESSION
 Z_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION
@@ -111,7 +112,7 @@ DEF DEF_MEM_LEVEL_I = 8
 # Expose compile-time constants. Same names as zlib.
 DEF_BUF_SIZE = DEF_BUF_SIZE_I
 DEF_MEM_LEVEL = DEF_MEM_LEVEL_I
-MAX_WBITS = ISAL_DEF_MAX_HIST_BITS
+MAX_WBITS = igzip_lib.MAX_HIST_BITS
 
 # Compression methods
 DEFLATED = zlib.DEFLATED
@@ -184,7 +185,7 @@ def crc32(data, value = 0):
 
 
 def compress(data,
-             int level=ISAL_DEFAULT_COMPRESSION,
+             int level=ISAL_DEFAULT_COMPRESSION_I,
              int wbits = ISAL_DEF_MAX_HIST_BITS):
     """
     Compresses the bytes in *data*. Returns a bytes object with the
@@ -252,7 +253,7 @@ def decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
     return Decompress.__new__(Decompress, wbits, zdict)
 
 
-def compressobj(int level=ISAL_DEFAULT_COMPRESSION,
+def compressobj(int level=ISAL_DEFAULT_COMPRESSION_I,
                 int method=DEFLATED,
                 int wbits=ISAL_DEF_MAX_HIST_BITS,
                 int memLevel=DEF_MEM_LEVEL,
@@ -290,7 +291,7 @@ cdef class Compress:
     cdef unsigned char * level_buf
 
     def __cinit__(self,
-                  int level = ISAL_DEFAULT_COMPRESSION,
+                  int level = ISAL_DEFAULT_COMPRESSION_I,
                   int method = DEFLATED,
                   int wbits = ISAL_DEF_MAX_HIST_BITS,
                   int memLevel = DEF_MEM_LEVEL,
