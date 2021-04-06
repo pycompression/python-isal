@@ -292,8 +292,6 @@ def decompress(data,
                     check_isal_inflate_rc(err)
                 if stream.avail_out != 0:
                     break
-            if stream.avail_in != 0:
-                raise AssertionError("Input stream should be empty")
             if ibuflen == 0 or stream.block_state == ISAL_BLOCK_FINISH:
                 break
         if stream.block_state != ISAL_BLOCK_FINISH:
