@@ -81,7 +81,8 @@ from .igzip_lib cimport(
     arrange_output_buffer_with_maximum, arrange_output_buffer,
     arrange_input_buffer, MEM_LEVEL_DEFAULT_I, MEM_LEVEL_MIN_I,
     MEM_LEVEL_SMALL_I, MEM_LEVEL_MEDIUM_I, MEM_LEVEL_LARGE_I,
-    MEM_LEVEL_EXTRA_LARGE_I, ISAL_DEFAULT_COMPRESSION_I, mem_level_to_bufsize,)
+    MEM_LEVEL_EXTRA_LARGE_I, ISAL_DEFAULT_COMPRESSION_I, mem_level_to_bufsize,
+    view_bitbuffer,)
 
 # Alias igzip_lib compress and decompress functions
 from .igzip_lib cimport compress as igzip_compress
@@ -443,16 +444,7 @@ cdef class Decompress:
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
         a maximum of 8 bytes. This data is already read-in so is not part
         of the unconsumed tail."""
-        bits_in_buffer = self.stream.read_in_length
-        read_in_length = bits_in_buffer // 8
-        if read_in_length == 0:
-            return b""
-        remainder = bits_in_buffer % 8
-        read_in = self.stream.read_in
-        # The bytes are added by bitshifting, so in reverse order. Reading the
-        # 64-bit integer into 8 bytes little-endian provides the characters in
-        # the correct order.
-        return (read_in >> remainder).to_bytes(8, "little")[:read_in_length]
+        return view_bitbuffer(&self.stream)
 
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size

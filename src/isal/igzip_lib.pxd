@@ -502,3 +502,5 @@ cpdef decompress(data,
                unsigned int flag = ?,
                unsigned int hist_bits= ?,
                Py_ssize_t bufsize= ?)
+
+cdef bytes view_bitbuffer(inflate_state * stream)

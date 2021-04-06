@@ -22,6 +22,7 @@
 # cython: binding=True
 
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
+from libc.string cimport memmove, memcpy
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
@@ -244,6 +245,19 @@ cpdef decompress(data,
         PyMem_Free(obuf)
 
 
+cdef bytes view_bitbuffer(inflate_state * stream):
+
+        cdef int bits_in_buffer = stream.read_in_length
+        cdef int read_in_length = bits_in_buffer // 8
+        if read_in_length == 0:
+            return b""
+        cdef int remainder = bits_in_buffer % 8
+        read_in = stream.read_in
+        # The bytes are added by bitshifting, so in reverse order. Reading the
+        # 64-bit integer into 8 bytes little-endian provides the characters in
+        # the correct order.
+        return (read_in >> remainder).to_bytes(8, "little")[:read_in_length]
+
 cdef class IgzipDecompressor:
     """Decompress object for handling streaming decompression."""
     cdef public bytes unused_data
@@ -251,12 +265,13 @@ cdef class IgzipDecompressor:
     cdef public bint needs_input
     cdef inflate_state stream
     cdef unsigned char * input_buffer
-    cdef Py_ssize_t input_buffer_size
+    cdef size_t input_buffer_size
+    cdef size_t avail_in_real
 
     def __cinit__(self,
                   flag=ISAL_DEFLATE,
                   hist_bits=ISAL_DEF_MAX_HIST_BITS,
-                  inflate_dict = None):
+                  zdict = None):
         isal_inflate_init(&self.stream)
 
         self.stream.hist_bits = hist_bits
@@ -280,16 +295,10 @@ cdef class IgzipDecompressor:
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
         a maximum of 8 bytes. This data is already read-in so is not part
         of the unconsumed tail."""
-        bits_in_buffer = self.stream.read_in_length
-        read_in_length = bits_in_buffer // 8
-        if read_in_length == 0:
-            return b""
-        remainder = bits_in_buffer % 8
-        read_in = self.stream.read_in
-        # The bytes are added by bitshifting, so in reverse order. Reading the
-        # 64-bit integer into 8 bytes little-endian provides the characters in
-        # the correct order.
-        return (read_in >> remainder).to_bytes(8, "little")[:read_in_length]
+        view_bitbuffer(&self.stream)
+
+    cdef unsigned char * decompress_buf(self, Py_ssize_t max_length):
+        return NULL
 
     def decompress(self, data, Py_ssize_t max_length = 0):
         """
@@ -312,7 +321,7 @@ cdef class IgzipDecompressor:
         else:
             hard_limit = max_length
 
-        cdef unsigned_int avail_now
+        cdef unsigned int avail_now
         cdef unsigned int avail_total
         # Cython makes sure error is handled when acquiring buffer fails.
         cdef Py_buffer buffer_data
@@ -323,7 +332,8 @@ cdef class IgzipDecompressor:
 
         cdef int err
         cdef bint max_length_reached = False
-        
+        cdef unsigned char * tmp
+        cdef size_t offset
         # Initialise output buffer
         cdef unsigned char *obuf = NULL
         cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
@@ -337,7 +347,7 @@ cdef class IgzipDecompressor:
                 if avail_total < ibuflen:
                     offset = self.stream.next_in - self.input_buffer
                     new_size = self.input_buffer_size + ibuflen - avail_now
-                    tmp = PyMem_Realloc(self.input_buffer, new_size)
+                    tmp = <unsigned char*>PyMem_Realloc(self.input_buffer, new_size)
                     if tmp == NULL:
                         raise MemoryError()
                     self.input_buffer = tmp
@@ -355,8 +365,8 @@ cdef class IgzipDecompressor:
                 self.avail_in_real = ibuflen
                 input_buffer_in_use = 0
 
-            result = self.decompress_buf(max_length)
-            if result == NULL:
+            obuf = self.decompress_buf(max_length)
+            if obuf == NULL:
                 self.stream.next_in = NULL
                 return b""
             if self.eof:
@@ -372,13 +382,13 @@ cdef class IgzipDecompressor:
                 if not input_buffer_in_use:
                     # Discard buffer if to small.
                     # Resizing may needlessly copy the current contents.
-                    if self.input_buffer != NULL and self.input_buffer < self.avail_in_real:
+                    if self.input_buffer != NULL and self.input_buffer_size < self.avail_in_real:
                         PyMem_Free(self.input_buffer)
                         self.input_buffer = NULL
 
                     # Allocate of necessary
                     if self.input_buffer == NULL:
-                        self.input_buffer = PyMem_Malloc(self.avail_in_real)
+                        self.input_buffer = <unsigned char *>PyMem_Malloc(self.avail_in_real)
                         if self.input_buffer == NULL:
                             raise MemoryError()
                         self.input_buffer_size = self.avail_in_real
