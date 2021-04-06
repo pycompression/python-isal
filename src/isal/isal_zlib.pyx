@@ -704,58 +704,17 @@ cdef zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsign
     # If the mem_level is zlib default, return isal defaults.
     # Current zlib def level = 8. On isal the def level is large.
     # Hence 7,8 return large. 9 returns extra large.
+    cdef int level = MEM_LEVEL_DEFAULT_I
     if mem_level == DEF_MEM_LEVEL_I:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_DEFAULT
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_DEFAULT
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_DEFAULT
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_DEFAULT
-    if mem_level == 1:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_MIN
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_MIN
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_MIN
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_MIN
+        level = MEM_LEVEL_DEFAULT_I
+    elif mem_level == 1:
+        level = MEM_LEVEL_MIN_I
     elif mem_level in [2,3]:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_SMALL
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_SMALL
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_SMALL
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_SMALL
+        level = MEM_LEVEL_SMALL_I
     elif mem_level in [4,5,6]:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_MEDIUM
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_MEDIUM
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_MEDIUM
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_MEDIUM
+        level = MEM_LEVEL_MEDIUM_I
     elif mem_level in [7,8]:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_LARGE
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_LARGE
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_LARGE
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_LARGE
+        level = MEM_LEVEL_LARGE_I
     elif mem_level == 9:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_EXTRA_LARGE
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_EXTRA_LARGE
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_EXTRA_LARGE
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_EXTRA_LARGE
-
+        level = MEM_LEVEL_EXTRA_LARGE_I
+    mem_level_to_bufsize(compression_level, level, bufsize)

@@ -480,3 +480,13 @@ cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
                                       Py_ssize_t length)
 
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains)
+
+cdef:
+    int MEM_LEVEL_DEFAULT_I
+    int MEM_LEVEL_MIN_I
+    int MEM_LEVEL_SMALL_I
+    int MEM_LEVEL_MEDIUM_I
+    int MEM_LEVEL_LARGE_I
+    int MEM_LEVEL_EXTRA_LARGE_I
+
+cdef mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize)
