@@ -589,11 +589,14 @@ cdef bint data_is_gzip(object data):
     cdef Py_buffer* buffer = &buffer_data
     PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     if buffer.len < 2:
+        PyBuffer_Release(buffer)
         return False
     cdef unsigned char * char_ptr = <unsigned char *>buffer.buf
     if char_ptr[0] == 31:
         if char_ptr[1] == 139:
+            PyBuffer_Release(buffer)
             return True
+    PyBuffer_Release(buffer)
     return False
 
 
