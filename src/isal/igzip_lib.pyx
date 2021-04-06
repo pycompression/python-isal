@@ -299,7 +299,7 @@ cdef class IgzipDecompressor:
 
     cdef unsigned char * decompress_buf(self, Py_ssize_t max_length):
         cdef Py_ssize_t data_size = 0
-        cdef unsigned char * obuf
+        cdef unsigned char * obuf = NULL
         cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
         cdef int err
         if obuflen > max_length:
