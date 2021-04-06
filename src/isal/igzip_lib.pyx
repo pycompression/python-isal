@@ -312,9 +312,11 @@ cdef class IgzipDecompressor:
                 break
             arrange_input_buffer(&self.stream, &self.avail_in_real)
             err = isal_inflate(&self.stream)
+            data_size = self.stream.next_out - obuf
             if err != ISAL_DECOMP_OK:
                 check_isal_inflate_rc(err)
             if self.stream.block_state == ISAL_BLOCK_FINISH:
+                self.eof = 1
                 break
             elif self.avail_in_real == 0:
                 break

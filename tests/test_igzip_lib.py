@@ -58,4 +58,5 @@ class TestIgzipDecompressor():
     compressed = igzip_lib.compress(DATA)
     def test_decompress(self):
         decomp = igzip_lib.IgzipDecompressor()
-        assert decomp.decompress(self.compressed) == DATA
+        decompressed = decomp.decompress(self.compressed)
+        assert decompressed == DATA
