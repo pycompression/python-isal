@@ -488,5 +488,17 @@ cdef:
     int MEM_LEVEL_MEDIUM_I
     int MEM_LEVEL_LARGE_I
     int MEM_LEVEL_EXTRA_LARGE_I
+    int ISAL_DEFAULT_COMPRESSION_I
 
 cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize)
+
+cpdef compress(data,
+             int level= ?,
+             unsigned short flag = ?,
+             unsigned short hist_bits = ?,
+            )
+
+cpdef decompress(data,
+               unsigned int flag = ?,
+               unsigned int hist_bits= ?,
+               Py_ssize_t bufsize= ?)

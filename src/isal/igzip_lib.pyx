@@ -31,7 +31,8 @@ cdef extern from "<Python.h>":
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
-ISAL_DEFAULT_COMPRESSION = 2
+DEF ISAL_DEFAULT_COMPRESSION_I = 2
+ISAL_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION_I
 
 DEF DEF_BUF_SIZE_I = 16 * 1024
 DEF_BUF_SIZE = DEF_BUF_SIZE_I
@@ -120,10 +121,10 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
     stream.avail_in = <unsigned int>py_ssize_t_min(remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
 
-def compress(data,
-             int level=ISAL_DEFAULT_COMPRESSION,
-             int flag = COMP_DEFLATE,
-             int hist_bits = ISAL_DEF_MAX_HIST_BITS,
+cpdef compress(data,
+             int level=ISAL_DEFAULT_COMPRESSION_I,
+             unsigned short flag = IGZIP_DEFLATE,
+             unsigned short hist_bits = ISAL_DEF_MAX_HIST_BITS,
             ):
     """
     Compresses the bytes in *data*. Returns a bytes object with the
@@ -190,9 +191,9 @@ def compress(data,
         PyMem_Free(obuf)
 
 
-def decompress(data,
-               int flag = DECOMP_DEFLATE,
-               int hist_bits=ISAL_DEF_MAX_HIST_BITS,
+cpdef decompress(data,
+               unsigned int flag = ISAL_DEFLATE,
+               unsigned int hist_bits=ISAL_DEF_MAX_HIST_BITS,
                Py_ssize_t bufsize=DEF_BUF_SIZE):
     """
     Deompresses the bytes in *data*. Returns a bytes object with the

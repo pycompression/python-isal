@@ -67,7 +67,25 @@ import warnings
 import zlib
 
 from .crc cimport crc32_gzip_refl
-from .igzip_lib cimport *
+# Import isa-l igzip-lib C constants and functions
+from .igzip_lib cimport (
+    ISAL_DEF_MAX_HIST_BITS, NO_FLUSH, SYNC_FLUSH, FULL_FLUSH, IGZIP_DEFLATE,
+    IGZIP_GZIP, IGZIP_ZLIB, COMP_OK, ISAL_DECOMP_OK, ISAL_BLOCK_FINISH,
+    ZSTATE_END, ISAL_DEFLATE, ISAL_GZIP, ISAL_ZLIB, ISAL_DEF_MIN_LEVEL,
+    ISAL_DEF_MAX_LEVEL, isal_zstream, inflate_state, isal_deflate_init,
+    isal_deflate_set_dict, isal_deflate, isal_inflate_init,
+    isal_inflate_set_dict, isal_inflate, isal_adler32)
+# Import python-isal igzip_lib cython functions
+from .igzip_lib cimport(
+    check_isal_deflate_rc, check_isal_inflate_rc,
+    arrange_output_buffer_with_maximum, arrange_output_buffer,
+    arrange_input_buffer, MEM_LEVEL_DEFAULT_I, MEM_LEVEL_MIN_I,
+    MEM_LEVEL_SMALL_I, MEM_LEVEL_MEDIUM_I, MEM_LEVEL_LARGE_I,
+    MEM_LEVEL_EXTRA_LARGE_I, ISAL_DEFAULT_COMPRESSION_I, mem_level_to_bufsize,)
+
+from .igzip_lib cimport compress as igzip_compress
+from .igzip_lib cimport decompress as igzip_decompress
+
 from . import igzip_lib
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
@@ -184,61 +202,12 @@ def compress(data,
                   -9 to -15 will generate a raw compressed string with
                   no headers and trailers.
     """
-    # Initialise stream
-    cdef isal_zstream stream
-    cdef unsigned int level_buf_size
-    zlib_mem_level_to_isal_bufsize(level, DEF_MEM_LEVEL_I, &level_buf_size)
-    cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
-    isal_deflate_init(&stream)
-    stream.level = level
-    stream.level_buf = level_buf
-    stream.level_buf_size = level_buf_size
+    cdef unsigned short hist_bits
+    cdef unsigned short flag
     wbits_to_flag_and_hist_bits_deflate(wbits,
-                                        &stream.hist_bits,
-                                        &stream.gzip_flag)
-
-    # Initialise output buffer
-    cdef Py_ssize_t bufsize = DEF_BUF_SIZE_I
-    cdef unsigned char * obuf = NULL
-    
-    # initialise input
-    cdef Py_buffer buffer_data
-    cdef Py_buffer* buffer = &buffer_data
-    # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
-    cdef Py_ssize_t ibuflen = buffer.len
-    stream.next_in = <unsigned char*>buffer.buf
-
-    # initialise helper variables
-    cdef int err
-
-    try:
-        while True:
-            arrange_input_buffer(&stream, &ibuflen)
-            if ibuflen == 0:
-                stream.flush = FULL_FLUSH
-                stream.end_of_stream = 1
-            else:
-                stream.flush = NO_FLUSH
-
-            while True:
-                bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
-                if bufsize == -1:
-                    raise MemoryError("Unsufficient memory for buffer allocation")
-                err = isal_deflate(&stream)
-                if err != COMP_OK:
-                    check_isal_deflate_rc(err)
-                if stream.avail_out != 0:
-                    break
-            if stream.avail_in != 0:
-                raise AssertionError("Input stream should be empty")
-            if stream.internal_state.state == ZSTATE_END:
-                break
-        return PyBytes_FromStringAndSize(<char*>obuf, stream.next_out - obuf)
-    finally:
-        PyBuffer_Release(buffer)
-        PyMem_Free(level_buf)
-        PyMem_Free(obuf)
+                                        &hist_bits,
+                                        &flag)
+    return igzip_compress(data, level, flag, hist_bits)
 
 def decompress(data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,
@@ -256,50 +225,13 @@ def decompress(data,
                   automatically detects a gzip or zlib header.
     :param bufsize: The initial size of the output buffer.
     """
-    if bufsize < 0:
-        raise ValueError("bufsize must be non-negative")
-   
-    cdef inflate_state stream
-    isal_inflate_init(&stream)
-
+    cdef unsigned int hist_bits
+    cdef unsigned int flag
     wbits_to_flag_and_hist_bits_inflate(wbits,
-                                        &stream.hist_bits,
-                                        &stream.crc_flag,
+                                        &hist_bits,
+                                        &flag,
                                         data[:2] == b"\037\213")
-
-    # initialise input
-    cdef Py_buffer buffer_data
-    cdef Py_buffer* buffer = &buffer_data
-    # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
-    cdef Py_ssize_t ibuflen = buffer.len
-    stream.next_in =  <unsigned char*>buffer.buf
-
-    # Initialise output buffer
-    cdef unsigned char * obuf = NULL
-    cdef int err
-
-    try:
-        while True:
-            arrange_input_buffer(&stream, &ibuflen)
-
-            while True:
-                bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
-                if bufsize == -1:
-                    raise MemoryError("Unsufficient memory for buffer allocation")
-                err = isal_inflate(&stream)
-                if err != ISAL_DECOMP_OK:
-                    check_isal_inflate_rc(err)
-                if stream.avail_out != 0:
-                    break
-            if ibuflen == 0 or stream.block_state == ISAL_BLOCK_FINISH:
-                break
-        if stream.block_state != ISAL_BLOCK_FINISH:
-            raise IsalError("incomplete or truncated stream")
-        return PyBytes_FromStringAndSize(<char*>obuf, stream.next_out - obuf)
-    finally:
-        PyBuffer_Release(buffer)
-        PyMem_Free(obuf)
+    return igzip_decompress(data, flag, hist_bits, bufsize)
 
 
 def decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
