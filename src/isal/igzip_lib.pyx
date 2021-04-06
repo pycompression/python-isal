@@ -190,13 +190,22 @@ def compress(data,
         PyMem_Free(obuf)
 
 cdef mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
-    """
-    Convert zlib memory levels to isal equivalents
-    """
+    cdef int retcode
     if not (0 <= mem_level <= MEM_LEVEL_EXTRA_LARGE_I):
         raise ValueError("Invalid memory level")
     if not (ISAL_DEF_MIN_LEVEL <= compression_level <= ISAL_DEF_MAX_LEVEL):
         raise ValueError("Invalid compression level.")
+    if mem_level_to_bufsize_i(compression_level, mem_level, bufsize) != 0:
+        raise RuntimeError("Unable to determine level buffer size.")
+
+cdef int mem_level_to_bufsize_i(int compression_level, int mem_level, unsigned int *bufsize):
+    """
+    Convert zlib memory levels to isal equivalents
+    """
+    if not (0 <= mem_level <= MEM_LEVEL_EXTRA_LARGE_I):
+        return -1
+    if not (ISAL_DEF_MIN_LEVEL <= compression_level <= ISAL_DEF_MAX_LEVEL):
+        return -1
 
     if mem_level == MEM_LEVEL_DEFAULT_I:
         if compression_level == 0:
@@ -207,7 +216,7 @@ cdef mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bu
             bufsize[0] = ISAL_DEF_LVL2_DEFAULT
         elif compression_level == 3:
             bufsize[0] = ISAL_DEF_LVL3_DEFAULT
-    if mem_level == MEM_LEVEL_MIN_I:
+    elif mem_level == MEM_LEVEL_MIN_I:
         if compression_level == 0:
             bufsize[0] = ISAL_DEF_LVL0_MIN
         elif compression_level == 1:
@@ -252,6 +261,7 @@ cdef mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bu
             bufsize[0] = ISAL_DEF_LVL2_EXTRA_LARGE
         elif compression_level == 3:
             bufsize[0] = ISAL_DEF_LVL3_EXTRA_LARGE
+    return 0
 
 cdef check_isal_deflate_rc(int rc):
     if rc == COMP_OK:

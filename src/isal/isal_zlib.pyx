@@ -717,4 +717,5 @@ cdef zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsign
         level = MEM_LEVEL_LARGE_I
     elif mem_level == 9:
         level = MEM_LEVEL_EXTRA_LARGE_I
-    mem_level_to_bufsize(compression_level, level, bufsize)
+    if mem_level_to_bufsize_i(compression_level, level, bufsize) != 0:
+        raise RuntimeError("Unable to determine level buffer size.")
