@@ -266,7 +266,7 @@ cdef class IgzipDecompressor:
     cdef inflate_state stream
     cdef unsigned char * input_buffer
     cdef size_t input_buffer_size
-    cdef size_t avail_in_real
+    cdef Py_ssize_t avail_in_real
 
     def __cinit__(self,
                   flag=ISAL_DEFLATE,
@@ -310,8 +310,8 @@ cdef class IgzipDecompressor:
                 raise MemoryError("Unsufficient memory for buffer allocation")
             elif obuflen == -2:
                 break
+            arrange_input_buffer(&self.stream, &self.avail_in_real)
             err = isal_inflate(&self.stream)
-            data_size = self.stream.next_out - obuf
             if err != ISAL_DECOMP_OK:
                 check_isal_inflate_rc(err)
             if self.stream.block_state == ISAL_BLOCK_FINISH:
