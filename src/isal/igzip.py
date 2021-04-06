@@ -31,7 +31,7 @@ import time
 from typing import List, Optional, SupportsInt
 import _compression  # noqa: I201  # Not third-party
 
-from . import isal_zlib
+from . import igzip_lib, isal_zlib
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 
@@ -270,12 +270,11 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     Optional argument is the compression level, in range of 0-3.
     """
     header = _create_simple_gzip_header(compresslevel, mtime)
-    # Compress the data without header or trailer in a raw deflate block.
-    compressed = isal_zlib.compress(data, compresslevel, wbits=-15)
-    length = len(data) & 0xFFFFFFFF
-    crc = isal_zlib.crc32(data)
-    trailer = struct.pack("<LL", crc, length)
-    return header + compressed + trailer
+    # use igzip_lib to compress the data without a gzip header but with a
+    # gzip trailer.
+    compressed = igzip_lib.compress(data, compresslevel,
+                                    flag=igzip_lib.COMP_GZIP_NO_HDR)
+    return header + compressed
 
 
 def _gzip_header_end(data: bytes) -> int:
