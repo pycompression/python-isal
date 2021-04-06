@@ -692,14 +692,16 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     else:
         raise ValueError("Invalid wbits value")
 
-cdef zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
+cdef int zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
     Convert zlib memory levels to isal equivalents
     """
     if not (1 <= mem_level <= 9):
-        raise ValueError("Memory level must be between 1 and 9")
+        bufsize[0] = 0
+        return -1
     if not (ISAL_DEF_MIN_LEVEL <= compression_level <= ISAL_DEF_MAX_LEVEL):
-        raise ValueError("Invalid compression level.")
+        bufsize[0] = 0
+        return -1
 
     # If the mem_level is zlib default, return isal defaults.
     # Current zlib def level = 8. On isal the def level is large.
@@ -717,5 +719,10 @@ cdef zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsign
         level = MEM_LEVEL_LARGE_I
     elif mem_level == 9:
         level = MEM_LEVEL_EXTRA_LARGE_I
-    if mem_level_to_bufsize_i(compression_level, level, bufsize) != 0:
-        raise RuntimeError("Unable to determine level buffer size.")
+    else:
+        bufsize[0] = 0
+        return -1
+    if mem_level_to_bufsize(compression_level, level, bufsize) != 0:
+        bufsize[0] = 0
+        return -1
+    return 0

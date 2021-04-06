@@ -489,4 +489,4 @@ cdef:
     int MEM_LEVEL_LARGE_I
     int MEM_LEVEL_EXTRA_LARGE_I
 
-cdef int mem_level_to_bufsize_i(int compression_level, int mem_level, unsigned int *bufsize)
+cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize)

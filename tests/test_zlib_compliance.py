@@ -114,7 +114,7 @@ class ExceptionTestCase(unittest.TestCase):
         # specifying compression level out of range causes an error
         # (but -1 is Z_DEFAULT_COMPRESSION and apparently the isal_zlib
         # accepts 0 too)
-        self.assertRaises(ValueError, isal_zlib.compress, b'ERROR', 10)
+        self.assertRaises(isal_zlib.error, isal_zlib.compress, b'ERROR', 10)
 
     def test_badargs(self):
         self.assertRaises(TypeError, isal_zlib.adler32)
