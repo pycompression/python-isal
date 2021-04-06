@@ -244,6 +244,154 @@ cpdef decompress(data,
         PyMem_Free(obuf)
 
 
+cdef class IgzipDecompressor:
+    """Decompress object for handling streaming decompression."""
+    cdef public bytes unused_data
+    cdef public bint eof
+    cdef public bint needs_input
+    cdef inflate_state stream
+    cdef unsigned char * input_buffer
+    cdef Py_ssize_t input_buffer_size
+
+    def __cinit__(self,
+                  flag=ISAL_DEFLATE,
+                  hist_bits=ISAL_DEF_MAX_HIST_BITS,
+                  inflate_dict = None):
+        isal_inflate_init(&self.stream)
+
+        self.stream.hist_bits = hist_bits
+        self.stream.crc_flag = flag
+        cdef Py_ssize_t zdict_length
+        if zdict:
+            zdict_length = len(zdict)
+            if zdict_length > UINT32_MAX:
+                raise OverflowError("zdict length does not fit in an unsigned int")
+            err = isal_inflate_set_dict(&self.stream, zdict, zdict_length)
+            if err != COMP_OK:
+                check_isal_deflate_rc(err)
+        self.unused_data = b""
+        self.eof = False
+        self.input_buffer = NULL
+        self.input_buffer_size = 0
+        self.avail_in_real = 0
+        self.needs_input = True
+        
+    def _view_bitbuffer(self):
+        """Shows the 64-bitbuffer of the internal inflate_state. It contains
+        a maximum of 8 bytes. This data is already read-in so is not part
+        of the unconsumed tail."""
+        bits_in_buffer = self.stream.read_in_length
+        read_in_length = bits_in_buffer // 8
+        if read_in_length == 0:
+            return b""
+        remainder = bits_in_buffer % 8
+        read_in = self.stream.read_in
+        # The bytes are added by bitshifting, so in reverse order. Reading the
+        # 64-bit integer into 8 bytes little-endian provides the characters in
+        # the correct order.
+        return (read_in >> remainder).to_bytes(8, "little")[:read_in_length]
+
+    def decompress(self, data, Py_ssize_t max_length = 0):
+        """
+        Decompress data, returning a bytes object containing the uncompressed
+        data corresponding to at least part of the data in string.
+
+        :param max_length: if non-zero then the return value will be no longer
+                           than max_length. Unprocessed data will be in the
+                           unconsumed_tail attribute.
+        """
+        if self.eof:
+            raise EOFError("End of stream already reached")
+        cdef bint input_buffer_in_use
+        
+        cdef Py_ssize_t hard_limit
+        if max_length == 0:
+            hard_limit = PY_SSIZE_T_MAX
+        elif max_length < 0:
+            raise ValueError("max_length can not be smaller than 0")
+        else:
+            hard_limit = max_length
+
+        cdef unsigned_int avail_now
+        cdef unsigned int avail_total
+        # Cython makes sure error is handled when acquiring buffer fails.
+        cdef Py_buffer buffer_data
+        cdef Py_buffer* buffer = &buffer_data
+        PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
+        cdef Py_ssize_t ibuflen = buffer.len
+        cdef unsigned char * data_ptr = <unsigned char*>buffer.buf
+
+        cdef int err
+        cdef bint max_length_reached = False
+        
+        # Initialise output buffer
+        cdef unsigned char *obuf = NULL
+        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
+        if obuflen > hard_limit:
+            obuflen = hard_limit
+        try:
+            if self.stream.next_in != NULL:
+                avail_now = (self.input_buffer + self.input_buffer_size) - \
+                            (self.stream.next_in + self.avail_in_real)
+                avail_total = self.input_buffer_size - self.avail_in_real
+                if avail_total < ibuflen:
+                    offset = self.stream.next_in - self.input_buffer
+                    new_size = self.input_buffer_size + ibuflen - avail_now
+                    tmp = PyMem_Realloc(self.input_buffer, new_size)
+                    if tmp == NULL:
+                        raise MemoryError()
+                    self.input_buffer = tmp
+                    self.input_buffer_size = new_size
+                    self.stream.next_in = self.input_buffer + offset
+                elif avail_now < ibuflen:
+                    memmove(self.input_buffer, self.stream.next_in,
+                            self.avail_in_real)
+                    self.stream.next_in = self.input_buffer
+                memcpy(<void *>(self.stream.next_in + self.avail_in_real), data_ptr, buffer.len)
+                self.avail_in_real += ibuflen
+                input_buffer_in_use = 1
+            else:
+                self.stream.next_in = data_ptr
+                self.avail_in_real = ibuflen
+                input_buffer_in_use = 0
+
+            result = self.decompress_buf(max_length)
+            if result == NULL:
+                self.stream.next_in = NULL
+                return b""
+            if self.eof:
+                self.needs_input = False
+                if self.avail_in_real > 0:
+                    new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, self.avail_in_real)
+                    self.unused_data = self._view_bitbuffer() + new_data
+            elif self.avail_in_real == 0:
+                self.stream.next_in = NULL
+                self.needs_input = True
+            else:
+                self.needs_input = False
+                if not input_buffer_in_use:
+                    # Discard buffer if to small.
+                    # Resizing may needlessly copy the current contents.
+                    if self.input_buffer != NULL and self.input_buffer < self.avail_in_real:
+                        PyMem_Free(self.input_buffer)
+                        self.input_buffer = NULL
+
+                    # Allocate of necessary
+                    if self.input_buffer == NULL:
+                        self.input_buffer = PyMem_Malloc(self.avail_in_real)
+                        if self.input_buffer == NULL:
+                            raise MemoryError()
+                        self.input_buffer_size = self.avail_in_real
+
+                    # Copy tail
+                    memcpy(self.input_buffer, self.stream.next_in, self.avail_in_real)
+                    self.stream.next_in = self.input_buffer
+            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
+        finally:
+            PyBuffer_Release(buffer)
+            PyMem_Free(obuf)
+
+
 cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
     Convert zlib memory levels to isal equivalents
