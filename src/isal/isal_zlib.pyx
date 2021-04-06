@@ -231,7 +231,7 @@ def decompress(data,
     wbits_to_flag_and_hist_bits_inflate(wbits,
                                         &hist_bits,
                                         &flag,
-                                        data[:2] == b"\037\213")
+                                        data_is_gzip(data))
     return igzip_decompress(data, flag, hist_bits, bufsize)
 
 
@@ -498,7 +498,7 @@ cdef class Decompress:
 
         if not self.method_set:
             # Try to detect method from the first two bytes of the data.
-            self.stream.crc_flag = ISAL_GZIP if data[:2] == b"\037\213" else ISAL_ZLIB
+            self.stream.crc_flag = ISAL_GZIP if data_is_gzip(data) else ISAL_ZLIB
             self.method_set = 1
 
         # initialise input
@@ -583,6 +583,18 @@ cdef class Decompress:
         finally:
             PyBuffer_Release(buffer)
             PyMem_Free(obuf)
+
+cdef bint data_is_gzip(object data):
+    cdef Py_buffer buffer_data
+    cdef Py_buffer* buffer = &buffer_data
+    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
+    if buffer.len < 2:
+        return False
+    cdef unsigned char * char_ptr = <unsigned char *>buffer.buf
+    if char_ptr[0] == 31:
+        if char_ptr[1] == 139:
+            return True
+    return False
 
 
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
