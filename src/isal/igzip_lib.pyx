@@ -122,7 +122,7 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
 
 def compress(data,
              int level=ISAL_DEFAULT_COMPRESSION,
-             int compress_type = COMP_DEFLATE,
+             int flag = COMP_DEFLATE,
              int hist_bits = ISAL_DEF_MAX_HIST_BITS,
             ):
     """
@@ -144,7 +144,7 @@ def compress(data,
     stream.level_buf = level_buf
     stream.level_buf_size = level_buf_size
     stream.hist_bits = hist_bits
-    stream.gzip_flag = compress_type
+    stream.gzip_flag = flag
 
     # Initialise output buffer
     cdef Py_ssize_t bufsize = DEF_BUF_SIZE_I
@@ -188,6 +188,62 @@ def compress(data,
         PyBuffer_Release(buffer)
         PyMem_Free(level_buf)
         PyMem_Free(obuf)
+
+
+def decompress(data,
+               int flag = DECOMP_DEFLATE,
+               int hist_bits=ISAL_DEF_MAX_HIST_BITS,
+               Py_ssize_t bufsize=DEF_BUF_SIZE):
+    """
+    Deompresses the bytes in *data*. Returns a bytes object with the
+    decompressed data.
+
+    :param bufsize: The initial size of the output buffer.
+    """
+    if bufsize < 0:
+        raise ValueError("bufsize must be non-negative")
+   
+    cdef inflate_state stream
+    isal_inflate_init(&stream)
+    stream.hist_bits = hist_bits
+    stream.crc_flag = flag
+
+    # initialise input
+    cdef Py_buffer buffer_data
+    cdef Py_buffer* buffer = &buffer_data
+    # Cython makes sure error is handled when acquiring buffer fails.
+    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
+    cdef Py_ssize_t ibuflen = buffer.len
+    stream.next_in =  <unsigned char*>buffer.buf
+
+    # Initialise output buffer
+    cdef unsigned char * obuf = NULL
+    cdef int err
+
+    try:
+        while True:
+            arrange_input_buffer(&stream, &ibuflen)
+
+            while True:
+                bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
+                if bufsize == -1:
+                    raise MemoryError("Unsufficient memory for buffer allocation")
+                err = isal_inflate(&stream)
+                if err != ISAL_DECOMP_OK:
+                    check_isal_inflate_rc(err)
+                if stream.avail_out != 0:
+                    break
+            if stream.avail_in != 0:
+                raise AssertionError("Input stream should be empty")
+            if ibuflen == 0 or stream.block_state == ISAL_BLOCK_FINISH:
+                break
+        if stream.block_state != ISAL_BLOCK_FINISH:
+            raise IsalError("incomplete or truncated stream")
+        return PyBytes_FromStringAndSize(<char*>obuf, stream.next_out - obuf)
+    finally:
+        PyBuffer_Release(buffer)
+        PyMem_Free(obuf)
+
 
 cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
