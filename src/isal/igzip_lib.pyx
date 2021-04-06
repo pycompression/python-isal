@@ -298,7 +298,30 @@ cdef class IgzipDecompressor:
         view_bitbuffer(&self.stream)
 
     cdef unsigned char * decompress_buf(self, Py_ssize_t max_length):
-        return NULL
+        cdef Py_ssize_t data_size = 0
+        cdef unsigned char * obuf
+        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
+        cdef int err
+        if obuflen > max_length:
+            obuflen = max_length
+        while True:
+            obuflen = arrange_output_buffer_with_maximum(&self.stream, &obuf, obuflen, max_length)
+            if obuflen == -1:
+                raise MemoryError("Unsufficient memory for buffer allocation")
+            elif obuflen == -2:
+                break
+            err = isal_inflate(&self.stream)
+            data_size = self.stream.next_out - obuf
+            if err != ISAL_DECOMP_OK:
+                check_isal_inflate_rc(err)
+            if self.stream.block_state == ISAL_BLOCK_FINISH:
+                break
+            elif self.avail_in_real == 0:
+                break
+            elif self.stream.avail_out == 0:
+                if data_size == max_length:
+                    break
+        return obuf
 
     def decompress(self, data, Py_ssize_t max_length = 0):
         """
@@ -330,15 +353,13 @@ cdef class IgzipDecompressor:
         cdef Py_ssize_t ibuflen = buffer.len
         cdef unsigned char * data_ptr = <unsigned char*>buffer.buf
 
-        cdef int err
+
         cdef bint max_length_reached = False
         cdef unsigned char * tmp
         cdef size_t offset
         # Initialise output buffer
         cdef unsigned char *obuf = NULL
-        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
-        if obuflen > hard_limit:
-            obuflen = hard_limit
+
         try:
             if self.stream.next_in != NULL:
                 avail_now = (self.input_buffer + self.input_buffer_size) - \
@@ -365,7 +386,7 @@ cdef class IgzipDecompressor:
                 self.avail_in_real = ibuflen
                 input_buffer_in_use = 0
 
-            obuf = self.decompress_buf(max_length)
+            obuf = self.decompress_buf(hard_limit)
             if obuf == NULL:
                 self.stream.next_in = NULL
                 return b""
