@@ -295,7 +295,7 @@ cdef class IgzipDecompressor:
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
         a maximum of 8 bytes. This data is already read-in so is not part
         of the unconsumed tail."""
-        view_bitbuffer(&self.stream)
+        return view_bitbuffer(&self.stream)
 
     cdef unsigned char * decompress_buf(self, Py_ssize_t max_length):
         cdef unsigned char * obuf = NULL
