@@ -60,7 +60,6 @@ class Decompress:
     unused_data: bytes
     unconsumed_tail: bytes
     eof: bool
-    crc: int
 
     def decompress(self, data, max_length: int = ...) -> bytes: ...
     def flush(self, length: int = ...) -> bytes: ...
