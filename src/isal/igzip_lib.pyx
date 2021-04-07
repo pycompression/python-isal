@@ -297,14 +297,14 @@ cdef class IgzipDecompressor:
         of the unconsumed tail."""
         return view_bitbuffer(&self.stream)
 
-    cdef unsigned char * decompress_buf(self, Py_ssize_t max_length):
-        cdef unsigned char * obuf = NULL
+    cdef decompress_buf(self, Py_ssize_t max_length, unsigned char ** obuf):
+        obuf[0] = NULL
         cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
         cdef int err
         if obuflen > max_length:
             obuflen = max_length
         while True:
-            obuflen = arrange_output_buffer_with_maximum(&self.stream, &obuf, obuflen, max_length)
+            obuflen = arrange_output_buffer_with_maximum(&self.stream, obuf, obuflen, max_length)
             if obuflen == -1:
                 raise MemoryError("Unsufficient memory for buffer allocation")
             elif obuflen == -2:
@@ -319,7 +319,7 @@ cdef class IgzipDecompressor:
                 break
             elif self.avail_in_real == 0:
                 break
-        return obuf
+        return
 
     def decompress(self, data, Py_ssize_t max_length = -1):
         """
@@ -382,7 +382,7 @@ cdef class IgzipDecompressor:
                 self.avail_in_real = ibuflen
                 input_buffer_in_use = 0
 
-            obuf = self.decompress_buf(hard_limit)
+            self.decompress_buf(hard_limit, &obuf)
             if obuf == NULL:
                 self.stream.next_in = NULL
                 return b""
