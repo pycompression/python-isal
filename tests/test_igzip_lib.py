@@ -21,9 +21,10 @@
 import itertools
 from typing import NamedTuple
 
+from isal import igzip_lib
+
 import pytest
 
-from isal import igzip_lib
 from .test_compat import DATA as RAW_DATA
 
 
@@ -54,8 +55,10 @@ def test_compress_decompress(level, flag: Flag, hist_bits):
     decomp = igzip_lib.decompress(comp, flag.decomp, hist_bits)
     assert decomp == DATA
 
+
 class TestIgzipDecompressor():
     compressed = igzip_lib.compress(DATA)
+
     def test_decompress(self):
         decomp = igzip_lib.IgzipDecompressor()
         decompressed = decomp.decompress(self.compressed)
