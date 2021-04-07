@@ -136,7 +136,7 @@ class TestIgzipDecompressor():
         assert len(out[-1]) == max_length
 
         # Retrieve more data while providing more input
-        out.append(igzd.decompress(self.BIG_DATA[len_:],
+        out.append(igzd.decompress(self.DATA[len_:],
                                    max_length=max_length))
         assert len(out[-1]) == max_length
 
