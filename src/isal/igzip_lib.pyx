@@ -321,7 +321,7 @@ cdef class IgzipDecompressor:
                 break
         return obuf
 
-    def decompress(self, data, Py_ssize_t max_length = 0):
+    def decompress(self, data, Py_ssize_t max_length = -1):
         """
         Decompress data, returning a bytes object containing the uncompressed
         data corresponding to at least part of the data in string.
@@ -335,10 +335,8 @@ cdef class IgzipDecompressor:
         cdef bint input_buffer_in_use
         
         cdef Py_ssize_t hard_limit
-        if max_length == 0:
+        if max_length < 0:
             hard_limit = PY_SSIZE_T_MAX
-        elif max_length < 0:
-            raise ValueError("max_length can not be smaller than 0")
         else:
             hard_limit = max_length
 
