@@ -298,7 +298,6 @@ cdef class IgzipDecompressor:
         view_bitbuffer(&self.stream)
 
     cdef unsigned char * decompress_buf(self, Py_ssize_t max_length):
-        cdef Py_ssize_t data_size = 0
         cdef unsigned char * obuf = NULL
         cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
         cdef int err
@@ -312,7 +311,7 @@ cdef class IgzipDecompressor:
                 break
             arrange_input_buffer(&self.stream, &self.avail_in_real)
             err = isal_inflate(&self.stream)
-            data_size = self.stream.next_out - obuf
+            self.avail_in_real += self.stream.avail_in
             if err != ISAL_DECOMP_OK:
                 check_isal_inflate_rc(err)
             if self.stream.block_state == ISAL_BLOCK_FINISH:
@@ -320,9 +319,6 @@ cdef class IgzipDecompressor:
                 break
             elif self.avail_in_real == 0:
                 break
-            elif self.stream.avail_out == 0:
-                if data_size == max_length:
-                    break
         return obuf
 
     def decompress(self, data, Py_ssize_t max_length = 0):
