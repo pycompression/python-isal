@@ -81,7 +81,8 @@ class BuildIsalExt(build_ext):
         else:
             if self.compiler.compiler_type == "msvc":
                 compiler = copy.deepcopy(self.compiler)
-                compiler.initialize()
+                if not compiler.initialized:
+                    compiler.initialize()
                 compiler_command = f'"{compiler.cc}"'
                 compiler_args = compiler.compile_options
             elif self.compiler.compiler_type == "unix":
