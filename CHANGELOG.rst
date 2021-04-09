@@ -9,6 +9,9 @@ Changelog
 
 version 0.10.0-dev
 ------------------
++ Added an ``igzip_lib`` module which allows more direct access to ISA-L's
+  igzip_lib API. This allows features such as headerless compression and
+  decompression, as well as setting the memory levels manually.
 + Added more extensive documentation.
 
 version 0.9.0

@@ -41,7 +41,8 @@ class IsalExtension(Extension):
     pass
 
 
-MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"])]
+MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
+           IsalExtension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"])]
 if SYSTEM_IS_UNIX:
     MODULES.append(IsalExtension("isal._isal", ["src/isal/_isal.pyx"]))
 
@@ -80,7 +81,8 @@ class BuildIsalExt(build_ext):
         else:
             if self.compiler.compiler_type == "msvc":
                 compiler = copy.deepcopy(self.compiler)
-                compiler.initialize()
+                if not compiler.initialized:
+                    compiler.initialize()
                 compiler_command = f'"{compiler.cc}"'
                 compiler_args = compiler.compile_options
             elif self.compiler.compiler_type == "unix":

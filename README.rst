@@ -45,26 +45,34 @@ Acceleration Library (ISA-L) implements several key algorithms in `assembly
 language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
 a variety of functions to provide zlib/gzip-compatible compression.
 
-``python-isal`` provides the bindings by offering an ``isal_zlib`` and
-``igzip`` module which are usable as drop-in replacements for the ``zlib``
-and ``gzip`` modules from the stdlib (with some minor exceptions, see below).
+``python-isal`` provides the bindings by offering three modules:
+
++ ``isal_zlib``: A drop-in replacement for the zlib module that uses ISA-L to
+  accelerate its performance.
++ ``igzip``: A drop-in replacement for the gzip module that uses ``isal_zlib``
+  instead of ``zlib`` to perform its compression and checksum tasks, which
+  improves performance.
++ ``igzip_lib``: Provides compression functions which have full access to the
+  API of ISA-L's compression functions.
+
+``isal_zlib`` and ``igzip`` are almost fully compatible with ``zlib`` and
+``gzip`` from the Python standard library. There are some minor differences
+see: differences-with-zlib-and-gzip-modules_.
 
 .. introduction end
 
 Quickstart
 ----------
 
-.. usage start
+.. quickstart start
 
-Python-isal has faster versions of the stdlib's ``zlib`` and ``gzip`` module
-these are called ``isal_zlib`` and ``igzip`` respectively.
-
-They can be imported as follows
+The python-isal modules can be imported as follows
 
 .. code-block:: python
 
     from isal import isal_zlib
     from isal import igzip
+    from isal import igzip_lib
 
 ``isal_zlib`` and ``igzip`` are meant to be used as drop in replacements so
 their api and functions are the same as the stdlib's modules. Except where
@@ -78,7 +86,7 @@ application (just like ``python -m gzip``). Full usage documentation can be
 found on `our readthedocs page <https://python-isal.readthedocs.io>`_.
 
 
-.. usage end
+.. quickstart end
 
 Installation
 ------------
@@ -88,6 +96,8 @@ Installation
 Installation is supported on Linux, Windows and MacOS. For more advanced
 installation options check the `documentation
 <https://python-isal.readthedocs.io/en/stable/index.html#installation>`_.
+
+.. _differences-with-zlib-and-gzip-modules:
 
 Differences with zlib and gzip modules
 --------------------------------------
@@ -144,8 +154,8 @@ This project builds upon the software and experience of many.  Many thanks to:
   to create an extension and helping a novice get start with pointer addresses.
 + The `CPython contributors
   <https://github.com/python/cpython/graphs/contributors>`_.
-  Python-isal mimicks ``zlibmodule.c`` and ``igzip.py`` to make it easier for
-  python users to adopt it.
+  Python-isal mimicks ``zlibmodule.c`` and ``gzip.py`` from the standard
+  library to make it easier for python users to adopt it.
 + `@marcelm <https://github.com/marcelm>`_ for taking a chance on this project
   and make it a dependency for his `xopen
   <https://github.com/pycompression/xopen>`_ and by extension `cutadapt

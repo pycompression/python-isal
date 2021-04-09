@@ -67,7 +67,28 @@ import warnings
 import zlib
 
 from .crc cimport crc32_gzip_refl
-from .igzip_lib cimport *
+# Import isa-l igzip-lib C constants and functions
+from .igzip_lib cimport (
+    ISAL_DEF_MAX_HIST_BITS, NO_FLUSH, SYNC_FLUSH, FULL_FLUSH, IGZIP_DEFLATE,
+    IGZIP_GZIP, IGZIP_ZLIB, COMP_OK, ISAL_DECOMP_OK, ISAL_BLOCK_FINISH,
+    ZSTATE_END, ISAL_DEFLATE, ISAL_GZIP, ISAL_ZLIB, ISAL_DEF_MIN_LEVEL,
+    ISAL_DEF_MAX_LEVEL, isal_zstream, inflate_state, isal_deflate_init,
+    isal_deflate_set_dict, isal_deflate, isal_inflate_init,
+    isal_inflate_set_dict, isal_inflate, isal_adler32)
+# Import python-isal igzip_lib cython functions
+from .igzip_lib cimport(
+    check_isal_deflate_rc, check_isal_inflate_rc,
+    arrange_output_buffer_with_maximum, arrange_output_buffer,
+    arrange_input_buffer, MEM_LEVEL_DEFAULT_I, MEM_LEVEL_MIN_I,
+    MEM_LEVEL_SMALL_I, MEM_LEVEL_MEDIUM_I, MEM_LEVEL_LARGE_I,
+    MEM_LEVEL_EXTRA_LARGE_I, ISAL_DEFAULT_COMPRESSION_I, mem_level_to_bufsize,
+    view_bitbuffer,)
+
+# Alias igzip_lib compress and decompress functions
+from .igzip_lib cimport compress as igzip_compress
+from .igzip_lib cimport decompress as igzip_decompress
+
+from . import igzip_lib
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
@@ -77,9 +98,9 @@ from cpython.long cimport PyLong_AsUnsignedLongMask
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
 
-ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
-ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
-ISAL_DEFAULT_COMPRESSION = 2
+ISAL_BEST_SPEED = igzip_lib.ISAL_BEST_SPEED
+ISAL_BEST_COMPRESSION = igzip_lib.ISAL_BEST_COMPRESSION
+ISAL_DEFAULT_COMPRESSION = igzip_lib.ISAL_DEFAULT_COMPRESSION
 Z_BEST_SPEED = ISAL_BEST_SPEED
 Z_BEST_COMPRESSION = ISAL_BEST_COMPRESSION
 Z_DEFAULT_COMPRESSION = ISAL_DEFAULT_COMPRESSION
@@ -92,7 +113,7 @@ DEF DEF_MEM_LEVEL_I = 8
 # Expose compile-time constants. Same names as zlib.
 DEF_BUF_SIZE = DEF_BUF_SIZE_I
 DEF_MEM_LEVEL = DEF_MEM_LEVEL_I
-MAX_WBITS = ISAL_DEF_MAX_HIST_BITS
+MAX_WBITS = igzip_lib.MAX_HIST_BITS
 
 # Compression methods
 DEFLATED = zlib.DEFLATED
@@ -113,11 +134,8 @@ Z_SYNC_FLUSH=zlib.Z_SYNC_FLUSH
 Z_FULL_FLUSH=zlib.Z_FULL_FLUSH
 Z_FINISH=zlib.Z_FINISH
 
-class IsalError(OSError):
-    """Exception raised on compression and decompression errors."""
-    pass
-
 # Add error for compatibility
+IsalError = igzip_lib.IsalError
 error = IsalError
 
 
@@ -166,64 +184,9 @@ def crc32(data, value = 0):
     finally:
         PyBuffer_Release(buffer)
 
-ctypedef fused stream_or_state:
-    isal_zstream
-    inflate_state
-
-cdef Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
-    if a <= b:
-        return a
-    else:
-        return b
-
-cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
-                                                   unsigned char **buffer,
-                                                   Py_ssize_t length,
-                                                   Py_ssize_t max_length):
-    # The zlibmodule.c function builds a PyBytes object. A unsigned char *
-    # is build here because building raw PyObject * stuff in cython is somewhat
-    # harder due to cython's interference. FIXME
-    cdef Py_ssize_t occupied
-    cdef Py_ssize_t new_length
-    cdef unsigned char * new_buffer
-    if buffer[0] == NULL:
-        buffer[0] = <unsigned char*>PyMem_Malloc(length * sizeof(char))
-        if buffer[0] == NULL:
-            return -1
-        occupied = 0
-    else:
-        occupied = stream.next_out - buffer[0]
-        if length == occupied:
-            if length == max_length:
-                return -2
-            if length <= max_length >> 1:
-                new_length = length << 1
-            else:
-                new_length = max_length
-            new_buffer = <unsigned char *>PyMem_Realloc(buffer[0], new_length)
-            if new_buffer == NULL:
-                return -1
-            buffer[0] = new_buffer
-            length = new_length
-    stream.avail_out = <unsigned int>py_ssize_t_min(length - occupied, UINT32_MAX)
-    stream.next_out = buffer[0] + occupied
-    return length
-
-cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
-                                      unsigned char **buffer,
-                                      Py_ssize_t length):
-    cdef Py_ssize_t ret
-    ret = arrange_output_buffer_with_maximum(stream, buffer, length, PY_SSIZE_T_MAX)
-    if ret == -2:  # Maximum reached.
-        return -1
-    return ret
-
-cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
-    stream.avail_in = <unsigned int>py_ssize_t_min(remains[0], UINT32_MAX)
-    remains[0] -= stream.avail_in
 
 def compress(data,
-             int level=ISAL_DEFAULT_COMPRESSION,
+             int level=ISAL_DEFAULT_COMPRESSION_I,
              int wbits = ISAL_DEF_MAX_HIST_BITS):
     """
     Compresses the bytes in *data*. Returns a bytes object with the
@@ -241,61 +204,12 @@ def compress(data,
                   -9 to -15 will generate a raw compressed string with
                   no headers and trailers.
     """
-    # Initialise stream
-    cdef isal_zstream stream
-    cdef unsigned int level_buf_size
-    zlib_mem_level_to_isal_bufsize(level, DEF_MEM_LEVEL_I, &level_buf_size)
-    cdef unsigned char* level_buf = <unsigned char*> PyMem_Malloc(level_buf_size * sizeof(char))
-    isal_deflate_init(&stream)
-    stream.level = level
-    stream.level_buf = level_buf
-    stream.level_buf_size = level_buf_size
+    cdef unsigned short hist_bits
+    cdef unsigned short flag
     wbits_to_flag_and_hist_bits_deflate(wbits,
-                                        &stream.hist_bits,
-                                        &stream.gzip_flag)
-
-    # Initialise output buffer
-    cdef Py_ssize_t bufsize = DEF_BUF_SIZE_I
-    cdef unsigned char * obuf = NULL
-    
-    # initialise input
-    cdef Py_buffer buffer_data
-    cdef Py_buffer* buffer = &buffer_data
-    # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
-    cdef Py_ssize_t ibuflen = buffer.len
-    stream.next_in = <unsigned char*>buffer.buf
-
-    # initialise helper variables
-    cdef int err
-
-    try:
-        while True:
-            arrange_input_buffer(&stream, &ibuflen)
-            if ibuflen == 0:
-                stream.flush = FULL_FLUSH
-                stream.end_of_stream = 1
-            else:
-                stream.flush = NO_FLUSH
-
-            while True:
-                bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
-                if bufsize == -1:
-                    raise MemoryError("Unsufficient memory for buffer allocation")
-                err = isal_deflate(&stream)
-                if err != COMP_OK:
-                    check_isal_deflate_rc(err)
-                if stream.avail_out != 0:
-                    break
-            if stream.avail_in != 0:
-                raise AssertionError("Input stream should be empty")
-            if stream.internal_state.state == ZSTATE_END:
-                break
-        return PyBytes_FromStringAndSize(<char*>obuf, stream.next_out - obuf)
-    finally:
-        PyBuffer_Release(buffer)
-        PyMem_Free(level_buf)
-        PyMem_Free(obuf)
+                                        &hist_bits,
+                                        &flag)
+    return igzip_compress(data, level, flag, MEM_LEVEL_DEFAULT_I, hist_bits)
 
 def decompress(data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,
@@ -313,52 +227,13 @@ def decompress(data,
                   automatically detects a gzip or zlib header.
     :param bufsize: The initial size of the output buffer.
     """
-    if bufsize < 0:
-        raise ValueError("bufsize must be non-negative")
-   
-    cdef inflate_state stream
-    isal_inflate_init(&stream)
-
+    cdef unsigned int hist_bits
+    cdef unsigned int flag
     wbits_to_flag_and_hist_bits_inflate(wbits,
-                                        &stream.hist_bits,
-                                        &stream.crc_flag,
-                                        data[:2] == b"\037\213")
-
-    # initialise input
-    cdef Py_buffer buffer_data
-    cdef Py_buffer* buffer = &buffer_data
-    # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
-    cdef Py_ssize_t ibuflen = buffer.len
-    stream.next_in =  <unsigned char*>buffer.buf
-
-    # Initialise output buffer
-    cdef unsigned char * obuf = NULL
-    cdef int err
-
-    try:
-        while True:
-            arrange_input_buffer(&stream, &ibuflen)
-
-            while True:
-                bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
-                if bufsize == -1:
-                    raise MemoryError("Unsufficient memory for buffer allocation")
-                err = isal_inflate(&stream)
-                if err != ISAL_DECOMP_OK:
-                    check_isal_inflate_rc(err)
-                if stream.avail_out != 0:
-                    break
-            if stream.avail_in != 0:
-                raise AssertionError("Input stream should be empty")
-            if ibuflen == 0 or stream.block_state == ISAL_BLOCK_FINISH:
-                break
-        if stream.block_state != ISAL_BLOCK_FINISH:
-            raise IsalError("incomplete or truncated stream")
-        return PyBytes_FromStringAndSize(<char*>obuf, stream.next_out - obuf)
-    finally:
-        PyBuffer_Release(buffer)
-        PyMem_Free(obuf)
+                                        &hist_bits,
+                                        &flag,
+                                        data_is_gzip(data))
+    return igzip_decompress(data, flag, hist_bits, bufsize)
 
 
 def decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
@@ -379,7 +254,7 @@ def decompressobj(int wbits=ISAL_DEF_MAX_HIST_BITS,
     return Decompress.__new__(Decompress, wbits, zdict)
 
 
-def compressobj(int level=ISAL_DEFAULT_COMPRESSION,
+def compressobj(int level=ISAL_DEFAULT_COMPRESSION_I,
                 int method=DEFLATED,
                 int wbits=ISAL_DEF_MAX_HIST_BITS,
                 int memLevel=DEF_MEM_LEVEL,
@@ -417,7 +292,7 @@ cdef class Compress:
     cdef unsigned char * level_buf
 
     def __cinit__(self,
-                  int level = ISAL_DEFAULT_COMPRESSION,
+                  int level = ISAL_DEFAULT_COMPRESSION_I,
                   int method = DEFLATED,
                   int wbits = ISAL_DEF_MAX_HIST_BITS,
                   int memLevel = DEF_MEM_LEVEL,
@@ -542,7 +417,7 @@ cdef class Decompress:
     cdef inflate_state stream
     cdef bint method_set
 
-    def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
+    def __cinit__(self, int wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
 
         wbits_to_flag_and_hist_bits_inflate(wbits,
@@ -569,16 +444,7 @@ cdef class Decompress:
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
         a maximum of 8 bytes. This data is already read-in so is not part
         of the unconsumed tail."""
-        bits_in_buffer = self.stream.read_in_length
-        read_in_length = bits_in_buffer // 8
-        if read_in_length == 0:
-            return b""
-        remainder = bits_in_buffer % 8
-        read_in = self.stream.read_in
-        # The bytes are added by bitshifting, so in reverse order. Reading the
-        # 64-bit integer into 8 bytes little-endian provides the characters in
-        # the correct order.
-        return (read_in >> remainder).to_bytes(8, "little")[:read_in_length]
+        return view_bitbuffer(&self.stream)
 
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
@@ -624,7 +490,7 @@ cdef class Decompress:
 
         if not self.method_set:
             # Try to detect method from the first two bytes of the data.
-            self.stream.crc_flag = ISAL_GZIP if data[:2] == b"\037\213" else ISAL_ZLIB
+            self.stream.crc_flag = ISAL_GZIP if data_is_gzip(data) else ISAL_ZLIB
             self.method_set = 1
 
         # initialise input
@@ -710,6 +576,21 @@ cdef class Decompress:
             PyBuffer_Release(buffer)
             PyMem_Free(obuf)
 
+cdef bint data_is_gzip(object data):
+    cdef Py_buffer buffer_data
+    cdef Py_buffer* buffer = &buffer_data
+    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
+    if buffer.len < 2:
+        PyBuffer_Release(buffer)
+        return False
+    cdef unsigned char * char_ptr = <unsigned char *>buffer.buf
+    if char_ptr[0] == 31:
+        if char_ptr[1] == 139:
+            PyBuffer_Release(buffer)
+            return True
+    PyBuffer_Release(buffer)
+    return False
+
 
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
@@ -749,118 +630,37 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     else:
         raise ValueError("Invalid wbits value")
 
-cdef zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
+cdef int zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
     Convert zlib memory levels to isal equivalents
     """
     if not (1 <= mem_level <= 9):
-        raise ValueError("Memory level must be between 1 and 9")
+        bufsize[0] = 0
+        return -1
     if not (ISAL_DEF_MIN_LEVEL <= compression_level <= ISAL_DEF_MAX_LEVEL):
-        raise ValueError("Invalid compression level.")
+        bufsize[0] = 0
+        return -1
 
     # If the mem_level is zlib default, return isal defaults.
     # Current zlib def level = 8. On isal the def level is large.
     # Hence 7,8 return large. 9 returns extra large.
+    cdef int level = MEM_LEVEL_DEFAULT_I
     if mem_level == DEF_MEM_LEVEL_I:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_DEFAULT
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_DEFAULT
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_DEFAULT
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_DEFAULT
-    if mem_level == 1:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_MIN
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_MIN
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_MIN
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_MIN
+        level = MEM_LEVEL_DEFAULT_I
+    elif mem_level == 1:
+        level = MEM_LEVEL_MIN_I
     elif mem_level in [2,3]:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_SMALL
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_SMALL
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_SMALL
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_SMALL
+        level = MEM_LEVEL_SMALL_I
     elif mem_level in [4,5,6]:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_MEDIUM
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_MEDIUM
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_MEDIUM
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_MEDIUM
+        level = MEM_LEVEL_MEDIUM_I
     elif mem_level in [7,8]:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_LARGE
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_LARGE
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_LARGE
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_LARGE
+        level = MEM_LEVEL_LARGE_I
     elif mem_level == 9:
-        if compression_level == 0:
-            bufsize[0] = ISAL_DEF_LVL0_EXTRA_LARGE
-        elif compression_level == 1:
-            bufsize[0] = ISAL_DEF_LVL1_EXTRA_LARGE
-        elif compression_level == 2:
-            bufsize[0] = ISAL_DEF_LVL2_EXTRA_LARGE
-        elif compression_level == 3:
-            bufsize[0] = ISAL_DEF_LVL3_EXTRA_LARGE
-
-
-cdef check_isal_deflate_rc(int rc):
-    if rc == COMP_OK:
-        return
-    elif rc == INVALID_FLUSH:
-        raise IsalError("Invalid flush type")
-    elif rc == INVALID_PARAM:
-        raise IsalError("Invalid parameter")
-    elif rc == STATELESS_OVERFLOW:
-        raise IsalError("Not enough room in output buffer")
-    elif rc == ISAL_INVALID_OPERATION:
-        raise IsalError("Invalid operation")
-    elif rc == ISAL_INVALID_STATE:
-        raise IsalError("Invalid state")
-    elif rc == ISAL_INVALID_LEVEL:
-        raise IsalError("Invalid compression level.")
-    elif rc == ISAL_INVALID_LEVEL_BUF:
-        raise IsalError("Level buffer too small.")
+        level = MEM_LEVEL_EXTRA_LARGE_I
     else:
-        raise IsalError("Unknown Error")
-
-cdef check_isal_inflate_rc(int rc):
-    if rc >= ISAL_DECOMP_OK:
-        return
-    if rc == ISAL_END_INPUT:
-        raise IsalError("End of input reached")
-    if rc == ISAL_OUT_OVERFLOW:
-        raise IsalError("End of output reached")
-    if rc == ISAL_NAME_OVERFLOW:
-        raise IsalError("End of gzip name buffer reached")
-    if rc == ISAL_COMMENT_OVERFLOW:
-        raise IsalError("End of gzip name buffer reached")
-    if rc == ISAL_EXTRA_OVERFLOW:
-        raise IsalError("End of extra buffer reached")
-    if rc == ISAL_NEED_DICT:
-        raise IsalError("Dictionary needed to continue")
-    if rc == ISAL_INVALID_BLOCK:
-        raise IsalError("Invalid deflate block found")
-    if rc == ISAL_INVALID_SYMBOL:
-        raise IsalError("Invalid deflate symbol found")
-    if rc == ISAL_INVALID_LOOKBACK:
-        raise IsalError("Invalid lookback distance found")
-    if rc == ISAL_INVALID_WRAPPER:
-        raise IsalError("Invalid gzip/zlib wrapper found")
-    if rc == ISAL_UNSUPPORTED_METHOD:
-        raise IsalError("Gzip/zlib wrapper specifies unsupported compress method")
-    if rc == ISAL_INCORRECT_CHECKSUM:
-        raise IsalError("Incorrect checksum found")
+        bufsize[0] = 0
+        return -1
+    if mem_level_to_bufsize(compression_level, level, bufsize) != 0:
+        bufsize[0] = 0
+        return -1
+    return 0
