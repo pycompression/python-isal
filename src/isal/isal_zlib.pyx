@@ -417,7 +417,7 @@ cdef class Decompress:
     cdef inflate_state stream
     cdef bint method_set
 
-    def __cinit__(self, wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
+    def __cinit__(self, int wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
 
         wbits_to_flag_and_hist_bits_inflate(wbits,
