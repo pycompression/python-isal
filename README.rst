@@ -48,23 +48,23 @@ a variety of functions to provide zlib/gzip-compatible compression.
 ``python-isal`` provides the bindings by offering three modules:
 
 + ``isal_zlib``: A drop-in replacement for the zlib module that uses ISA-L to
-                 accelerate its performance.
-+ ``igzip``:     A drop-in replacement for the gzip module that uses
-                 ``isal_zlib`` instead of ``zlib`` to perform its compression
-                 tasks, which improves performance.
+  accelerate its performance.
++ ``igzip``: A drop-in replacement for the gzip module that uses ``isal_zlib``
+  instead of ``zlib`` to perform its compression and checksum tasks, which
+  improves performance.
 + ``igzip_lib``: Provides compression functions which have full access to the
-                 API of ISA-L's compression functions.
+  API of ISA-L's compression functions.
 
 ``isal_zlib`` and ``igzip`` are almost fully compatible with ``zlib`` and
 ``gzip`` from the Python standard library. There are some minor differences
-which are listed below.
+see: :ref:`differences`.
 
 .. introduction end
 
 Quickstart
 ----------
 
-.. usage start
+.. quickstart start
 
 The python-isal modules can be imported as follows
 
@@ -86,7 +86,7 @@ application (just like ``python -m gzip``). Full usage documentation can be
 found on `our readthedocs page <https://python-isal.readthedocs.io>`_.
 
 
-.. usage end
+.. quickstart end
 
 Installation
 ------------
@@ -96,6 +96,8 @@ Installation
 Installation is supported on Linux, Windows and MacOS. For more advanced
 installation options check the `documentation
 <https://python-isal.readthedocs.io/en/stable/index.html#installation>`_.
+
+.. _differences:
 
 Differences with zlib and gzip modules
 --------------------------------------

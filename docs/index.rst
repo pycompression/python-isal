@@ -23,26 +23,9 @@ Introduction
 Quickstart
 ==========
 
-Python-isal has faster versions of the stdlib's ``zlib`` and ``gzip`` module
-these are called ``isal_zlib`` and ``igzip`` respectively.
-
-They can be imported as follows
-
-.. code-block:: python
-
-    from isal import isal_zlib
-    from isal import igzip
-
-``isal_zlib`` and ``igzip`` are meant to be used as drop in replacements so
-their api and functions are the same as the stdlib's modules. Except where
-ISA-L does not support the same calls as zlib (See differences below).
-
-A full API documentation can be found below.
-
-``python -m isal.igzip`` implements a simple gzip-like command line
-application (just like ``python -m gzip``). Full usage documentation can be
-found below.
-
+.. include:: includes/README.rst
+   :start-after: .. quickstart start
+   :end-before: .. quickstart end
 
 ============
 Installation
@@ -98,6 +81,8 @@ python-isal is available on conda-forge and can be installed with::
 
 This will automatically install the ISA-L library dependency as well, since
 it is available on conda-forge.
+
+.. _differences:
 
 ======================================
 Differences with zlib and gzip modules
