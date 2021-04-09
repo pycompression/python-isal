@@ -48,6 +48,7 @@ IsalError: OSError
 
 def compress(data, level: int = ISAL_DEFAULT_COMPRESSION,
              flag: int = COMP_DEFLATE,
+             mem_level: int = MEM_LEVEL_DEFAULT,
              hist_bits: int = MAX_HIST_BITS) -> bytes: ...
 def decompress(data, flag: int = DECOMP_DEFLATE,
                hist_bits: int = MAX_HIST_BITS,

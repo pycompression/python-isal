@@ -494,8 +494,9 @@ cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int
 
 cpdef compress(data,
              int level= ?,
-             unsigned short flag = ?,
-             unsigned short hist_bits = ?,
+             int flag = ?,
+             int mem_level = ?,
+             int hist_bits = ?,
             )
 
 cpdef decompress(data,

@@ -209,7 +209,7 @@ def compress(data,
     wbits_to_flag_and_hist_bits_deflate(wbits,
                                         &hist_bits,
                                         &flag)
-    return igzip_compress(data, level, flag, hist_bits)
+    return igzip_compress(data, level, flag, MEM_LEVEL_DEFAULT_I, hist_bits)
 
 def decompress(data,
                  int wbits=ISAL_DEF_MAX_HIST_BITS,

@@ -123,8 +123,9 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
 
 cpdef compress(data,
              int level=ISAL_DEFAULT_COMPRESSION_I,
-             unsigned short flag = IGZIP_DEFLATE,
-             unsigned short hist_bits = ISAL_DEF_MAX_HIST_BITS,
+             int flag = IGZIP_DEFLATE,
+             int mem_level = MEM_LEVEL_DEFAULT_I,
+             int hist_bits = ISAL_DEF_MAX_HIST_BITS,
             ):
     """
     Compresses the bytes in *data*. Returns a bytes object with the

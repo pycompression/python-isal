@@ -22,6 +22,12 @@ import itertools
 from typing import NamedTuple
 
 from isal import igzip_lib
+from isal.igzip_lib import (
+    COMP_DEFLATE, COMP_GZIP, COMP_GZIP_NO_HDR, COMP_ZLIB, COMP_ZLIB_NO_HDR,
+    DECOMP_DEFLATE, DECOMP_GZIP, DECOMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER,
+    DECOMP_ZLIB, DECOMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER, MEM_LEVEL_DEFAULT,
+    MEM_LEVEL_EXTRA_LARGE, MEM_LEVEL_LARGE, MEM_LEVEL_MEDIUM, MEM_LEVEL_MIN,
+    MEM_LEVEL_SMALL)
 
 import pytest
 
@@ -38,19 +44,22 @@ DATA = RAW_DATA[:128 * 1024]
 COMPRESS_LEVELS = list(range(4))
 HIST_BITS = list(range(16))
 FLAGS = [
-    Flag(igzip_lib.COMP_DEFLATE, igzip_lib.DECOMP_DEFLATE),
-    Flag(igzip_lib.COMP_ZLIB, igzip_lib.DECOMP_ZLIB),
-    Flag(igzip_lib.COMP_GZIP, igzip_lib.DECOMP_GZIP),
-    Flag(igzip_lib.COMP_ZLIB_NO_HDR, igzip_lib.DECOMP_ZLIB_NO_HDR),
-    Flag(igzip_lib.COMP_GZIP_NO_HDR, igzip_lib.DECOMP_GZIP_NO_HDR),
-    Flag(igzip_lib.COMP_ZLIB_NO_HDR, igzip_lib.DECOMP_ZLIB_NO_HDR_VER),
-    Flag(igzip_lib.COMP_GZIP_NO_HDR, igzip_lib.DECOMP_GZIP_NO_HDR_VER),
+    Flag(COMP_DEFLATE, DECOMP_DEFLATE),
+    Flag(COMP_ZLIB, DECOMP_ZLIB),
+    Flag(COMP_GZIP, DECOMP_GZIP),
+    Flag(COMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR),
+    Flag(COMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR),
+    Flag(COMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER),
+    Flag(COMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER),
 ]
+MEM_LEVELS = [MEM_LEVEL_DEFAULT, MEM_LEVEL_MIN, MEM_LEVEL_SMALL,
+              MEM_LEVEL_MEDIUM, MEM_LEVEL_LARGE, MEM_LEVEL_EXTRA_LARGE]
 
 
-@pytest.mark.parametrize(["level", "flag", "hist_bits"],
-                         itertools.product(COMPRESS_LEVELS, FLAGS, HIST_BITS))
-def test_compress_decompress(level, flag: Flag, hist_bits):
-    comp = igzip_lib.compress(DATA, level, flag.comp, hist_bits)
+@pytest.mark.parametrize(["level", "flag", "mem_level", "hist_bits"],
+                         itertools.product(
+                             COMPRESS_LEVELS, FLAGS, MEM_LEVELS, HIST_BITS))
+def test_compress_decompress(level, flag: Flag, mem_level, hist_bits):
+    comp = igzip_lib.compress(DATA, level, flag.comp, mem_level, hist_bits)
     decomp = igzip_lib.decompress(comp, flag.decomp, hist_bits)
     assert decomp == DATA
