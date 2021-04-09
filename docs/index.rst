@@ -54,11 +54,40 @@ Differences with zlib and gzip modules
    :start-after: .. differences start
    :end-before: .. differences end
 
-.. include:: includes/isal_zlib.rst
+============================
+API Documentation: igzip_lib
+============================
 
-.. include:: includes/igzip.rst
+.. automodule:: isal.igzip_lib
+   :members:
 
-.. include:: includes/isal.igzip_usage.rst
+============================
+API Documentation: isal_zlib
+============================
+
+.. automodule:: isal.isal_zlib
+   :members:
+
+========================
+API-documentation: igzip
+========================
+
+.. automodule:: isal.igzip
+   :members: compress, decompress, open
+
+   .. autoclass:: IGzipFile
+      :members:
+      :special-members: __init__
+
+==========================
+python -m isal.igzip usage
+==========================
+
+.. argparse::
+   :module: isal.igzip
+   :func: _argument_parser
+   :prog: python -m isal.igzip
+
 
 ============
 Contributing

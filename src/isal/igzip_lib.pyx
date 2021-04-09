@@ -21,6 +21,52 @@
 # cython: language_level=3
 # cython: binding=True
 
+"""
+Pythonic interface to ISA-L's igzip_lib.
+
+This module comes with the following constants:
+
+============================== ================================================
+``ISAL_BEST_SPEED``            The lowest compression level (0)
+``ISAL_BEST_COMPRESSION``      The highest compression level (3)
+ ``ISAL_DEFAULT_COMPRESSION``  The compromise compression level (2)
+``DEF_BUF_SIZE``               Default size for the starting buffer (16K)
+``MAX_HIST_BITS``              Maximum window size bits (15).
+``COMP_DEFLATE``               Flag to compress to a raw deflate block
+``COMP_GZIP``                  Flag to compress a gzip block, consisting of a
+                               gzip header, raw deflate block and a gzip
+                               trailer.
+``COMP_GZIP_NO_HDR``           Flag to compress a gzip block without a header.
+``COMP_ZLIB``                  Flag to compress a zlib block, consisting of a
+                               zlib header, a raw deflate block and a zlib
+                               trailer.
+``COMP_ZLIB_NO_HDR``           Flag to compress a zlib block without a header.
+``DECOMP_DEFLATE``             Flag to decompress a raw deflate block.
+``DECOMP_GZIP``                Flag to decompress a gzip block including header
+                               and verify the checksums in the trailer.
+``DECOMP_GZIP_NO_HDR``         Flag to decompress a gzip block without a header
+                               and verify the checksums in the trailer.
+``DECOMP_GZIP_NO_HDR_VER``     Flag to decompress a gzip block without a header
+                               and without verifying the checksums in the
+                               trailer.
+``DECOMP_ZLIB``                Flag to decompress a zlib block including header
+                               and verify the checksums in the trailer.
+``DECOMP_ZLIB_NO_HDR``         Flag to decompress a zlib block without a header
+                               and verify the checksums in the trailer.
+``DECOMP_ZLIB_NO_HDR_VER``     Flag to decompress a zlib block without a header
+                               and without verifying the checksums in the
+                               trailer.
+``MEM_LEVEL_DEFAULT``          The default memory level for the internal level
+                               buffer. (Equivalent to
+                               MEM_LEVEL_LARGE.)
+``MEM_LEVEL_MIN``              The minimum memory level.
+``MEM_LEVEL_SMALL``
+``MEM_LEVEL_MEDIUM``
+``MEM_LEVEL_LARGE``
+``MEM_LEVEL_EXTRA_LARGE``      The largest memory level.
+============================== ================================================
+"""
+
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
@@ -29,24 +75,6 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
 
-"""
-Pythonic interface to ISA-L's igzip_lib.
-
-This module comes with the following constants:
-============================== ================================================
- Constant                      Meaning
-============================== ================================================
-``ISAL_BEST_SPEED``            The lowest compression level (0)
-``ISAL_BEST_COMPRESSION``      The highest compression level (3)
- ``ISAL_DEFAULT_COMPRESSION``  The compromise compression level (2)
-``DEF_BUF_SIZE``               Default size for the starting buffer (16K)
-``MAX_HIST_BITS``              Maximum window size bits (15).
-``COMP_DEFLATE``               Flag to compress to a raw deflate block
-``COMP_GZIP``                  Flag to compress a gzip block, consisting of a 
-                               gzip header, raw deflate block and a gzip 
-                               trailer.
-``COMP_GZIP_NO_HDR``           Compress
-"""
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
 cdef int ISAL_DEFAULT_COMPRESSION_I = 2
