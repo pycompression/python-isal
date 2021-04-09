@@ -29,6 +29,24 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
 
+"""
+Pythonic interface to ISA-L's igzip_lib.
+
+This module comes with the following constants:
+============================== ================================================
+ Constant                      Meaning
+============================== ================================================
+``ISAL_BEST_SPEED``            The lowest compression level (0)
+``ISAL_BEST_COMPRESSION``      The highest compression level (3)
+ ``ISAL_DEFAULT_COMPRESSION``  The compromise compression level (2)
+``DEF_BUF_SIZE``               Default size for the starting buffer (16K)
+``MAX_HIST_BITS``              Maximum window size bits (15).
+``COMP_DEFLATE``               Flag to compress to a raw deflate block
+``COMP_GZIP``                  Flag to compress a gzip block, consisting of a 
+                               gzip header, raw deflate block and a gzip 
+                               trailer.
+``COMP_GZIP_NO_HDR``           Compress
+"""
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
 cdef int ISAL_DEFAULT_COMPRESSION_I = 2
@@ -135,6 +153,19 @@ cpdef compress(data,
                   compression (NOT no compression as in stdlib zlib!) and the
                   fastest. 3 is the best compression and the slowest. Default
                   is a compromise at level 2.
+    :param flag:  Controls the header and trailer. Can be any of: COMP_DEFLATE
+                  (default), COMP_GZIP, COMP_GZIP_NO_HDR, COMP_ZLIB, 
+                  COMP_ZLIB_NO_HDR.
+    :param mem_level: Set the memory level for the memory buffer. Larger
+                      buffers improve performance. Can be any of: 
+                      MEM_LEVEL_DEFAULT (default, 
+                      equivalent to MEM_LEVEL_LARGE), MEM_LEVEL_MIN, 
+                      MEM_LEVEL_SMALL, MEM_LEVEL_MEDIUM, MEM_LEVEL_LARGE,
+                      MEM_LEVEL_EXTRA_LARGE.
+    :param hist_bits: Sets the size of the view window. The size equals 
+                      2^hist_bits. Similar to zlib wbits value, except that 
+                      hist_bits is not used to set the compression flag.
+                      This is best left at the default (15, maximum).
     """
     # Initialise stream
     cdef isal_zstream stream
@@ -193,14 +224,26 @@ cpdef compress(data,
 
 
 cpdef decompress(data,
-               unsigned int flag = ISAL_DEFLATE,
-               unsigned int hist_bits=ISAL_DEF_MAX_HIST_BITS,
-               Py_ssize_t bufsize=DEF_BUF_SIZE):
+                 int flag = ISAL_DEFLATE,
+                 int hist_bits=ISAL_DEF_MAX_HIST_BITS,
+                 Py_ssize_t bufsize=DEF_BUF_SIZE):
     """
     Deompresses the bytes in *data*. Returns a bytes object with the
     decompressed data.
 
-    :param bufsize: The initial size of the output buffer.
+    :param flag: Whether the compressed block contains headers and/or trailers
+                 and of which type. Can be any of: DECOMP_DEFLATE (default), 
+                 DECOMP_GZIP, DECOMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER,
+                 DECOMP_ZLIB, DECOMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER.
+    :param hist_bits: Sets the size of the view window. The size equals 
+                      2^hist_bits. Similar to zlib wbits value, except that 
+                      hist_bits is not used to set the compression flag.
+                      This is best left at the default (15, maximum).
+    :param bufsize: The initial size of the output buffer. The output buffer
+                    is dynamically resized according to the need. The default
+                    size is 16K. If a larger output is expected, using a 
+                    larger buffer will improve performance by negating the 
+                    costs associated with the dynamic resizing.
     """
     if bufsize < 0:
         raise ValueError("bufsize must be non-negative")
