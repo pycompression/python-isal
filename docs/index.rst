@@ -108,13 +108,6 @@ Differences with zlib and gzip modules
    :end-before: .. differences end
 
 ============================
-API Documentation: igzip_lib
-============================
-
-.. automodule:: isal.igzip_lib
-   :members:
-
-============================
 API Documentation: isal_zlib
 ============================
 
@@ -131,6 +124,13 @@ API-documentation: igzip
    .. autoclass:: IGzipFile
       :members:
       :special-members: __init__
+
+============================
+API Documentation: igzip_lib
+============================
+
+.. automodule:: isal.igzip_lib
+   :members:
 
 ==========================
 python -m isal.igzip usage
