@@ -57,7 +57,7 @@ a variety of functions to provide zlib/gzip-compatible compression.
 
 ``isal_zlib`` and ``igzip`` are almost fully compatible with ``zlib`` and
 ``gzip`` from the Python standard library. There are some minor differences
-see: :ref:`differences`.
+see: differences_.
 
 .. introduction end
 
