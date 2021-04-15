@@ -18,8 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# cython: language_level=3
-
 cdef extern from "<isa-l/crc.h>":
     cdef unsigned int crc32_gzip_refl(
     unsigned int init_crc,          #!< initial CRC value, 32 bits

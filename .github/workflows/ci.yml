@@ -30,7 +30,6 @@ jobs:
       matrix:
         tox_env:
           - docs
-          - mypy
           - twine_check
     needs: lint
     runs-on: ubuntu-20.04
