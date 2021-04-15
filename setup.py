@@ -119,7 +119,8 @@ class BuildIsalExt(build_ext):
         if line_tracing_enabled:
             # Add cython directives for coverage support.
             compiler_directives.update(linetrace=True)
-        cythonized_exts = cythonize(ext, compiler_directives=compiler_directives)
+        cythonized_exts = cythonize(
+            ext, compiler_directives=compiler_directives)
 
         for cython_ext in cythonized_exts:
             if line_tracing_enabled:
