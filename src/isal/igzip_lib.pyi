@@ -21,55 +21,35 @@
 ISAL_BEST_SPEED: int
 ISAL_BEST_COMPRESSION: int
 ISAL_DEFAULT_COMPRESSION: int
-Z_BEST_SPEED: int
-Z_BEST_COMPRESSION: int
-Z_DEFAULT_COMPRESSION: int
-
 DEF_BUF_SIZE: int
-DEF_MEM_LEVEL: int
-MAX_WBITS: int
-
-DEFLATED: int
-
-Z_DEFAULT_STRATEGY: int
-Z_RLE: int
-Z_HUFFMAN_ONLY: int
-Z_FILTERED: int
-Z_FIXED: int
-
-Z_NO_FLUSH: int
-Z_SYNC_FLUSH: int
-Z_FULL_FLUSH: int
-Z_FINISH: int
-
-class IsalError(OSError): ...
-
-error: IsalError
-
-def adler32(data, value: int = 1) -> int: ...
-def crc32(data, value: int = 0) -> int: ...
+MAX_HIST_BITS: int
+ISAL_NO_FLUSH: int
+ISAL_SYNC_FLUSH: int
+ISAL_FULL_FLUSH: int
+COMP_DEFLATE: int
+COMP_GZIP: int
+COMP_GZIP_NO_HDR: int
+COMP_ZLIB: int
+COMP_ZLIB_NO_HDR: int
+DECOMP_DEFLATE: int
+DECOMP_ZLIB: int
+DECOMP_GZIP: int
+DECOMP_GZIP_NO_HDR: int
+DECOMP_ZLIB_NO_HDR: int
+DECOMP_ZLIB_NO_HDR_VER: int
+DECOMP_GZIP_NO_HDR_VER: int
+MEM_LEVEL_DEFAULT: int
+MEM_LEVEL_MIN: int
+MEM_LEVEL_SMALL: int
+MEM_LEVEL_MEDIUM: int
+MEM_LEVEL_LARGE: int
+MEM_LEVEL_EXTRA_LARGE: int
+IsalError: OSError
 
 def compress(data, level: int = ISAL_DEFAULT_COMPRESSION,
-             wbits: int = MAX_WBITS) -> bytes: ...
-def decompress(data, wbits: int = MAX_WBITS,
+             flag: int = COMP_DEFLATE,
+             mem_level: int = MEM_LEVEL_DEFAULT,
+             hist_bits: int = MAX_HIST_BITS) -> bytes: ...
+def decompress(data, flag: int = DECOMP_DEFLATE,
+               hist_bits: int = MAX_HIST_BITS,
                bufsize: int = DEF_BUF_SIZE) -> bytes: ...
-
-class Compress:
-    def compress(self, data) -> bytes: ...
-    def flush(self, mode: int = Z_FINISH) -> bytes: ...
-
-class Decompress:
-    unused_data: bytes
-    unconsumed_tail: bytes
-    eof: bool
-
-    def decompress(self, data, max_length: int = 0) -> bytes: ...
-    def flush(self, length: int = DEF_BUF_SIZE) -> bytes: ...
-
-def compressobj(level: int = ISAL_DEFAULT_COMPRESSION,
-                method: int = DEFLATED,
-                wbits: int = MAX_WBITS,
-                memLevel: int = DEF_MEM_LEVEL,
-                strategy: int = Z_DEFAULT_STRATEGY,
-                zdict = None) -> Compress: ...
-def decompressobj(wbits: int = MAX_WBITS, zdict = None) -> Decompress: ...

@@ -34,6 +34,8 @@
 python-isal
 ===========
 
+.. introduction start
+
 Faster zlib and gzip compatible compression and decompression
 by providing Python bindings for the ISA-L library.
 
@@ -43,22 +45,34 @@ Acceleration Library (ISA-L) implements several key algorithms in `assembly
 language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
 a variety of functions to provide zlib/gzip-compatible compression.
 
-``python-isal`` provides the bindings by offering an ``isal_zlib`` and
-``igzip`` module which are usable as drop-in replacements for the ``zlib``
-and ``gzip`` modules from the stdlib (with some minor exceptions, see below).
+``python-isal`` provides the bindings by offering three modules:
 
-Usage
------
++ ``isal_zlib``: A drop-in replacement for the zlib module that uses ISA-L to
+  accelerate its performance.
++ ``igzip``: A drop-in replacement for the gzip module that uses ``isal_zlib``
+  instead of ``zlib`` to perform its compression and checksum tasks, which
+  improves performance.
++ ``igzip_lib``: Provides compression functions which have full access to the
+  API of ISA-L's compression functions.
 
-Python-isal has faster versions of the stdlib's ``zlib`` and ``gzip`` module
-these are called ``isal_zlib`` and ``igzip`` respectively.
+``isal_zlib`` and ``igzip`` are almost fully compatible with ``zlib`` and
+``gzip`` from the Python standard library. There are some minor differences
+see: differences-with-zlib-and-gzip-modules_.
 
-They can be imported as follows
+.. introduction end
+
+Quickstart
+----------
+
+.. quickstart start
+
+The python-isal modules can be imported as follows
 
 .. code-block:: python
 
     from isal import isal_zlib
     from isal import igzip
+    from isal import igzip_lib
 
 ``isal_zlib`` and ``igzip`` are meant to be used as drop in replacements so
 their api and functions are the same as the stdlib's modules. Except where
@@ -68,64 +82,27 @@ A full API documentation can be found on `our readthedocs page
 <https://python-isal.readthedocs.io>`_.
 
 ``python -m isal.igzip`` implements a simple gzip-like command line
-application (just like ``python -m gzip``).
+application (just like ``python -m gzip``). Full usage documentation can be
+found on `our readthedocs page <https://python-isal.readthedocs.io>`_.
+
+
+.. quickstart end
 
 Installation
 ------------
-Installation with pip
-.....................
+- with pip: ``pip install isal``
+- with conda: ``conda install python-isal``
 
-::
+Installation is supported on Linux, Windows and MacOS. For more advanced
+installation options check the `documentation
+<https://python-isal.readthedocs.io/en/stable/index.html#installation>`_.
 
-    pip install isal
-
-Installation is supported on Linux, MacOS and Windows. On x86-64 (amd64)
-platforms wheels are provided, so installation should be almost instantaneous.
-The installation will include a staticallly linked version of ISA-L.
-If a wheel is not provided for your system the
-installation will build ISA-L first in a temporary directory. Please check the
-`ISA-L homepage <https://github.com/intel/isa-l>`_ for the build requirements.
-
-The latest development version of python-isal can be installed with::
-
-    pip install git+https://github.com/rhpvorderman/python-isal.git
-
-This requires having the build requirements installed.
-If you wish to link
-dynamically against a version of libisal installed on your system use::
-
-     PYTHON_ISAL_LINK_DYNAMIC=true pip install isal --no-binary isal
-
-ISA-L is available in numerous Linux distro's as well as on conda via the
-conda-forge channel. Checkout the `ports documentation
-<https://github.com/intel/isa-l/wiki/Ports--Repos>`_ on the ISA-L project wiki
-to find out how to install it. It is important that the development headers
-are also installed.
-
-On Debian and Ubuntu the ISA-L libraries (including the development headers)
-can be installed with::
-
-  sudo apt install libisal-dev
-
-Installation via conda
-..................................
-Python-isal can be installed via conda, for example using
-the `miniconda <https://docs.conda.io/en/latest/miniconda.html>`_ installer
-with a properly setup `conda-forge 
-<https://conda-forge.org/docs/user/introduction.html#how-can-i-install-packages-from-conda-forge>`_
-channel. When used with bioinformatics tools setting up `bioconda 
-<http://bioconda.github.io/user/install.html#install-conda>`_
-provides a clear set of installation instructions for conda.
-
-python-isal is available on conda-forge and can be installed with::
-
-  conda install python-isal
-
-This will automatically install the ISA-L library dependency as well, since
-it is available on conda-forge.
+.. _differences-with-zlib-and-gzip-modules:
 
 Differences with zlib and gzip modules
 --------------------------------------
+
+.. differences start
 
 + Compression level 0 in ``zlib`` and ``gzip`` means **no compression**, while
   in ``isal_zlib`` and ``igzip`` this is the **lowest compression level**.
@@ -151,8 +128,47 @@ Differences with zlib and gzip modules
   to reflect this. ``igzip.GzipFile`` does exist as an alias of
   ``igzip.IGzipFile`` for compatibility reasons.
 
+.. differences end
+
 Contributing
 ------------
+.. contributing start
+
 Please make a PR or issue if you feel anything can be improved. Bug reports
 are also very welcome. Please report them on the `github issue tracker
 <https://github.com/rhpvorderman/python-isal/issues>`_.
+
+.. contributing end
+
+Acknowledgements
+----------------
+
+.. acknowledgements start
+
+This project builds upon the software and experience of many.  Many thanks to:
+
++ The `ISA-L contributors
+  <https://github.com/intel/isa-l/graphs/contributors>`_ for making ISA-L.
++ The `Cython contributors
+  <https://github.com/cython/cython/graphs/contributors>`_ for making it easy
+  to create an extension and helping a novice get start with pointer addresses.
++ The `CPython contributors
+  <https://github.com/python/cpython/graphs/contributors>`_.
+  Python-isal mimicks ``zlibmodule.c`` and ``gzip.py`` from the standard
+  library to make it easier for python users to adopt it.
++ `@marcelm <https://github.com/marcelm>`_ for taking a chance on this project
+  and make it a dependency for his `xopen
+  <https://github.com/pycompression/xopen>`_ and by extension `cutadapt
+  <https://github.com/marcelm/cutadapt>`_ projects. This gave python-isal its
+  first users who used python-isal in production.
++ The `github actions team <https://github.com/orgs/actions/people>`_ for
+  creating the actions CI service that enables building and testing on all
+  three major operating systems.
++ `@animalize <https://github.com/animalize>`_ for explaining how to test and
+  build python-isal for ARM 64-bit platforms.
++ And last but not least: everyone who submitted a bug report or a feature
+  request. These make the project better!
+
+Python-isal would not have been possible without you!
+
+.. acknowledgements end

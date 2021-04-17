@@ -7,3 +7,6 @@ dependencies:
   - python >=3.6
   - sphinx
   - setuptools
+  - pip:
+    - sphinx-rtd-theme
+    - sphinx-argparse

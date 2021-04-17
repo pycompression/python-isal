@@ -31,7 +31,7 @@ import time
 from typing import List, Optional, SupportsInt
 import _compression  # noqa: I201  # Not third-party
 
-from . import isal_zlib
+from . import igzip_lib, isal_zlib
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
 
@@ -270,12 +270,11 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     Optional argument is the compression level, in range of 0-3.
     """
     header = _create_simple_gzip_header(compresslevel, mtime)
-    # Compress the data without header or trailer in a raw deflate block.
-    compressed = isal_zlib.compress(data, compresslevel, wbits=-15)
-    length = len(data) & 0xFFFFFFFF
-    crc = isal_zlib.crc32(data)
-    trailer = struct.pack("<LL", crc, length)
-    return header + compressed + trailer
+    # use igzip_lib to compress the data without a gzip header but with a
+    # gzip trailer.
+    compressed = igzip_lib.compress(data, compresslevel,
+                                    flag=igzip_lib.COMP_GZIP_NO_HDR)
+    return header + compressed
 
 
 def _gzip_header_end(data: bytes) -> int:
@@ -348,7 +347,7 @@ def decompress(data):
     return b"".join(all_blocks)
 
 
-def main():
+def _argument_parser():
     parser = argparse.ArgumentParser()
     parser.description = (
         "A simple command line interface for the igzip module. "
@@ -371,9 +370,11 @@ def main():
         "-3", "--best", action="store_const", dest="compresslevel",
         const=_COMPRESS_LEVEL_BEST,
         help="use compression level 3 (best)")
+    compress_group.set_defaults(compress=True)
     compress_group.add_argument(
-        "-d", "--decompress", action="store_false",
+        "-d", "--decompress", action="store_const",
         dest="compress",
+        const=False,
         help="Decompress the file instead of compressing.")
     parser.add_argument("-c", "--stdout", action="store_true",
                         help="write on standard output")
@@ -383,7 +384,11 @@ def main():
     parser.add_argument("-b", "--buffer-size",
                         default=32 * 1024, type=int,
                         help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    return parser
+
+
+def main():
+    args = _argument_parser().parse_args()
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 

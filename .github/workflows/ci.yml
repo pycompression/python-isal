@@ -30,7 +30,6 @@ jobs:
       matrix:
         tox_env:
           - docs
-          - mypy
           - twine_check
     needs: lint
     runs-on: ubuntu-20.04
@@ -197,7 +196,9 @@ jobs:
           CIBW_TEST_REQUIRES: "pytest"
           # Simple test that requires the project to be build correctly
           CIBW_TEST_COMMAND: >-
-            pytest {project}/tests/test_igzip.py {project}/tests/test_isal.py
+            pytest {project}/tests/test_igzip.py
+            {project}/tests/test_compat.py
+            {project}/tests/test_igzip_lib.py
       - name: Build sdist
         if: "runner.os == 'Linux'"
         run: python setup.py sdist

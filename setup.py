@@ -36,12 +36,18 @@ SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
 
 
+def default_compiler_directives():
+    return dict(language_level="3",
+                binding=True)
+
+
 class IsalExtension(Extension):
     """Custom extension to allow for targeted modification."""
     pass
 
 
-MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"])]
+MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
+           IsalExtension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"])]
 if SYSTEM_IS_UNIX:
     MODULES.append(IsalExtension("isal._isal", ["src/isal/_isal.pyx"]))
 
@@ -80,7 +86,8 @@ class BuildIsalExt(build_ext):
         else:
             if self.compiler.compiler_type == "msvc":
                 compiler = copy.deepcopy(self.compiler)
-                compiler.initialize()
+                if not compiler.initialized:
+                    compiler.initialize()
                 compiler_command = f'"{compiler.cc}"'
                 compiler_args = compiler.compile_options
             elif self.compiler.compiler_type == "unix":
@@ -104,21 +111,22 @@ class BuildIsalExt(build_ext):
             # -fPIC needed for proper static linking
             ext.extra_compile_args = ["-fPIC"]
 
-        if os.getenv("CYTHON_COVERAGE") is not None:
-            # Import cython here so python setup.py can be used without
-            # installing cython.
-            from Cython.Build import cythonize
-            # Add cython directives and macros for coverage support.
-            cythonized_exts = cythonize(ext, compiler_directives=dict(
-                linetrace=True
-            ))
-            for cython_ext in cythonized_exts:
-                cython_ext.define_macros = [("CYTHON_TRACE_NOGIL", "1")]
-                cython_ext._needs_stub = False
-                super().build_extension(cython_ext)
-            return
+        # Import cython here so python setup.py can be used without
+        # installing cython.
+        from Cython.Build import cythonize
+        compiler_directives = default_compiler_directives()
+        line_tracing_enabled = os.getenv("CYTHON_COVERAGE") is not None
+        if line_tracing_enabled:
+            # Add cython directives for coverage support.
+            compiler_directives.update(linetrace=True)
+        cythonized_exts = cythonize(
+            ext, compiler_directives=compiler_directives)
 
-        super().build_extension(ext)
+        for cython_ext in cythonized_exts:
+            if line_tracing_enabled:
+                cython_ext.define_macros = [("CYTHON_TRACE_NOGIL", "1")]
+            cython_ext._needs_stub = False
+            super().build_extension(cython_ext)
 
 
 # Use a cache to prevent isa-l from being build twice. According to the
@@ -170,7 +178,7 @@ def build_isa_l(compiler_command: str, compiler_options: str):
 
 setup(
     name="isal",
-    version="0.9.0",
+    version="0.10.0",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",

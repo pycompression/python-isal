@@ -18,8 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# cython: language_level=3
-
 cdef extern from "<isa-l/igzip_lib.h>":
     # Deflate compression standard defines
     int ISAL_DEF_MAX_HDR_SIZE
@@ -452,3 +450,56 @@ cdef extern from "<isa-l/igzip_lib.h>":
     unsigned int isal_adler32(unsigned int init,
                                const unsigned char *buf, 
                                unsigned long long len)
+
+############################
+# python-isal functions
+############################
+cdef check_isal_deflate_rc(int rc)
+cdef check_isal_inflate_rc(int rc)
+
+ctypedef fused stream_or_state:
+    isal_zstream
+    inflate_state
+
+cdef inline Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
+    if a <= b:
+        return a
+    else:
+        return b
+
+cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
+                                                   unsigned char **buffer,
+                                                   Py_ssize_t length,
+                                                   Py_ssize_t max_length)
+
+
+cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
+                                      unsigned char **buffer,
+                                      Py_ssize_t length)
+
+cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains)
+
+cdef:
+    int MEM_LEVEL_DEFAULT_I
+    int MEM_LEVEL_MIN_I
+    int MEM_LEVEL_SMALL_I
+    int MEM_LEVEL_MEDIUM_I
+    int MEM_LEVEL_LARGE_I
+    int MEM_LEVEL_EXTRA_LARGE_I
+    int ISAL_DEFAULT_COMPRESSION_I
+
+cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize)
+
+cpdef compress(data,
+             int level= ?,
+             int flag = ?,
+             int mem_level = ?,
+             int hist_bits = ?,
+            )
+
+cpdef decompress(data,
+                 int flag = ?,
+                 int hist_bits= ?,
+                 Py_ssize_t bufsize= ?)
+
+cdef bytes view_bitbuffer(inflate_state * stream)
