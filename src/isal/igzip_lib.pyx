@@ -487,6 +487,9 @@ cdef class IgzipDecompressor:
                     memcpy(self.input_buffer, self.stream.next_in, self.avail_in_real)
                     self.stream.next_in = self.input_buffer
             return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
+        except:
+            self.stream.next_in = NULL
+            raise
         finally:
             PyBuffer_Release(buffer)
             PyMem_Free(obuf)
