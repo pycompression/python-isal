@@ -168,7 +168,7 @@ cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
     stream.avail_in = <unsigned int>py_ssize_t_min(remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
 
-cpdef compress(data,
+def compress(data,
              int level=ISAL_DEFAULT_COMPRESSION_I,
              int flag = IGZIP_DEFLATE,
              int mem_level = MEM_LEVEL_DEFAULT_I,
@@ -196,6 +196,15 @@ cpdef compress(data,
                       hist_bits is not used to set the compression flag.
                       This is best left at the default (15, maximum).
     """
+    return _compress(data, level, flag, mem_level, hist_bits)
+
+
+cdef _compress(data,
+             int level,
+             int flag,
+             int mem_level,
+             int hist_bits,
+            ):
     # Initialise stream
     cdef isal_zstream stream
     cdef unsigned int level_buf_size
@@ -252,7 +261,7 @@ cpdef compress(data,
         PyMem_Free(obuf)
 
 
-cpdef decompress(data,
+def decompress(data,
                  int flag = ISAL_DEFLATE,
                  int hist_bits=ISAL_DEF_MAX_HIST_BITS,
                  Py_ssize_t bufsize=DEF_BUF_SIZE):
@@ -274,6 +283,13 @@ cpdef decompress(data,
                     larger buffer will improve performance by negating the 
                     costs associated with the dynamic resizing.
     """
+    return _decompress(data, flag, hist_bits, bufsize)
+
+
+cdef _decompress(data,
+                 int flag,
+                 int hist_bits,
+                 Py_ssize_t bufsize):
     if bufsize < 0:
         raise ValueError("bufsize must be non-negative")
    
