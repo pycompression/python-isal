@@ -33,12 +33,15 @@ import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
 
-__all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
+__all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile",
+           "READ_BUFFER_SIZE"]
 
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
+#: The amount of data that is read in at once when decompressing a file.
+#: Increasing this value may increase performance.
 READ_BUFFER_SIZE = io.DEFAULT_BUFFER_SIZE
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
