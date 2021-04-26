@@ -435,7 +435,7 @@ def _argument_parser():
     # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
     # ~6% faster.
     parser.add_argument("-b", "--buffer-size",
-                        default=32 * 1024, type=int,
+                        default=128 * 1024, type=int,
                         help=argparse.SUPPRESS)
     return parser
 
