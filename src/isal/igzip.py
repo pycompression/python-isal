@@ -39,6 +39,8 @@ _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
+READ_BUFFER_SIZE = io.DEFAULT_BUFFER_SIZE
+
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
 try:
@@ -152,7 +154,7 @@ class IGzipFile(gzip.GzipFile):
                                                   0)
         if self.mode == gzip.READ:
             raw = _IGzipReader(self.fileobj)
-            self._buffer = io.BufferedReader(raw)
+            self._buffer = io.BufferedReader(raw, buffer_size=READ_BUFFER_SIZE)
 
     def __repr__(self):
         s = repr(self.fileobj)
@@ -273,7 +275,7 @@ class _IGzipReader(gzip._GzipReader):
 
             # Read a chunk of data from the file
             if self._decompressor.needs_input:
-                buf = self._fp.read(io.DEFAULT_BUFFER_SIZE)
+                buf = self._fp.read(READ_BUFFER_SIZE)
                 uncompress = self._decompressor.decompress(buf, size)
             else:
                 uncompress = self._decompressor.decompress(b"", size)
@@ -469,6 +471,8 @@ def main():
     elif not args.compress and args.file is not None:
         out_file = io.open(base, "wb")
 
+    global READ_BUFFER_SIZE
+    READ_BUFFER_SIZE = args.buffer_size
     try:
         while True:
             block = in_file.read(args.buffer_size)
