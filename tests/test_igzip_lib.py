@@ -68,7 +68,6 @@ def test_compress_decompress(level, flag: Flag, mem_level, hist_bits):
     assert decomp == DATA
 
 
-
 class TestIgzipDecompressor():
     # Tests adopted from CPython's test_bz2.py
     TEXT = DATA
