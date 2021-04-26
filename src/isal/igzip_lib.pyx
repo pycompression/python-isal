@@ -399,9 +399,10 @@ cdef class IgzipDecompressor:
         """
         Decompress data, returning a bytes object containing the uncompressed
         data corresponding to at least part of the data in string.
+
+        :param data: Binary data (bytes, bytearray, memoryview).
         :param max_length: if non-zero then the return value will be no longer
-                           than max_length. Unprocessed data will be in the
-                           unconsumed_tail attribute.
+                           than max_length.
         """
         if self.eof:
             raise EOFError("End of stream already reached")
