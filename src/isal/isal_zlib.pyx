@@ -18,6 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# cython: language_level=3
+# cython: binding=True
+
 """
 Implementation of the zlib module using the ISA-L libraries.
 """
