@@ -106,6 +106,7 @@ class TestIgzipDecompressor():
         with pytest.raises(EOFError):
             igzd.decompress(b"")
 
+    @pytest.mark.skip(reason="Causes memory issues on CI systems.")
     def testDecompress4G(self):
         # "Test igzdecompressor.decompress() with >4GiB input"
         size = 4 * 1024 ** 3 + 100  # 4 GiB + 100
