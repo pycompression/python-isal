@@ -1,3 +1,12 @@
+The pycore blocks output buffer is part of Python 3.10 and higher. The code
+is reused in this project without modification. Credits go to [@animalize](
+https://www.github.com/animalize), for implementing it into CPython.
+
+The original code can be found here: 
+https://github.com/python/cpython/blob/f9bedb630e8a0b7d94e1c7e609b20dfaa2b22231/Include/internal/pycore_blocks_output_buffer.h
+
+The code was released under the following license:
+
 PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2
 --------------------------------------------
 
