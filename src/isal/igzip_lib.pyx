@@ -154,20 +154,10 @@ cdef Py_ssize_t OutputBuffer_Grow(
     _BlocksOutputBuffer *buffer, unsigned char **next_out,
     unsigned int *avail_out):
 
-    cdef Py_ssize_t allocated = _BlocksOutputBuffer_Grow(
-        buffer, <void **>next_out, <Py_ssize_t> avail_out[0])
-    avail_out[0] = <unsigned int> allocated
-    return allocated
-
-
-cdef Py_ssize_t OutputBuffer_Grow(_BlocksOutputBuffer *buffer,
-                                  unsigned char **next_out,
-                                  unsigned int *avail_out):
     cdef Py_ssize_t allocated
     allocated = _BlocksOutputBuffer_Grow(
-        buffer, <void**>next_out, <Py_ssize_t>avail_out[0]
-    )
-    avail_out[0] = <unsigned int>allocated
+        buffer, <void **>next_out, <Py_ssize_t> avail_out[0])
+    avail_out[0] = <unsigned int> allocated
     return allocated
 
 cdef Py_ssize_t OutputBuffer_GetDataSize(_BlocksOutputBuffer *buffer,
