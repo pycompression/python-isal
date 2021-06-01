@@ -72,10 +72,13 @@ from libc.string cimport memmove, memcpy
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
+from cpython.ref cimport PyObject
 
 from .pycore_blocks_output_buffer cimport (
     _BlocksOutputBuffer, _BlocksOutputBuffer_InitAndGrow,
-    _BlocksOutputBuffer_InitWithSize, _BlocksOutputBuffer_Grow)
+    _BlocksOutputBuffer_InitWithSize, _BlocksOutputBuffer_Grow,
+    _BlocksOutputBuffer_GetDataSize,
+    _BlocksOutputBuffer_Finish, _BlocksOutputBuffer_OnError)
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
@@ -167,8 +170,16 @@ cdef Py_ssize_t OutputBuffer_Grow(_BlocksOutputBuffer *buffer,
     avail_out[0] = <unsigned int>allocated
     return allocated
 
+cdef Py_ssize_t OutputBuffer_GetDataSize(_BlocksOutputBuffer *buffer,
+                                         unsigned int avail_out):
+    return _BlocksOutputBuffer_GetDataSize(buffer, <Py_ssize_t>avail_out)
 
+cdef PyObject * OutputBuffer_Finish(_BlocksOutputBuffer *buffer,
+                                    unsigned int avail_out):
+    return _BlocksOutputBuffer_Finish(buffer, <Py_ssize_t>avail_out)
 
+cdef void OutputBuffer_OnError(_BlocksOutputBuffer *buffer):
+    _BlocksOutputBuffer_OnError(buffer)
 
 
 cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
