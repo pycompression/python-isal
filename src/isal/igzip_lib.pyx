@@ -73,6 +73,10 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
 
+from .pycore_blocks_output_buffer cimport (
+    _BlocksOutputBuffer, _BlocksOutputBuffer_InitAndGrow,
+    _BlocksOutputBuffer_InitWithSize)
+
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
 
@@ -119,6 +123,40 @@ MEM_LEVEL_EXTRA_LARGE = MEM_LEVEL_EXTRA_LARGE_I
 class IsalError(OSError):
     """Exception raised on compression and decompression errors."""
     pass
+
+
+
+cdef Py_ssize_t OutputBuffer_InitAndGrow(_BlocksOutputBuffer *buffer,
+                                                Py_ssize_t max_length,
+                                                unsigned char ** next_out,
+                                                unsigned int * avail_out):
+    cdef Py_ssize_t allocated = _BlocksOutputBuffer_InitAndGrow(
+        buffer, max_length, <void **>next_out)
+    avail_out[0] = <unsigned int>allocated
+    return allocated
+
+cdef Py_ssize_t OutputBuffer_InitWithSize(
+    _BlocksOutputBuffer *buffer, Py_ssize_t init_size,
+    unsigned char **next_out, unsigned int *avail_out):
+
+    cdef Py_ssize_t allocated
+    if init_size >= 0 and  <size_t>init_size > UINT32_MAX:
+        init_size = UINT32_MAX
+    allocated = _BlocksOutputBuffer_InitWithSize(buffer, init_size,
+                                                 <void**>next_out)
+    avail_out[0] = <unsigned int> allocated
+    return allocated
+
+cdef Py_ssize_t OutputBuffer_Grow(
+    _BlocksOutputBuffer *buffer, unsigned char **next_out,
+    unsigned int *avail_out):
+
+    cdef Py_ssize_t allocated = _BlocksOutputBuffer_Grow(
+        buffer, <void **>next_out, <Py_ssize_t> avail_out[0])
+    avail_out[0] = <unsigned int> allocated
+    return allocated
+
+
 
 
 
