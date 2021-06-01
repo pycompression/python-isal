@@ -75,7 +75,7 @@ from cpython.bytes cimport PyBytes_FromStringAndSize
 
 from .pycore_blocks_output_buffer cimport (
     _BlocksOutputBuffer, _BlocksOutputBuffer_InitAndGrow,
-    _BlocksOutputBuffer_InitWithSize)
+    _BlocksOutputBuffer_InitWithSize, _BlocksOutputBuffer_Grow)
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
@@ -154,6 +154,17 @@ cdef Py_ssize_t OutputBuffer_Grow(
     cdef Py_ssize_t allocated = _BlocksOutputBuffer_Grow(
         buffer, <void **>next_out, <Py_ssize_t> avail_out[0])
     avail_out[0] = <unsigned int> allocated
+    return allocated
+
+
+cdef Py_ssize_t OutputBuffer_Grow(_BlocksOutputBuffer *buffer,
+                                  unsigned char **next_out,
+                                  unsigned int *avail_out):
+    cdef Py_ssize_t allocated
+    allocated = _BlocksOutputBuffer_Grow(
+        buffer, <void**>next_out, <Py_ssize_t>avail_out[0]
+    )
+    avail_out[0] = <unsigned int>allocated
     return allocated
 
 
