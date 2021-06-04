@@ -78,11 +78,14 @@ from .igzip_lib cimport (
 # Import python-isal igzip_lib cython functions
 from .igzip_lib cimport(
     check_isal_deflate_rc, check_isal_inflate_rc,
-    arrange_output_buffer_with_maximum, arrange_output_buffer,
+    OutputBuffer_InitAndGrow ,OutputBuffer_InitWithSize, OutputBuffer_Grow,
+    OutputBuffer_GetDataSize, OutputBuffer_Finish, OutputBuffer_OnError,
     arrange_input_buffer, MEM_LEVEL_DEFAULT_I, MEM_LEVEL_MIN_I,
     MEM_LEVEL_SMALL_I, MEM_LEVEL_MEDIUM_I, MEM_LEVEL_LARGE_I,
     MEM_LEVEL_EXTRA_LARGE_I, ISAL_DEFAULT_COMPRESSION_I, mem_level_to_bufsize,
     view_bitbuffer,)
+
+from .pycore_blocks_output_buffer cimport _BlocksOutputBuffer
 
 # Alias igzip_lib compress and decompress functions
 from .igzip_lib cimport _compress as igzip_compress
@@ -94,6 +97,7 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
 from cpython.long cimport PyLong_AsUnsignedLongMask
+from cpython.ref cimport PyObject
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
@@ -332,26 +336,31 @@ cdef class Compress:
         Some input may be kept in internal buffers for later processing.
         """
         # Initialise output buffer
-        cdef unsigned char * obuf = NULL
-        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
+        cdef PyObject *RetVal
+        cdef _BlocksOutputBuffer buffer
+        buffer.list = NULL
 
         # initialise input
-        cdef Py_buffer buffer_data
-        cdef Py_buffer* buffer = &buffer_data
+        cdef Py_buffer input_buffer_data
+        cdef Py_buffer* input_buffer = &input_buffer_data
         # Cython makes sure error is handled when acquiring buffer fails.
-        PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
-        cdef Py_ssize_t ibuflen = buffer.len
-        self.stream.next_in = <unsigned char*>buffer.buf
+        PyObject_GetBuffer(data, input_buffer, PyBUF_C_CONTIGUOUS)
+        cdef Py_ssize_t ibuflen = input_buffer.len
+        self.stream.next_in = <unsigned char*>input_buffer.buf
 
         # initialise helper variables
         cdef int err
         try:
+            if OutputBuffer_InitAndGrow(&buffer, -1, &self.stream.next_out,
+                    &self.stream.avail_out) < 0:
+                raise MemoryError("Could not initialise buffer")
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while True:
-                    obuflen = arrange_output_buffer(&self.stream, &obuf, obuflen)
-                    if obuflen== -1:
-                        raise MemoryError("Unsufficient memory for buffer allocation")
+                    if self.stream.avail_out == 0:
+                        if OutputBuffer_Grow(&buffer, &self.stream.next_out,
+                                &self.stream.avail_out) < 0:
+                            raise MemoryError("Unsufficient memory for buffer allocation")
                     err = isal_deflate(&self.stream)
                     if err != COMP_OK:
                         check_isal_deflate_rc(err)
@@ -361,10 +370,15 @@ cdef class Compress:
                     raise AssertionError("Input stream should be empty")
                 if ibuflen == 0:
                     break
-            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
+            RetVal = OutputBuffer_Finish(&buffer, self.stream.avail_out)
+            if RetVal == NULL:
+                raise IsalError("Could not finalize buffer")
+            return <object>RetVal
+        except:
+            OutputBuffer_OnError(&buffer)
+            raise
         finally:
-            PyBuffer_Release(buffer)
-            PyMem_Free(obuf)
+            PyBuffer_Release(input_buffer)
 
     def flush(self, mode=zlib.Z_FINISH):
         """
@@ -390,14 +404,21 @@ cdef class Compress:
         else:
             raise IsalError("Unsupported flush mode")
 
-        cdef Py_ssize_t length = DEF_BUF_SIZE_I
-        cdef unsigned char * obuf = NULL
+        # Initialise output buffer
+        cdef PyObject *RetVal
+        cdef _BlocksOutputBuffer buffer
+        buffer.list = NULL
 
         try:
+            if OutputBuffer_InitAndGrow(&buffer, -1, &self.stream.next_out,
+                    &self.stream.avail_out) < 0:
+                raise MemoryError("Could not initialise buffer")
             while True:
-                length = arrange_output_buffer(&self.stream, &obuf, length)
-                if length == -1:
-                    raise MemoryError("Unsufficient memory for buffer allocation")
+                if self.stream.avail_out == 0:
+                    if OutputBuffer_Grow(&buffer, &self.stream.next_out,
+                            &self.stream.avail_out) < 0:
+                        raise MemoryError(
+                            "Unsufficient memory for buffer allocation")
                 err = isal_deflate(&self.stream)
                 if err != COMP_OK:
                     check_isal_deflate_rc(err)
@@ -405,9 +426,13 @@ cdef class Compress:
                     break
             if self.stream.avail_in != 0:
                 raise AssertionError("There should be no available input after flushing.")
-            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
-        finally:
-            PyMem_Free(obuf)
+            RetVal = OutputBuffer_Finish(&buffer, self.stream.avail_out)
+            if RetVal == NULL:
+                raise IsalError("Could not finalize buffer")
+            return <object>RetVal
+        except:
+            OutputBuffer_OnError(&buffer)
+            raise
 
 cdef class Decompress:
     """Decompress object for handling streaming decompression."""
@@ -479,14 +504,11 @@ cdef class Decompress:
                            than max_length. Unprocessed data will be in the
                            unconsumed_tail attribute.
         """
-   
-        cdef Py_ssize_t hard_limit
-        if max_length == 0:
-            hard_limit = PY_SSIZE_T_MAX
-        elif max_length < 0:
-            raise ValueError("max_length can not be smaller than 0")
-        else:
-            hard_limit = max_length
+
+        if max_length < 0:
+            raise ValueError("max_length must be non-negative0")
+        elif max_length == 0:
+            max_length = -1
 
         if not self.method_set:
             # Try to detect method from the first two bytes of the data.
@@ -494,33 +516,37 @@ cdef class Decompress:
             self.method_set = 1
 
         # initialise input
-        cdef Py_buffer buffer_data
-        cdef Py_buffer* buffer = &buffer_data
+        cdef Py_buffer input_buffer_data
+        cdef Py_buffer* input_buffer = &input_buffer_data
         # Cython makes sure error is handled when acquiring buffer fails.
-        PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
-        cdef Py_ssize_t ibuflen = buffer.len
-        self.stream.next_in = <unsigned char*>buffer.buf
+        PyObject_GetBuffer(data, input_buffer, PyBUF_C_CONTIGUOUS)
+        cdef Py_ssize_t ibuflen = input_buffer.len
+        self.stream.next_in = <unsigned char*>input_buffer.buf
 
         cdef int err
         cdef bint max_length_reached = False
         
         # Initialise output buffer
-        cdef unsigned char *obuf = NULL
-        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
-        if obuflen > hard_limit:
-            obuflen = hard_limit
+        cdef PyObject *RetVal
+        cdef _BlocksOutputBuffer buffer
+        buffer.list = NULL
 
         try:
+            if OutputBuffer_InitAndGrow(&buffer, max_length, &self.stream.next_out,
+                    &self.stream.avail_out) < 0:
+                raise MemoryError("Could not initialise buffer")
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while True:
-                    obuflen = arrange_output_buffer_with_maximum(
-                              &self.stream, &obuf, obuflen, hard_limit)
-                    if obuflen == -1:
-                        raise MemoryError("Unsufficient memory for buffer allocation")
-                    elif obuflen == -2:
-                        max_length_reached = True
-                        break
+                    if self.stream.avail_out == 0:
+                        if OutputBuffer_GetDataSize(&buffer,
+                                self.stream.avail_out) == max_length:
+                            max_length_reached = True
+                            break
+                        if OutputBuffer_Grow(&buffer, &self.stream.next_out,
+                                &self.stream.avail_out) < 0:
+                            raise MemoryError(
+                                "Unsufficient memory for buffer allocation")
                     err = isal_inflate(&self.stream)
                     if err != ISAL_DECOMP_OK:
                         check_isal_inflate_rc(err)
@@ -528,11 +554,16 @@ cdef class Decompress:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0 or max_length_reached:
                     break
-            self.save_unconsumed_input(buffer)
-            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
+            self.save_unconsumed_input(input_buffer)
+            RetVal = OutputBuffer_Finish(&buffer, self.stream.avail_out)
+            if RetVal == NULL:
+                raise IsalError("Could not finalize buffer")
+            return <object>RetVal
+        except:
+            OutputBuffer_OnError(&buffer)
+            raise
         finally:
-            PyBuffer_Release(buffer)
-            PyMem_Free(obuf)
+            PyBuffer_Release(input_buffer)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
         """
@@ -544,25 +575,31 @@ cdef class Decompress:
         if length <= 0:
             raise ValueError("Length must be greater than 0")
 
-        cdef Py_buffer buffer_data
-        cdef Py_buffer* buffer = &buffer_data
+        cdef Py_buffer input_buffer_data
+        cdef Py_buffer* input_buffer = &input_buffer_data
         # Cython makes sure error is handled when acquiring buffer fails.
-        PyObject_GetBuffer(self.unconsumed_tail, buffer, PyBUF_C_CONTIGUOUS)
-        cdef Py_ssize_t ibuflen = buffer.len
-        self.stream.next_in = <unsigned char*>buffer.buf
+        PyObject_GetBuffer(self.unconsumed_tail, input_buffer, PyBUF_C_CONTIGUOUS)
+        cdef Py_ssize_t ibuflen = input_buffer.len
+        self.stream.next_in = <unsigned char*>input_buffer.buf
 
-        cdef unsigned int obuflen = length
-        cdef unsigned char * obuf = NULL
+       # Initialise output buffer
+        cdef PyObject *RetVal
+        cdef _BlocksOutputBuffer buffer
+        buffer.list = NULL 
 
         cdef int err
 
         try:
+            if OutputBuffer_InitWithSize(&buffer, length, &self.stream.next_out,
+                    &self.stream.avail_out) < 0:
+                raise MemoryError("Could not initialise buffer")
             while True:
                 arrange_input_buffer(&self.stream, &ibuflen)
                 while True:
-                    obuflen = arrange_output_buffer(&self.stream, &obuf, obuflen)
-                    if obuflen == -1:
-                        raise MemoryError("Unsufficient memory for buffer allocation")
+                    if self.stream.avail_out == 0:
+                        if OutputBuffer_Grow(&buffer, &self.stream.next_out,
+                                &self.stream.avail_out) < 0:
+                            raise MemoryError("Unsufficient memory for buffer allocation")
                     err = isal_inflate(&self.stream)
                     if err != ISAL_DECOMP_OK:
                         check_isal_inflate_rc(err)
@@ -570,11 +607,16 @@ cdef class Decompress:
                         break
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen == 0:
                     break
-            self.save_unconsumed_input(buffer)
-            return PyBytes_FromStringAndSize(<char*>obuf, self.stream.next_out - obuf)
+            self.save_unconsumed_input(input_buffer)
+            RetVal = OutputBuffer_Finish(&buffer, self.stream.avail_out)
+            if RetVal == NULL:
+                raise IsalError("Could not finalize buffer")
+            return <object>RetVal
+        except:
+            OutputBuffer_OnError(&buffer)
+            raise
         finally:
-            PyBuffer_Release(buffer)
-            PyMem_Free(obuf)
+            PyBuffer_Release(input_buffer)
 
 cdef bint data_is_gzip(object data):
     cdef Py_buffer buffer_data

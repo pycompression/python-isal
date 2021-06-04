@@ -481,6 +481,28 @@ cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
                                       Py_ssize_t length)
 
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains)
+from .pycore_blocks_output_buffer cimport _BlocksOutputBuffer
+from cpython.ref cimport PyObject
+cdef Py_ssize_t OutputBuffer_InitAndGrow(_BlocksOutputBuffer *buffer,
+                                                Py_ssize_t max_length,
+                                                unsigned char ** next_out,
+                                                unsigned int * avail_out)
+
+cdef Py_ssize_t OutputBuffer_InitWithSize(
+    _BlocksOutputBuffer *buffer, Py_ssize_t init_size,
+    unsigned char **next_out, unsigned int *avail_out)
+
+cdef Py_ssize_t OutputBuffer_Grow(
+    _BlocksOutputBuffer *buffer, unsigned char **next_out,
+    unsigned int *avail_out)
+
+cdef Py_ssize_t OutputBuffer_GetDataSize(_BlocksOutputBuffer *buffer,
+                                         unsigned int avail_out)
+
+cdef PyObject * OutputBuffer_Finish(_BlocksOutputBuffer *buffer,
+                                    unsigned int avail_out)
+
+cdef void OutputBuffer_OnError(_BlocksOutputBuffer *buffer)
 
 cdef:
     int MEM_LEVEL_DEFAULT_I
