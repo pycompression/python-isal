@@ -268,16 +268,20 @@ cdef _compress(data,
     stream.gzip_flag = flag
 
     # Initialise output buffer
-    cdef Py_ssize_t bufsize = DEF_BUF_SIZE_I
-    cdef unsigned char * obuf = NULL
-    
+    cdef PyObject *RetVal
+    cdef _BlocksOutputBuffer buffer
+    buffer.list = NULL
+    if OutputBuffer_InitAndGrow(&buffer, -1, &stream.next_out, &stream.avail_out) < 0:
+        OutputBuffer_OnError(&buffer)
+        raise IsalError("Could not initialise buffer")
+
     # initialise input
-    cdef Py_buffer buffer_data
-    cdef Py_buffer* buffer = &buffer_data
+    cdef Py_buffer input_buffer_data
     # Cython makes sure error is handled when acquiring buffer fails.
-    PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
-    cdef Py_ssize_t ibuflen = buffer.len
-    stream.next_in = <unsigned char*>buffer.buf
+    cdef Py_buffer * input_buffer = &input_buffer_data
+    PyObject_GetBuffer(data, input_buffer , PyBUF_C_CONTIGUOUS)
+    cdef Py_ssize_t ibuflen = input_buffer.len
+    stream.next_in = <unsigned char*>input_buffer.buf
 
     # initialise helper variables
     cdef int err
@@ -292,9 +296,10 @@ cdef _compress(data,
                 stream.flush = NO_FLUSH
 
             while True:
-                bufsize = arrange_output_buffer(&stream, &obuf, bufsize)
-                if bufsize == -1:
-                    raise MemoryError("Unsufficient memory for buffer allocation")
+                if stream.avail_out == 0:
+                    bufsize = OutputBuffer_Grow(&buffer, &stream.next_out, &stream.avail_out)
+                    if bufsize < 0:
+                        raise MemoryError("Unsufficient memory for buffer allocation")
                 err = isal_deflate(&stream)
                 if err != COMP_OK:
                     check_isal_deflate_rc(err)
@@ -304,11 +309,15 @@ cdef _compress(data,
                 raise AssertionError("Input stream should be empty")
             if stream.internal_state.state == ZSTATE_END:
                 break
-        return PyBytes_FromStringAndSize(<char*>obuf, stream.next_out - obuf)
+        RetVal = OutputBuffer_Finish(&buffer, stream.avail_out)
+        if RetVal == NULL:
+            raise IsalError("Could not finalize buffer")
+        return <object>RetVal
+    except:
+        OutputBuffer_OnError(&buffer)
     finally:
-        PyBuffer_Release(buffer)
+        PyBuffer_Release(input_buffer)
         PyMem_Free(level_buf)
-        PyMem_Free(obuf)
 
 
 def decompress(data,

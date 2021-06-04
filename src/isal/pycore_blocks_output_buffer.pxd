@@ -20,8 +20,14 @@
 
 # cython: language_level=3
 from cpython.ref cimport PyObject
+
+cdef struct _BlocksOutputBuffer:
+    PyObject *list
+    Py_ssize_t allocated
+    Py_ssize_t max_length
+
 cdef extern from "pycore_blocks_output_buffer.h":
-    cdef struct _BlocksOutputBuffer
+
     cdef Py_ssize_t _BlocksOutputBuffer_InitAndGrow(_BlocksOutputBuffer *buffer,
                                     const Py_ssize_t max_length,
                                     void **next_out)
