@@ -315,6 +315,7 @@ cdef _compress(data,
         return <object>RetVal
     except:
         OutputBuffer_OnError(&buffer)
+        raise
     finally:
         PyBuffer_Release(input_buffer)
         PyMem_Free(level_buf)
