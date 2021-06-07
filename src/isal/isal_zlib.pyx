@@ -98,6 +98,8 @@ from cpython.ref cimport PyObject
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
+    int _PyBytes_Resize(PyObject **bytes, Py_ssize_t newsize)
+    char * PyBytes_AS_STRING(PyObject * string)
     void Py_XDECREF(PyObject *o)
 
 ISAL_BEST_SPEED = igzip_lib.ISAL_BEST_SPEED
@@ -363,6 +365,9 @@ cdef class Compress:
                     raise AssertionError("Input stream should be empty")
                 if ibuflen == 0:
                     break
+            if _PyBytes_Resize(&RetVal, self.stream.next_out -
+                    <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
+                raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
         except:
             Py_XDECREF(RetVal)
@@ -396,7 +401,7 @@ cdef class Compress:
 
         # Initialise output buffer
         cdef PyObject * RetVal = NULL
-        cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
+        cdef Py_ssize_t length = DEF_BUF_SIZE_I
 
         try:
             while True:
@@ -410,6 +415,9 @@ cdef class Compress:
                     break
             if self.stream.avail_in != 0:
                 raise AssertionError("There should be no available input after flushing.")
+            if _PyBytes_Resize(&RetVal, self.stream.next_out -
+                    <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
+                raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
         except:
             Py_XDECREF(RetVal)
@@ -535,6 +543,9 @@ cdef class Decompress:
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen ==0 or max_length_reached:
                     break
             self.save_unconsumed_input(buffer)
+            if _PyBytes_Resize(&RetVal, self.stream.next_out -
+                    <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
+                raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
         except:
             Py_XDECREF(RetVal)
@@ -578,6 +589,9 @@ cdef class Decompress:
                 if self.stream.block_state == ISAL_BLOCK_FINISH or ibuflen == 0:
                     break
             self.save_unconsumed_input(buffer)
+            if _PyBytes_Resize(&RetVal, self.stream.next_out -
+                    <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
+                raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
         except:
             Py_XDECREF(RetVal)

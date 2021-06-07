@@ -256,6 +256,9 @@ cdef _compress(data,
                 raise AssertionError("Input stream should be empty")
             if stream.internal_state.state == ZSTATE_END:
                 break
+        if _PyBytes_Resize(&RetVal, stream.next_out -
+                <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
+            raise RuntimeError("could not finalize bytes object.")
         return <object>RetVal
     except:
         Py_XDECREF(RetVal)
@@ -331,6 +334,9 @@ cdef _decompress(data,
                 break
         if stream.block_state != ISAL_BLOCK_FINISH:
             raise IsalError("incomplete or truncated stream")
+        if _PyBytes_Resize(&RetVal, stream.next_out -
+                <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
+            raise RuntimeError("could not finalize bytes object.")
         return <object> RetVal
     except:
         Py_XDECREF(RetVal)
@@ -512,6 +518,9 @@ cdef class IgzipDecompressor:
                     # Copy tail
                     memcpy(self.input_buffer, self.stream.next_in, self.avail_in_real)
                     self.stream.next_in = self.input_buffer
+            if _PyBytes_Resize(&RetVal, self.stream.next_out -
+                    <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
+                raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
         except:
             self.stream.next_in = NULL
