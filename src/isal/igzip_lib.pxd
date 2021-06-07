@@ -21,6 +21,8 @@
 # cython: language_level=3
 # cython: binding=True
 
+from cpython.ref cimport PyObject
+
 cdef extern from "<isa-l/igzip_lib.h>":
     # Deflate compression standard defines
     int ISAL_DEF_MAX_HDR_SIZE
@@ -471,13 +473,13 @@ cdef inline Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
         return b
 
 cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
-                                                   unsigned char **buffer,
+                                                   PyObject **buffer,
                                                    Py_ssize_t length,
                                                    Py_ssize_t max_length)
 
 
 cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
-                                      unsigned char **buffer,
+                                      PyObject **buffer,
                                       Py_ssize_t length)
 
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains)
