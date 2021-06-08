@@ -260,10 +260,8 @@ cdef _compress(data,
                 <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
             raise RuntimeError("could not finalize bytes object.")
         return <object>RetVal
-    except:
-        Py_XDECREF(RetVal)
-        raise
     finally:
+        Py_XDECREF(RetVal)
         PyBuffer_Release(buffer)
         PyMem_Free(level_buf)
 
@@ -338,10 +336,8 @@ cdef _decompress(data,
                 <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
             raise RuntimeError("could not finalize bytes object.")
         return <object> RetVal
-    except:
-        Py_XDECREF(RetVal)
-        raise
     finally:
+        Py_XDECREF(RetVal)
         PyBuffer_Release(buffer)
 
 
@@ -524,9 +520,9 @@ cdef class IgzipDecompressor:
             return <object>RetVal
         except:
             self.stream.next_in = NULL
-            Py_XDECREF(RetVal)
             raise
         finally:
+            Py_XDECREF(RetVal)
             PyBuffer_Release(buffer)
 
 

@@ -369,10 +369,8 @@ cdef class Compress:
                     <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
                 raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
-        except:
-            Py_XDECREF(RetVal)
-            raise
         finally:
+            Py_XDECREF(RetVal)
             PyBuffer_Release(buffer)
 
     def flush(self, mode=zlib.Z_FINISH):
@@ -419,9 +417,9 @@ cdef class Compress:
                     <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
                 raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
-        except:
+        finally:
             Py_XDECREF(RetVal)
-            raise
+
 
 cdef class Decompress:
     """Decompress object for handling streaming decompression."""
@@ -547,10 +545,8 @@ cdef class Decompress:
                     <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
                 raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
-        except:
-            Py_XDECREF(RetVal)
-            raise
         finally:
+            Py_XDECREF(RetVal)
             PyBuffer_Release(buffer)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
@@ -593,10 +589,8 @@ cdef class Decompress:
                     <unsigned char *>PyBytes_AS_STRING(RetVal)) < 0:
                 raise RuntimeError("could not finalize bytes object.")
             return <object>RetVal
-        except:
-            Py_XDECREF(RetVal)
-            raise
         finally:
+            Py_XDECREF(RetVal)
             PyBuffer_Release(buffer)
 
 cdef bint data_is_gzip(object data):
