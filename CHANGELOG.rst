@@ -13,6 +13,8 @@ In this release the ``python -m isal.igzip`` relatively slow decompression rate
 has been improved. Previously it was 19% slower than ``igzip`` when used with
 the ``-d`` flag for decompressing, now it is just 8% slower.
 
++ Build up the python bytes objects in memory directly. This eliminates some
+  memory overhead when creating the bytes objects.
 + Reverse a bug in the build system which caused some docstring and parameter
   information on ``igzip_lib`` and ``isal_zlib`` to disappear in the
   documentation and the REPL.
