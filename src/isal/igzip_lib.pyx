@@ -537,6 +537,7 @@ cdef class IgzipDecompressor:
         cdef size_t offset
 
         cdef PyObject * result
+        cdef bint success = False
 
         try:
             if self.stream.next_in != NULL:
@@ -595,12 +596,14 @@ cdef class IgzipDecompressor:
                     # Copy tail
                     memcpy(self.input_buffer, self.stream.next_in, self.avail_in_real)
                     self.stream.next_in = self.input_buffer
+            success = True
             return <object>result
         except:
             self.stream.next_in = NULL
             raise
         finally:
-            Py_XDECREF(result)
+            if success:
+                Py_XDECREF(result)
             PyBuffer_Release(buffer)
 
 
