@@ -82,6 +82,7 @@ from .pycore_blocks_output_buffer cimport (
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
+    void Py_XDECREF(PyObject *o)
 
 ISAL_BEST_SPEED = ISAL_DEF_MIN_LEVEL
 ISAL_BEST_COMPRESSION = ISAL_DEF_MAX_LEVEL
@@ -316,6 +317,7 @@ cdef _compress(data,
         OutputBuffer_OnError(&buffer)
         raise
     finally:
+        Py_XDECREF(RetVal)
         PyBuffer_Release(input_buffer)
         PyMem_Free(level_buf)
 
@@ -400,6 +402,7 @@ cdef _decompress(data,
         OutputBuffer_OnError(&buffer)
         raise
     finally:
+        Py_XDECREF(RetVal)
         PyBuffer_Release(input_buffer)
 
 
@@ -597,6 +600,7 @@ cdef class IgzipDecompressor:
             self.stream.next_in = NULL
             raise
         finally:
+            Py_XDECREF(result)
             PyBuffer_Release(buffer)
 
 

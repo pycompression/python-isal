@@ -101,6 +101,7 @@ from cpython.ref cimport PyObject
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
+    void Py_XDECREF(PyObject *o)
 
 ISAL_BEST_SPEED = igzip_lib.ISAL_BEST_SPEED
 ISAL_BEST_COMPRESSION = igzip_lib.ISAL_BEST_COMPRESSION
@@ -378,6 +379,7 @@ cdef class Compress:
             OutputBuffer_OnError(&buffer)
             raise
         finally:
+            Py_XDECREF(RetVal)
             PyBuffer_Release(input_buffer)
 
     def flush(self, mode=zlib.Z_FINISH):
@@ -431,6 +433,7 @@ cdef class Compress:
                 raise IsalError("Could not finalize buffer")
             return <object>RetVal
         except:
+            Py_XDECREF(RetVal)
             OutputBuffer_OnError(&buffer)
             raise
 
@@ -563,6 +566,7 @@ cdef class Decompress:
             OutputBuffer_OnError(&buffer)
             raise
         finally:
+            Py_XDECREF(RetVal)
             PyBuffer_Release(input_buffer)
 
     def flush(self, Py_ssize_t length = DEF_BUF_SIZE):
@@ -616,6 +620,7 @@ cdef class Decompress:
             OutputBuffer_OnError(&buffer)
             raise
         finally:
+            Py_XDECREF(RetVal)
             PyBuffer_Release(input_buffer)
 
 cdef bint data_is_gzip(object data):
