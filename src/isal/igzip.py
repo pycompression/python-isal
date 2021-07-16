@@ -434,6 +434,9 @@ def _argument_parser():
         help="Decompress the file instead of compressing.")
     parser.add_argument("-c", "--stdout", action="store_true",
                         help="write on standard output")
+    parser.add_argument("-o", "--output", help="Write to this output file")
+    parser.add_argument("-f", "--force", action="store_true",
+                        help="Overwrite output without prompting")
     # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K
     # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
     # ~6% faster.
@@ -463,7 +466,18 @@ def main():
         in_file = open(args.file, "rb")
 
     # Determine output file
-    if args.compress and (args.file is None or args.stdout):
+    if args.output is not None:
+        if os.path.exists(args.output) and not args.force:
+            response = input(f"{args.output} already exists; "
+                             f"do you wish to overwrite (y/n)?")
+            if response not in {"y", "Y"}:
+                sys.exit("not overwritten")
+        if args.compress:
+            out_file = IGzipFile(args.output,
+                                 mode="wb", compresslevel=compresslevel)
+        else:
+            out_file = io.open(args.output, "wb")
+    elif args.compress and (args.file is None or args.stdout):
         out_file = IGzipFile(mode="wb", compresslevel=compresslevel,
                              fileobj=sys.stdout.buffer)
     elif args.compress and args.file is not None:
