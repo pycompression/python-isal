@@ -434,8 +434,9 @@ def _argument_parser():
         help="Decompress the file instead of compressing.")
     output_group = parser.add_mutually_exclusive_group()
     output_group.add_argument("-c", "--stdout", action="store_true",
-                        help="write on standard output")
-    output_group.add_argument("-o", "--output", help="Write to this output file")
+                              help="write on standard output")
+    output_group.add_argument("-o", "--output",
+                              help="Write to this output file")
     parser.add_argument("-f", "--force", action="store_true",
                         help="Overwrite output without prompting")
     # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K

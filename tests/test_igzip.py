@@ -234,7 +234,6 @@ def test_compress_infile_out_file_inmplicit_name_prompt_accept(
     assert err == b""
 
 
-
 def test_decompress():
     assert igzip.decompress(COMPRESSED_DATA) == DATA
 
