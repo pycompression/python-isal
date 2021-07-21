@@ -150,6 +150,90 @@ def test_compress_infile_stdout(capsysbinary, tmp_path):
     assert err == b''
 
 
+def test_decompress_infile_out_file(tmp_path, capsysbinary):
+    test_gz = tmp_path / "test.gz"
+    test_gz.write_bytes(gzip.compress(DATA))
+    out_file = tmp_path / "out"
+    sys.argv = ['', '-d', '-o', str(out_file), str(test_gz)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert out_file.read_bytes() == DATA
+    assert err == b''
+    assert out == b''
+
+
+def test_compress_infile_out_file(tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "compressed.gz"
+    sys.argv = ['', '-o', str(out_file), str(test)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert gzip.decompress(out_file.read_bytes()) == DATA
+    assert err == b''
+    assert out == b''
+
+
+def test_compress_infile_out_file_force(tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "compressed.gz"
+    out_file.touch()
+    sys.argv = ['', '-f', '-o', str(out_file), str(test)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert gzip.decompress(out_file.read_bytes()) == DATA
+    assert err == b''
+    assert out == b''
+
+
+def test_compress_infile_out_file_prompt(tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "compressed.gz"
+    out_file.touch()
+    sys.argv = ['', '-o', str(out_file), str(test)]
+    with pytest.raises(EOFError):
+        # EOFError because prompt cannot be answered non-interactively.
+        igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert b"compressed.gz already exists; do you wish to overwrite (y/n)?" \
+           in out
+
+
+def test_compress_infile_out_file_inmplicit_name_prompt_refuse(
+        tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "test.gz"
+    out_file.touch()
+    sys.argv = ['', str(test)]
+    mock_stdin = io.BytesIO(b"n")
+    sys.stdin = io.TextIOWrapper(mock_stdin)
+    with pytest.raises(SystemExit) as error:
+        igzip.main()
+    error.match("not overwritten")
+    out, err = capsysbinary.readouterr()
+    assert b"test.gz already exists; do you wish to overwrite (y/n)?" \
+           in out
+
+
+def test_compress_infile_out_file_inmplicit_name_prompt_accept(
+        tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "test.gz"
+    out_file.touch()
+    sys.argv = ['', str(test)]
+    mock_stdin = io.BytesIO(b"y")
+    sys.stdin = io.TextIOWrapper(mock_stdin)
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert gzip.decompress(out_file.read_bytes()) == DATA
+    assert b"already exists; do you wish to overwrite" in out
+    assert err == b""
+
+
 def test_decompress():
     assert igzip.decompress(COMPRESSED_DATA) == DATA
 

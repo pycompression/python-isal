@@ -432,8 +432,13 @@ def _argument_parser():
         dest="compress",
         const=False,
         help="Decompress the file instead of compressing.")
-    parser.add_argument("-c", "--stdout", action="store_true",
-                        help="write on standard output")
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("-c", "--stdout", action="store_true",
+                              help="write on standard output")
+    output_group.add_argument("-o", "--output",
+                              help="Write to this output file")
+    parser.add_argument("-f", "--force", action="store_true",
+                        help="Overwrite output without prompting")
     # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K
     # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
     # ~6% faster.
@@ -448,31 +453,46 @@ def main():
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 
-    # Determine input file
-    if args.compress and args.file is None:
-        in_file = sys.stdin.buffer
-    elif args.compress and args.file is not None:
-        in_file = io.open(args.file, mode="rb")
-    elif not args.compress and args.file is None:
-        in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
-    elif not args.compress and args.file is not None:
-        base, extension = os.path.splitext(args.file)
-        if extension != ".gz" and not args.stdout:
-            sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
-                     f"Cannot determine output filename.")
-        in_file = open(args.file, "rb")
+    if args.output:
+        out_filepath = args.output
+    elif args.stdout:
+        out_filepath = None  # to stdout
+    elif args.file is None:
+        out_filepath = None  # to stout
+    else:
+        if args.compress:
+            out_filepath = args.file + ".gz"
+        else:
+            out_filepath, extension = os.path.splitext(args.file)
+            if extension != ".gz" and not args.stdout:
+                sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
+                         f"Cannot determine output filename.")
+    if out_filepath is not None and not args.force:
+        if os.path.exists(out_filepath):
+            yes_or_no = input(f"{out_filepath} already exists; "
+                              f"do you wish to overwrite (y/n)?")
+            if yes_or_no not in {"y", "Y", "yes"}:
+                sys.exit("not overwritten")
 
-    # Determine output file
-    if args.compress and (args.file is None or args.stdout):
-        out_file = IGzipFile(mode="wb", compresslevel=compresslevel,
-                             fileobj=sys.stdout.buffer)
-    elif args.compress and args.file is not None:
-        out_file = open(args.file + ".gz", mode="wb",
-                        compresslevel=compresslevel)
-    elif not args.compress and (args.file is None or args.stdout):
-        out_file = sys.stdout.buffer
-    elif not args.compress and args.file is not None:
-        out_file = io.open(base, "wb")
+    if args.compress:
+        if args.file is None:
+            in_file = sys.stdin.buffer
+        else:
+            in_file = io.open(args.file, mode="rb")
+        if out_filepath is not None:
+            out_file = open(out_filepath, "wb", compresslevel=compresslevel)
+        else:
+            out_file = IGzipFile(mode="wb", fileobj=sys.stdout.buffer,
+                                 compresslevel=compresslevel)
+    else:
+        if args.file:
+            in_file = open(args.file, mode="rb")
+        else:
+            in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
+        if out_filepath is not None:
+            out_file = io.open(out_filepath, mode="wb")
+        else:
+            out_file = sys.stdout.buffer
 
     global READ_BUFFER_SIZE
     READ_BUFFER_SIZE = args.buffer_size
