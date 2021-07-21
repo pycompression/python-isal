@@ -453,38 +453,46 @@ def main():
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 
-    if args.file is None or args.stdout:
-        out_fileobj = sys.stdout.buffer
+    if args.output:
+        out_filepath = args.output
+    elif args.stdout:
+        out_filepath = None  # to stdout
+    elif args.file is None:
+        out_filepath = None  # to stout
     else:
-        if args.output is None:
-            if args.compress:
-                out_filepath = args.file + ".gz"
-            else:
-                out_filepath, extension = os.path.splitext(args.file)
-                if extension != ".gz" and not args.stdout:
-                    sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
-                             f"Cannot determine output filename.")
+        if args.compress:
+            out_filepath = args.file + ".gz"
         else:
-            out_filepath = args.output
-        if os.path.exists(out_filepath) and not args.force:
+            out_filepath, extension = os.path.splitext(args.file)
+            if extension != ".gz" and not args.stdout:
+                sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
+                         f"Cannot determine output filename.")
+    if out_filepath is not None and not args.force:
+        if os.path.exists(out_filepath):
             yes_or_no = input(f"{out_filepath} already exists; "
                               f"do you wish to overwrite (y/n)?")
             if yes_or_no not in {"y", "Y", "yes"}:
                 sys.exit("not overwritten")
-        out_fileobj = io.open(out_filepath, mode="wb")
-
-    if args.file is None:
-        in_fileobj = sys.stdin.buffer
-    else:
-        in_fileobj = io.open(args.file, mode="rb")
 
     if args.compress:
-        in_file = in_fileobj
-        out_file = IGzipFile(mode="wb", fileobj=out_fileobj,
-                             compresslevel=compresslevel)
+        if args.file is None:
+            in_file = sys.stdin.buffer
+        else:
+            in_file = io.open(args.file, mode="rb")
+        if out_filepath is not None:
+            out_file = open(out_filepath, "wb", compresslevel=compresslevel)
+        else:
+            out_file = IGzipFile(mode="wb", fileobj=sys.stdout.buffer,
+                                 compresslevel=compresslevel)
     else:
-        in_file = IGzipFile(mode="rb", fileobj=in_fileobj)
-        out_file = out_fileobj
+        if args.file:
+            in_file = open(args.file, mode="rb")
+        else:
+            in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
+        if out_filepath is not None:
+            out_file = io.open(out_filepath, mode="wb")
+        else:
+            out_file = sys.stdout.buffer
 
     global READ_BUFFER_SIZE
     READ_BUFFER_SIZE = args.buffer_size
