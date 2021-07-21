@@ -150,6 +150,30 @@ def test_compress_infile_stdout(capsysbinary, tmp_path):
     assert err == b''
 
 
+def test_decompress_infile_outfile(tmp_path, capsysbinary):
+    test_gz = tmp_path / "test.gz"
+    test_gz.write_bytes(gzip.compress(DATA))
+    out_file = tmp_path / "out"
+    sys.argv = ['', '-d', '-o', str(out_file), str(test_gz)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert out_file.read_bytes() == DATA
+    assert err == b''
+    assert out == b''
+
+
+def test_compress_infile_out_file(tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "compressed.gz"
+    sys.argv = ['', '-o', str(out_file), str(test)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    assert gzip.decompress(out_file.read_bytes()) == DATA
+    assert err == b''
+    assert out == b''
+
+
 def test_decompress():
     assert igzip.decompress(COMPRESSED_DATA) == DATA
 
