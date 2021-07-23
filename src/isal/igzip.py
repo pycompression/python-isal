@@ -33,11 +33,16 @@ import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
 
-__all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile"]
+__all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile",
+           "READ_BUFFER_SIZE"]
 
 _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
+
+#: The amount of data that is read in at once when decompressing a file.
+#: Increasing this value may increase performance.
+READ_BUFFER_SIZE = io.DEFAULT_BUFFER_SIZE
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
@@ -229,8 +234,8 @@ class _IGzipReader(gzip._GzipReader):
         # Call the init method of gzip._GzipReader's parent here.
         # It is not very invasive and allows us to override _PaddedFile
         _compression.DecompressReader.__init__(
-            self, _PaddedFile(fp), isal_zlib.decompressobj,
-            wbits=-isal_zlib.MAX_WBITS)
+            self, _PaddedFile(fp), igzip_lib.IgzipDecompressor,
+            hist_bits=igzip_lib.MAX_HIST_BITS, flag=igzip_lib.DECOMP_DEFLATE)
         # Set flag indicating start of a new member
         self._new_member = True
         self._last_mtime = None
@@ -240,6 +245,57 @@ class _IGzipReader(gzip._GzipReader):
         # compared to CPython gzip
         self._crc = isal_zlib.crc32(data, self._crc)
         self._stream_size += len(data)
+
+    def read(self, size=-1):
+        if size < 0:
+            return self.readall()
+        # size=0 is special because decompress(max_length=0) is not supported
+        if not size:
+            return b""
+
+        # For certain input data, a single
+        # call to decompress() may not return
+        # any data. In this case, retry until we get some data or reach EOF.
+        while True:
+            if self._decompressor.eof:
+                # Ending case: we've come to the end of a member in the file,
+                # so finish up this member, and read a new gzip header.
+                # Check the CRC and file size, and set the flag so we read
+                # a new member
+                self._read_eof()
+                self._new_member = True
+                self._decompressor = self._decomp_factory(
+                    **self._decomp_args)
+
+            if self._new_member:
+                # If the _new_member flag is set, we have to
+                # jump to the next member, if there is one.
+                self._init_read()
+                if not self._read_gzip_header():
+                    self._size = self._pos
+                    return b""
+                self._new_member = False
+
+            # Read a chunk of data from the file
+            if self._decompressor.needs_input:
+                buf = self._fp.read(READ_BUFFER_SIZE)
+                uncompress = self._decompressor.decompress(buf, size)
+            else:
+                uncompress = self._decompressor.decompress(b"", size)
+            if self._decompressor.unused_data != b"":
+                # Prepend the already read bytes to the fileobj so they can
+                # be seen by _read_eof() and _read_gzip_header()
+                self._fp.prepend(self._decompressor.unused_data)
+
+            if uncompress != b"":
+                break
+            if buf == b"":
+                raise EOFError("Compressed file ended before the "
+                               "end-of-stream marker was reached")
+
+        self._add_read_data(uncompress)
+        self._pos += len(uncompress)
+        return uncompress
 
 
 # Aliases for improved compatibility with CPython gzip module.
@@ -376,13 +432,18 @@ def _argument_parser():
         dest="compress",
         const=False,
         help="Decompress the file instead of compressing.")
-    parser.add_argument("-c", "--stdout", action="store_true",
-                        help="write on standard output")
+    output_group = parser.add_mutually_exclusive_group()
+    output_group.add_argument("-c", "--stdout", action="store_true",
+                              help="write on standard output")
+    output_group.add_argument("-o", "--output",
+                              help="Write to this output file")
+    parser.add_argument("-f", "--force", action="store_true",
+                        help="Overwrite output without prompting")
     # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K
     # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
     # ~6% faster.
     parser.add_argument("-b", "--buffer-size",
-                        default=32 * 1024, type=int,
+                        default=128 * 1024, type=int,
                         help=argparse.SUPPRESS)
     return parser
 
@@ -392,32 +453,49 @@ def main():
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
 
-    # Determine input file
-    if args.compress and args.file is None:
-        in_file = sys.stdin.buffer
-    elif args.compress and args.file is not None:
-        in_file = io.open(args.file, mode="rb")
-    elif not args.compress and args.file is None:
-        in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
-    elif not args.compress and args.file is not None:
-        base, extension = os.path.splitext(args.file)
-        if extension != ".gz" and not args.stdout:
-            sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
-                     f"Cannot determine output filename.")
-        in_file = open(args.file, "rb")
+    if args.output:
+        out_filepath = args.output
+    elif args.stdout:
+        out_filepath = None  # to stdout
+    elif args.file is None:
+        out_filepath = None  # to stout
+    else:
+        if args.compress:
+            out_filepath = args.file + ".gz"
+        else:
+            out_filepath, extension = os.path.splitext(args.file)
+            if extension != ".gz" and not args.stdout:
+                sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
+                         f"Cannot determine output filename.")
+    if out_filepath is not None and not args.force:
+        if os.path.exists(out_filepath):
+            yes_or_no = input(f"{out_filepath} already exists; "
+                              f"do you wish to overwrite (y/n)?")
+            if yes_or_no not in {"y", "Y", "yes"}:
+                sys.exit("not overwritten")
 
-    # Determine output file
-    if args.compress and (args.file is None or args.stdout):
-        out_file = IGzipFile(mode="wb", compresslevel=compresslevel,
-                             fileobj=sys.stdout.buffer)
-    elif args.compress and args.file is not None:
-        out_file = open(args.file + ".gz", mode="wb",
-                        compresslevel=compresslevel)
-    elif not args.compress and (args.file is None or args.stdout):
-        out_file = sys.stdout.buffer
-    elif not args.compress and args.file is not None:
-        out_file = io.open(base, "wb")
+    if args.compress:
+        if args.file is None:
+            in_file = sys.stdin.buffer
+        else:
+            in_file = io.open(args.file, mode="rb")
+        if out_filepath is not None:
+            out_file = open(out_filepath, "wb", compresslevel=compresslevel)
+        else:
+            out_file = IGzipFile(mode="wb", fileobj=sys.stdout.buffer,
+                                 compresslevel=compresslevel)
+    else:
+        if args.file:
+            in_file = open(args.file, mode="rb")
+        else:
+            in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
+        if out_filepath is not None:
+            out_file = io.open(out_filepath, mode="wb")
+        else:
+            out_file = sys.stdout.buffer
 
+    global READ_BUFFER_SIZE
+    READ_BUFFER_SIZE = args.buffer_size
     try:
         while True:
             block = in_file.read(args.buffer_size)

@@ -18,6 +18,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+# cython: language_level=3
+# cython: binding=True
+
 """
 Implementation of the zlib module using the ISA-L libraries.
 """
@@ -82,8 +85,8 @@ from .igzip_lib cimport(
     view_bitbuffer,)
 
 # Alias igzip_lib compress and decompress functions
-from .igzip_lib cimport compress as igzip_compress
-from .igzip_lib cimport decompress as igzip_decompress
+from .igzip_lib cimport _compress as igzip_compress
+from .igzip_lib cimport _decompress as igzip_decompress
 
 from . import igzip_lib
 from libc.stdint cimport UINT64_MAX, UINT32_MAX
@@ -226,10 +229,12 @@ def decompress(data,
     """
     cdef unsigned int hist_bits
     cdef unsigned int flag
+    cdef bint is_gzip
+    data_is_gzip(data, &is_gzip)
     wbits_to_flag_and_hist_bits_inflate(wbits,
                                         &hist_bits,
                                         &flag,
-                                        data_is_gzip(data))
+                                        is_gzip)
     return igzip_decompress(data, flag, hist_bits, bufsize)
 
 
@@ -413,6 +418,7 @@ cdef class Decompress:
     cdef public bint eof
     cdef inflate_state stream
     cdef bint method_set
+    cdef bint is_gzip
 
     def __cinit__(self, int wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
@@ -487,7 +493,8 @@ cdef class Decompress:
 
         if not self.method_set:
             # Try to detect method from the first two bytes of the data.
-            self.stream.crc_flag = ISAL_GZIP if data_is_gzip(data) else ISAL_ZLIB
+            data_is_gzip(data, &self.is_gzip)
+            self.stream.crc_flag = ISAL_GZIP if self.is_gzip else ISAL_ZLIB
             self.method_set = 1
 
         # initialise input
@@ -573,20 +580,23 @@ cdef class Decompress:
             PyBuffer_Release(buffer)
             PyMem_Free(obuf)
 
-cdef bint data_is_gzip(object data):
+cdef data_is_gzip(object data, bint *is_gzip):
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
     PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     if buffer.len < 2:
         PyBuffer_Release(buffer)
-        return False
+        is_gzip[0] = False
+        return
     cdef unsigned char * char_ptr = <unsigned char *>buffer.buf
     if char_ptr[0] == 31:
         if char_ptr[1] == 139:
             PyBuffer_Release(buffer)
-            return True
+            is_gzip[0] = True
+            return
     PyBuffer_Release(buffer)
-    return False
+    is_gzip[0] = False
+    return
 
 
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
