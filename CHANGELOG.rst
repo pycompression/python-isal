@@ -7,7 +7,7 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 0.11.0-dev
+version 0.11.0
 ------------------
 In this release the ``python -m isal.igzip`` relatively slow decompression rate
 has been improved in both speed and usability. Previously it was 19% slower
