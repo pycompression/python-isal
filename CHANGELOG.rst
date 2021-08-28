@@ -7,6 +7,13 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 0.11.1
+------------------
++ Fixed an issue which occurred rarely that caused IgzipDecompressor's
+  unused_data to report back incorrectly. This caused checksum errors when
+  reading gzip files. The issue was more likely to trigger in multi-member gzip
+  files.
+
 version 0.11.0
 ------------------
 In this release the ``python -m isal.igzip`` relatively slow decompression rate

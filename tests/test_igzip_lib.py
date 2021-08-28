@@ -17,10 +17,11 @@
 # LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
-
+import gzip
 import itertools
 import os
 import pickle
+import zlib
 from typing import NamedTuple
 
 from isal import igzip_lib
@@ -43,6 +44,8 @@ class Flag(NamedTuple):
 
 
 DATA = RAW_DATA[:128 * 1024]
+ZLIB_COMPRESSED = zlib.compress(DATA)
+GZIP_COMPRESSED = gzip.compress(DATA)
 
 COMPRESS_LEVELS = list(range(4))
 HIST_BITS = list(range(16))
@@ -223,3 +226,29 @@ class TestIgzipDecompressor():
         # Make sure there are no internal consistencies
         with pytest.raises(Exception):
             igzd.decompress(self.BAD_DATA * 30)
+
+
+@pytest.mark.parametrize("test_offset", range(5))
+def test_igzip_decompressor_raw_deflate_unused_data_zlib(test_offset):
+    data = zlib.compress(b"bla")
+    no_header = data[2:]
+    trailer = data[-4:]
+    raw_deflate_incomplete_trailer = no_header[:-test_offset]
+    true_unused_data = trailer[:-test_offset]
+    igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
+    igzd.decompress(raw_deflate_incomplete_trailer)
+    if igzd.eof:
+        assert igzd.unused_data == true_unused_data
+
+
+@pytest.mark.parametrize("test_offset", range(9))
+def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
+    data = gzip.compress(b"bla")
+    no_header = data[10:]
+    trailer = data[-8:]
+    raw_deflate_incomplete_trailer = no_header[:-test_offset]
+    true_unused_data = trailer[:-test_offset]
+    igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
+    igzd.decompress(raw_deflate_incomplete_trailer)
+    if igzd.eof:
+        assert igzd.unused_data == true_unused_data

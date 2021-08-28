@@ -481,9 +481,8 @@ cdef class IgzipDecompressor:
                 return b""
             if self.eof:
                 self.needs_input = False
-                if self.avail_in_real > 0:
-                    new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, self.avail_in_real)
-                    self.unused_data = self._view_bitbuffer() + new_data
+                new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, self.avail_in_real)
+                self.unused_data = self._view_bitbuffer() + new_data
             elif self.avail_in_real == 0:
                 self.stream.next_in = NULL
                 self.needs_input = True
