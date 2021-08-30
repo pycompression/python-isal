@@ -252,3 +252,16 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
     igzd.decompress(raw_deflate_incomplete_trailer)
     if igzd.eof:
         assert igzd.unused_data == true_unused_data
+
+
+@pytest.mark.parametrize(["unused_size", "flag_pair"],
+                         itertools.product([26], FLAGS))
+def test_unused_data(unused_size, flag_pair):
+    comp_flag, decomp_flag = flag_pair
+    unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
+    data = b"A meaningful sentence starts with a capital and ends with a."
+    compressed = igzip_lib.compress(data, flag=comp_flag)
+    decompressor = igzip_lib.IgzipDecompressor(flag=decomp_flag)
+    result = decompressor.decompress(compressed + unused_data)
+    assert result == data
+    assert decompressor.unused_data == unused_data
