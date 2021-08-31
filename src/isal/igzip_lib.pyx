@@ -45,17 +45,17 @@ This module comes with the following constants:
 ``DECOMP_GZIP``                Flag to decompress a gzip block including header
                                and verify the checksums in the trailer.
 ``DECOMP_GZIP_NO_HDR``         Flag to decompress a gzip block without a header
-                               and verify the checksums in the trailer.
-``DECOMP_GZIP_NO_HDR_VER``     Flag to decompress a gzip block without a header
                                and without verifying the checksums in the
                                trailer.
+``DECOMP_GZIP_NO_HDR_VER``     Flag to decompress a gzip block without a header
+                               and verify the checksums in the trailer.
 ``DECOMP_ZLIB``                Flag to decompress a zlib block including header
                                and verify the checksums in the trailer.
 ``DECOMP_ZLIB_NO_HDR``         Flag to decompress a zlib block without a header
-                               and verify the checksums in the trailer.
-``DECOMP_ZLIB_NO_HDR_VER``     Flag to decompress a zlib block without a header
                                and without verifying the checksums in the
                                trailer.
+``DECOMP_ZLIB_NO_HDR_VER``     Flag to decompress a zlib block without a header
+                               and verify the checksums in the trailer.
 ``MEM_LEVEL_DEFAULT``          The default memory level for the internal level
                                buffer. (Equivalent to
                                MEM_LEVEL_LARGE.)
