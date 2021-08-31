@@ -514,6 +514,28 @@ cdef class IgzipDecompressor:
             PyMem_Free(obuf)
 
 
+def decompressobj(flag=ISAL_DEFLATE,
+                  hist_bits=ISAL_DEF_MAX_HIST_BITS,
+                  zdict = None):
+    """
+    Return an IgzipDecompressor object which can be used for streaming
+    decompression.
+
+    :param flag: Whether the compressed block contains headers and/or trailers
+                 and of which type. Can be any of: DECOMP_DEFLATE (default),
+                 DECOMP_GZIP, DECOMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER,
+                 DECOMP_ZLIB, DECOMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER.
+    :param hist_bits: Sets the size of the view window. The size equals
+                      2^hist_bits. Similar to zlib wbits value, except that
+                      hist_bits is not used to set the compression flag.
+                      This is best left at the default (15, maximum).
+    :param zdict:     A predefined compression dictionary. Must be the same
+                      zdict as was used to compress the data.
+    :return:     An IgzipDecompressor object
+    """
+    return IgzipDecompressor.__new__(IgzipDecompressor, flag, hist_bits, zdict)
+
+
 cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
     Convert zlib memory levels to isal equivalents
