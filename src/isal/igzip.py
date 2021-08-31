@@ -234,7 +234,7 @@ class _IGzipReader(gzip._GzipReader):
         # Call the init method of gzip._GzipReader's parent here.
         # It is not very invasive and allows us to override _PaddedFile
         _compression.DecompressReader.__init__(
-            self, _PaddedFile(fp), igzip_lib.IgzipDecompressor,
+            self, _PaddedFile(fp), igzip_lib.decompressobj,
             hist_bits=igzip_lib.MAX_HIST_BITS, flag=igzip_lib.DECOMP_DEFLATE)
         # Set flag indicating start of a new member
         self._new_member = True

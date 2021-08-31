@@ -31,7 +31,6 @@ from isal.igzip_lib import (
     DECOMP_ZLIB, DECOMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER, MEM_LEVEL_DEFAULT,
     MEM_LEVEL_EXTRA_LARGE, MEM_LEVEL_LARGE, MEM_LEVEL_MEDIUM, MEM_LEVEL_MIN,
     MEM_LEVEL_SMALL)
-from isal.igzip_lib import IgzipDecompressor
 
 import pytest
 
@@ -78,12 +77,12 @@ class TestIgzipDecompressor():
     BAD_DATA = b"Not a valid deflate block"
 
     def test_decompress(self):
-        decomp = IgzipDecompressor()
+        decomp = igzip_lib.decompressobj()
         decompressed = decomp.decompress(self.DATA)
         assert decompressed == self.TEXT
 
     def testDecompressChunks10(self):
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         text = b''
         n = 0
         while True:
@@ -95,14 +94,14 @@ class TestIgzipDecompressor():
         assert text == self.TEXT
 
     def testDecompressUnusedData(self):
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         unused_data = b"this is unused data"
         text = igzd.decompress(self.DATA+unused_data)
         assert text == self.TEXT
         assert igzd.unused_data == unused_data
 
     def testEOFError(self):
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         igzd.decompress(self.DATA)
         with pytest.raises(EOFError):
             igzd.decompress(b"anything")
@@ -118,7 +117,7 @@ class TestIgzipDecompressor():
         try:
             data = block * (size // blocksize + 1)
             compressed = igzip_lib.compress(data)
-            igzd = IgzipDecompressor()
+            igzd = igzip_lib.decompressobj()
             decompressed = igzd.decompress(compressed)
             assert decompressed == data
         finally:
@@ -129,10 +128,10 @@ class TestIgzipDecompressor():
     def testPickle(self):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             with pytest.raises(TypeError):
-                pickle.dumps(IgzipDecompressor(), proto)
+                pickle.dumps(igzip_lib.decompressobj(), proto)
 
     def testDecompressorChunksMaxsize(self):
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         max_length = 100
         out = []
 
@@ -165,7 +164,7 @@ class TestIgzipDecompressor():
     def test_decompressor_inputbuf_1(self):
         # Test reusing input buffer after moving existing
         # contents to beginning
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         out = []
 
         # Create input buffer and fill it
@@ -186,7 +185,7 @@ class TestIgzipDecompressor():
     def test_decompressor_inputbuf_2(self):
         # Test reusing input buffer by appending data at the
         # end right away
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         out = []
 
         # Create input buffer and empty it
@@ -206,7 +205,7 @@ class TestIgzipDecompressor():
     def test_decompressor_inputbuf_3(self):
         # Test reusing input buffer after extending it
 
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         out = []
 
         # Create almost full input buffer
@@ -220,7 +219,7 @@ class TestIgzipDecompressor():
         assert b''.join(out) == self.TEXT
 
     def test_failure(self):
-        igzd = IgzipDecompressor()
+        igzd = igzip_lib.decompressobj()
         with pytest.raises(Exception):
             igzd.decompress(self.BAD_DATA * 30)
         # Make sure there are no internal consistencies
@@ -235,7 +234,7 @@ def test_igzip_decompressor_raw_deflate_unused_data_zlib(test_offset):
     trailer = data[-4:]
     raw_deflate_incomplete_trailer = no_header[:-test_offset]
     true_unused_data = trailer[:-test_offset]
-    igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
+    igzd = igzip_lib.decompressobj(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
     if igzd.eof:
         assert igzd.unused_data == true_unused_data
@@ -248,7 +247,7 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
     trailer = data[-8:]
     raw_deflate_incomplete_trailer = no_header[:-test_offset]
     true_unused_data = trailer[:-test_offset]
-    igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
+    igzd = igzip_lib.decompressobj(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
     if igzd.eof:
         assert igzd.unused_data == true_unused_data
@@ -261,7 +260,7 @@ def test_unused_data(unused_size, flag_pair):
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
     data = b"A meaningful sentence starts with a capital and ends with a."
     compressed = igzip_lib.compress(data, flag=comp_flag)
-    decompressor = igzip_lib.IgzipDecompressor(flag=decomp_flag)
+    decompressor = igzip_lib.decompressobj(flag=decomp_flag)
     result = decompressor.decompress(compressed + unused_data)
     assert result == data
     assert decompressor.unused_data == unused_data
