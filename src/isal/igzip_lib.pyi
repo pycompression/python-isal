@@ -62,5 +62,6 @@ class IgzipDecompressor:
     unused_data: bytes
     needs_input: bool
     eof: bool
+    crc: int
 
     def decompress(self, data, max_length = -1) -> bytes: ...

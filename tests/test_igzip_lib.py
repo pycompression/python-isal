@@ -255,8 +255,8 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
 
 @pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
                          itertools.product([26], FLAGS,
-                                           [128 * 1024 -3, 874, 81923, 9111]))
-def test_unused_data(unused_size, flag_pair, data_size):
+                                           [128 * 1024 - 3, 874, 81923, 9111]))
+def test_decompression_flags(unused_size, flag_pair, data_size):
     comp_flag, decomp_flag = flag_pair
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
     data = RAW_DATA[:data_size]
@@ -264,6 +264,17 @@ def test_unused_data(unused_size, flag_pair, data_size):
     decompressor = igzip_lib.decompressobj(flag=decomp_flag)
     result = decompressor.decompress(compressed + unused_data)
     assert result == data
+
+    # CRC should be present on the ZLIB and GZIP type flags.
+    if decomp_flag in {DECOMP_ZLIB, DECOMP_ZLIB_NO_HDR,
+                       DECOMP_ZLIB_NO_HDR_VER}:
+        assert decompressor.crc == zlib.adler32(data)
+    elif decomp_flag in {DECOMP_GZIP, DECOMP_GZIP_NO_HDR,
+                         DECOMP_GZIP_NO_HDR_VER}:
+        assert decompressor.crc == zlib.crc32(data)
+    else:
+        assert decompressor.crc == 0
+
     # Trailers are not processed with the NO_HDR flags.
     if decomp_flag == DECOMP_GZIP_NO_HDR:
         assert decompressor.unused_data == compressed[-8:] + unused_data

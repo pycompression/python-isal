@@ -390,6 +390,13 @@ cdef class IgzipDecompressor:
         of the unconsumed tail."""
         return view_bitbuffer(&self.stream)
 
+    @property
+    def crc(self):
+        """Shows the crc of the internal inflate_state. adler32 if data is
+        decompressed with a zlib flag, crc32 if data is compressed with a gzip
+        flag."""
+        return self.stream.crc
+
     cdef decompress_buf(self, Py_ssize_t max_length, unsigned char ** obuf):
         obuf[0] = NULL
         cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
