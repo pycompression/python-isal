@@ -253,14 +253,21 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
         assert igzd.unused_data == true_unused_data
 
 
-@pytest.mark.parametrize(["unused_size", "flag_pair"],
-                         itertools.product([26], FLAGS))
-def test_unused_data(unused_size, flag_pair):
+@pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
+                         itertools.product([26], FLAGS,
+                                           [128 * 1024 -3, 874, 81923, 9111]))
+def test_unused_data(unused_size, flag_pair, data_size):
     comp_flag, decomp_flag = flag_pair
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
-    data = b"A meaningful sentence starts with a capital and ends with a."
+    data = RAW_DATA[:data_size]
     compressed = igzip_lib.compress(data, flag=comp_flag)
     decompressor = igzip_lib.decompressobj(flag=decomp_flag)
     result = decompressor.decompress(compressed + unused_data)
     assert result == data
-    assert decompressor.unused_data == unused_data
+    # Trailers are not processed with the NO_HDR flags.
+    if decomp_flag == DECOMP_GZIP_NO_HDR:
+        assert decompressor.unused_data == compressed[-8:] + unused_data
+    elif decomp_flag == DECOMP_ZLIB_NO_HDR:
+        assert decompressor.unused_data == compressed[-4:] + unused_data
+    else:
+        assert decompressor.unused_data == unused_data
