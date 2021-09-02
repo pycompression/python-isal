@@ -52,8 +52,10 @@ FLAGS = [
     Flag(COMP_DEFLATE, DECOMP_DEFLATE),
     Flag(COMP_ZLIB, DECOMP_ZLIB),
     Flag(COMP_GZIP, DECOMP_GZIP),
-    Flag(COMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR),
-    Flag(COMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR),
+    # DECOMP_GZIP_NO_HDR and DECOMP_ZLIB_NO_HDR do not read headers
+    # and trailers
+    Flag(COMP_DEFLATE, DECOMP_ZLIB_NO_HDR),
+    Flag(COMP_DEFLATE, DECOMP_GZIP_NO_HDR),
     Flag(COMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER),
     Flag(COMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER),
 ]
@@ -275,10 +277,4 @@ def test_decompression_flags(unused_size, flag_pair, data_size):
     else:
         assert decompressor.crc == 0
 
-    # Trailers are not processed with the NO_HDR flags.
-    if decomp_flag == DECOMP_GZIP_NO_HDR:
-        assert decompressor.unused_data == compressed[-8:] + unused_data
-    elif decomp_flag == DECOMP_ZLIB_NO_HDR:
-        assert decompressor.unused_data == compressed[-4:] + unused_data
-    else:
-        assert decompressor.unused_data == unused_data
+    assert decompressor.unused_data == unused_data
