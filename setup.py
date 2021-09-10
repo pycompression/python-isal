@@ -26,6 +26,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+os.environ.pop('D', None)
+
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
