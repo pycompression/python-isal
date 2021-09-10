@@ -16,6 +16,7 @@ version 1.0.0-dev
   checksum.
 + All the decompression NO_HDR flags on igzip_lib were
   incorrectly documented. This is now fixed.
++ Fixed building source failed when environment variable "D" was set.
 
 version 0.11.1
 ------------------
