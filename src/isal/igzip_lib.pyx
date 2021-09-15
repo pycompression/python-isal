@@ -18,9 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# cython: language_level=3
-# cython: binding=True
-
 """
 Pythonic interface to ISA-L's igzip_lib.
 
