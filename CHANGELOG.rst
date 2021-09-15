@@ -9,6 +9,8 @@ Changelog
 
 version 1.0.0-dev
 ------------------
++ Due to a change in the deployment process wheels should work for older
+  versions of pip.
 + Added a ``igzip_lib.decompressobj`` function to initiate an IgzipDecompressor
   class.
 + Added a ``crc`` property to the IgzipDecompressor class. Depending on the
