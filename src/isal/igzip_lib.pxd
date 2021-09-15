@@ -18,9 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# cython: language_level=3
-# cython: binding=True
-
 cdef extern from "<isa-l/igzip_lib.h>":
     # Deflate compression standard defines
     int ISAL_DEF_MAX_HDR_SIZE
