@@ -7,12 +7,36 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 0.11.0-dev
+version 1.0.0-dev
+------------------
++ Added a ``igzip_lib.decompressobj`` function to initiate an IgzipDecompressor
+  class.
++ Added a ``crc`` property to the IgzipDecompressor class. Depending on the
+  decompression flag chosen, this will update with an adler32 or crc32
+  checksum.
++ All the decompression NO_HDR flags on igzip_lib were
+  incorrectly documented. This is now fixed.
+
+version 0.11.1
+------------------
++ Fixed an issue which occurred rarely that caused IgzipDecompressor's
+  unused_data to report back incorrectly. This caused checksum errors when
+  reading gzip files. The issue was more likely to trigger in multi-member gzip
+  files.
+
+version 0.11.0
 ------------------
 In this release the ``python -m isal.igzip`` relatively slow decompression rate
-has been improved. Previously it was 19% slower than ``igzip`` when used with
-the ``-d`` flag for decompressing, now it is just 8% slower.
+has been improved in both speed and usability. Previously it was 19% slower
+than ``igzip`` when used with the ``-d`` flag for decompressing, now it is
+just 8% slower. Also some extra flags were added to make it easier to select
+the output file.
 
++ Prompt when an output file is overwritten with the ``python -m isal.igzip``
+  command line utility and provide the ``-f`` or ``--force`` flags to force
+  overwriting.
++ Added ``-o`` and ``--output`` flags to the ``python -m isal.igzip`` command
+  line utility to allow the user to select the destination of the output file.
 + Reverse a bug in the build system which caused some docstring and parameter
   information on ``igzip_lib`` and ``isal_zlib`` to disappear in the
   documentation and the REPL.

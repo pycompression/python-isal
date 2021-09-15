@@ -39,4 +39,4 @@ __all__ = [
     "__version__"
 ]
 
-__version__ = "0.11.0-dev"
+__version__ = "1.0.0-dev"
