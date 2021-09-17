@@ -211,10 +211,10 @@ jobs:
             PYTHON_ISAL_BUILD_CACHE_FILE=/tmp/build_cache
           CIBW_ENVIRONMENT_WINDOWS: >-
             PYTHON_ISAL_BUILD_CACHE=True
-            PYTHON_ISAL_BUILD_CACHE_FILE=${{ env.RUNNER_TEMP }}\build_cache
+            PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}\build_cache
           CIBW_ENVIRONMENT_MACOS: >-
             PYTHON_ISAL_BUILD_CACHE=True
-            PYTHON_ISAL_BUILD_CACHE_FILE=${{ env.RUNNER_TEMP }}/build_cache
+            PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}/build_cache
       - name: Build sdist
         if: "runner.os == 'Linux' and ${{ matrix.build_sdist }}"
         run: bash -c 'pip install cython && python setup.py sdist'
