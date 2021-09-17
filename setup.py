@@ -37,6 +37,11 @@ SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
                   sys.platform.startswith("darwin"))
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
 
+DEFAULT_CACHE_FILE = Path().absolute() / ".isal_build_cache"
+BUILD_CACHE = os.environ.get("PYTHON_ISAL_BUILD_CACHE")
+BUILD_CACHE_FILE = Path(os.environ.get("PYTHON_ISAL_BUILD_CACHE_FILE",
+                                       DEFAULT_CACHE_FILE))
+
 
 def cythonize_modules():
     extension_args = dict()
@@ -117,6 +122,13 @@ class BuildIsalExt(build_ext):
 # see: https://docs.python.org/3/library/functools.html#functools.cache
 @functools.lru_cache(maxsize=None)
 def build_isa_l(compiler_command: str, compiler_options: str):
+    # Check for cache
+    if BUILD_CACHE:
+        if BUILD_CACHE_FILE.exists():
+            cache_path = Path(BUILD_CACHE_FILE.read_text())
+            if (cache_path / "include" / "isa-l").exists():
+                return str(cache_path)
+
     # Creating temporary directories
     build_dir = tempfile.mktemp()
     temp_prefix = tempfile.mkdtemp()
@@ -155,6 +167,8 @@ def build_isa_l(compiler_command: str, compiler_options: str):
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
     shutil.rmtree(build_dir)
+    if BUILD_CACHE:
+        BUILD_CACHE_FILE.write_text(temp_prefix)
     return temp_prefix
 
 
