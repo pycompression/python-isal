@@ -37,7 +37,10 @@ SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
                   sys.platform.startswith("darwin"))
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
 
-DEFAULT_CACHE_FILE = Path().absolute() / ".isal_build_cache"
+# Since pip builds in a temp directory by default, setting a fixed file in
+# /tmp works during the entire session.
+DEFAULT_CACHE_FILE = Path(tempfile.gettempdir()
+                          ).absolute() / ".isal_build_cache"
 BUILD_CACHE = os.environ.get("PYTHON_ISAL_BUILD_CACHE")
 BUILD_CACHE_FILE = Path(os.environ.get("PYTHON_ISAL_BUILD_CACHE_FILE",
                                        DEFAULT_CACHE_FILE))
