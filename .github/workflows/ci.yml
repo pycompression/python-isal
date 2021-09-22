@@ -165,12 +165,15 @@ jobs:
 #    needs: [lint, package-checks, test-static, test-dynamic, test-arch]
     strategy:
       matrix:
-        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        os:
+          - ubuntu-latest
+#          - macos-latest
+#          - windows-latest
         cibw_archs_linux: ["x86_64"]
         build_sdist: [true]
-        include:
-          - os: "ubuntu-latest"
-            cibw_archs_linux: "aarch64"
+#        include:
+#          - os: "ubuntu-latest"
+#            cibw_archs_linux: "aarch64"
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -216,7 +219,7 @@ jobs:
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}/build_cache
       - name: Build sdist
-        if: "runner.os == 'Linux' and '${{ matrix.cibw_archs_linux }}' == 'x86_64"
+        if: "runner.os == 'Linux' and matrix.cibw_archs_linux == 'bla'"
         run: |
             pip install build
             python -m build --sdist
