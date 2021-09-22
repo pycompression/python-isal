@@ -155,8 +155,6 @@ def adler32(data, value = 1):
     # Cython makes sure error is handled when acquiring buffer fails.
     PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     try:
-        if buffer.len > UINT64_MAX:
-            raise ValueError("Data too big for adler32")
         return isal_adler32(init, <unsigned char*>buffer.buf, buffer.len)
     finally:
         PyBuffer_Release(buffer)
@@ -175,8 +173,6 @@ def crc32(data, value = 0):
     # Cython makes sure error is handled when acquiring buffer fails.
     PyObject_GetBuffer(data, buffer, PyBUF_C_CONTIGUOUS)
     try:
-        if buffer.len > UINT64_MAX:
-            raise ValueError("Data too big for adler32")
         return crc32_gzip_refl(init, <unsigned char*>buffer.buf, buffer.len)
     finally:
         PyBuffer_Release(buffer)

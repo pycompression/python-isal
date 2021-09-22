@@ -351,7 +351,7 @@ cdef class IgzipDecompressor:
     cdef public bint needs_input
     cdef inflate_state stream
     cdef unsigned char * input_buffer
-    cdef size_t input_buffer_size
+    cdef Py_ssize_t input_buffer_size
     cdef Py_ssize_t avail_in_real
 
     def __dealloc__(self):
