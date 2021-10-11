@@ -149,6 +149,8 @@ This project builds upon the software and experience of many.  Many thanks to:
 
 + The `ISA-L contributors
   <https://github.com/intel/isa-l/graphs/contributors>`_ for making ISA-L.
+  Special thanks to @gbtucker for always being especially helpful and
+  responsive.
 + The `Cython contributors
   <https://github.com/cython/cython/graphs/contributors>`_ for making it easy
   to create an extension and helping a novice get start with pointer addresses.
