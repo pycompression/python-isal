@@ -9,6 +9,9 @@ Changelog
 
 version 1.0.0-dev
 ------------------
++ Wheels are now always build with nasm for the x86 architecture. Previously
+  yasm was used for Linux and MacOS due to build issues that have since been
+  fixed upstream.
 + Updated statically included ISA-L to version 2.31.0. This fixes the bug
   mentioned below in python-isal as well.
 + Fixed a bug upstream in ISA-L were zlib headers would be created with an
