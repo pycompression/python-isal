@@ -9,6 +9,10 @@ Changelog
 
 version 1.0.0-dev
 ------------------
++ Updated statically included ISA-L to version 2.31.0. This fixes the bug
+  mentioned below in python-isal as well.
++ Fixed a bug upstream in ISA-L were zlib headers would be created with an
+  incorrect wbits value.
 + Support and tests for Python 3.10 were added.
 + Due to a change in the deployment process wheels should work for older
   versions of pip.
