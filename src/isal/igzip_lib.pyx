@@ -18,9 +18,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# cython: language_level=3
-# cython: binding=True
-
 """
 Pythonic interface to ISA-L's igzip_lib.
 
@@ -44,18 +41,18 @@ This module comes with the following constants:
 ``DECOMP_DEFLATE``             Flag to decompress a raw deflate block.
 ``DECOMP_GZIP``                Flag to decompress a gzip block including header
                                and verify the checksums in the trailer.
-``DECOMP_GZIP_NO_HDR``         Flag to decompress a gzip block without a header
-                               and verify the checksums in the trailer.
-``DECOMP_GZIP_NO_HDR_VER``     Flag to decompress a gzip block without a header
-                               and without verifying the checksums in the
-                               trailer.
+``DECOMP_GZIP_NO_HDR``         Decompresses a raw deflate block (no header,
+                               no trailer) and updates the crc member on the
+                               IgzipCompressor object with a crc32 checksum.
+``DECOMP_GZIP_NO_HDR_VER``     Like DECOMP_GZIP_NO_HDR but reads the trailer
+                               and verifies the crc32 checksum.
 ``DECOMP_ZLIB``                Flag to decompress a zlib block including header
                                and verify the checksums in the trailer.
-``DECOMP_ZLIB_NO_HDR``         Flag to decompress a zlib block without a header
-                               and verify the checksums in the trailer.
-``DECOMP_ZLIB_NO_HDR_VER``     Flag to decompress a zlib block without a header
-                               and without verifying the checksums in the
-                               trailer.
+``DECOMP_ZLIB_NO_HDR``         Decompresses a raw deflate block (no header,
+                               no trailer) and updates the crc member on the
+                               IgzipCompressor object with an adler32 checksum.
+``DECOMP_ZLIB_NO_HDR_VER``     Like DECOMP_ZLIB_NO_HDR but reads the trailer
+                               and verifies the adler32 checksum.
 ``MEM_LEVEL_DEFAULT``          The default memory level for the internal level
                                buffer. (Equivalent to
                                MEM_LEVEL_LARGE.)
@@ -354,7 +351,7 @@ cdef class IgzipDecompressor:
     cdef public bint needs_input
     cdef inflate_state stream
     cdef unsigned char * input_buffer
-    cdef size_t input_buffer_size
+    cdef Py_ssize_t input_buffer_size
     cdef Py_ssize_t avail_in_real
 
     def __dealloc__(self):
@@ -389,6 +386,13 @@ cdef class IgzipDecompressor:
         a maximum of 8 bytes. This data is already read-in so is not part
         of the unconsumed tail."""
         return view_bitbuffer(&self.stream)
+
+    @property
+    def crc(self):
+        """Shows the crc of the internal inflate_state. adler32 if data is
+        decompressed with a zlib flag, crc32 if data is compressed with a gzip
+        flag."""
+        return self.stream.crc
 
     cdef decompress_buf(self, Py_ssize_t max_length, unsigned char ** obuf):
         obuf[0] = NULL
@@ -481,9 +485,8 @@ cdef class IgzipDecompressor:
                 return b""
             if self.eof:
                 self.needs_input = False
-                if self.avail_in_real > 0:
-                    new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, self.avail_in_real)
-                    self.unused_data = self._view_bitbuffer() + new_data
+                new_data = PyBytes_FromStringAndSize(<char *>self.stream.next_in, self.avail_in_real)
+                self.unused_data = self._view_bitbuffer() + new_data
             elif self.avail_in_real == 0:
                 self.stream.next_in = NULL
                 self.needs_input = True
@@ -513,6 +516,28 @@ cdef class IgzipDecompressor:
         finally:
             PyBuffer_Release(buffer)
             PyMem_Free(obuf)
+
+
+def decompressobj(flag=ISAL_DEFLATE,
+                  hist_bits=ISAL_DEF_MAX_HIST_BITS,
+                  zdict = None):
+    """
+    Return an IgzipDecompressor object which can be used for streaming
+    decompression.
+
+    :param flag: Whether the compressed block contains headers and/or trailers
+                 and of which type. Can be any of: DECOMP_DEFLATE (default),
+                 DECOMP_GZIP, DECOMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER,
+                 DECOMP_ZLIB, DECOMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER.
+    :param hist_bits: Sets the size of the view window. The size equals
+                      2^hist_bits. Similar to zlib wbits value, except that
+                      hist_bits is not used to set the compression flag.
+                      This is best left at the default (15, maximum).
+    :param zdict:     A predefined compression dictionary. Must be the same
+                      zdict as was used to compress the data.
+    :return:     An IgzipDecompressor object
+    """
+    return IgzipDecompressor.__new__(IgzipDecompressor, flag, hist_bits, zdict)
 
 
 cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize):

@@ -7,6 +7,26 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.0.0-dev
+------------------
++ Support and tests for Python 3.10 were added.
++ Due to a change in the deployment process wheels should work for older
+  versions of pip.
++ Added a ``igzip_lib.decompressobj`` function to initiate an IgzipDecompressor
+  class.
++ Added a ``crc`` property to the IgzipDecompressor class. Depending on the
+  decompression flag chosen, this will update with an adler32 or crc32
+  checksum.
++ All the decompression NO_HDR flags on igzip_lib were
+  incorrectly documented. This is now fixed.
+
+version 0.11.1
+------------------
++ Fixed an issue which occurred rarely that caused IgzipDecompressor's
+  unused_data to report back incorrectly. This caused checksum errors when
+  reading gzip files. The issue was more likely to trigger in multi-member gzip
+  files.
+
 version 0.11.0
 ------------------
 In this release the ``python -m isal.igzip`` relatively slow decompression rate

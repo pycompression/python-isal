@@ -26,6 +26,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from Cython.Build import cythonize
+
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
@@ -35,24 +37,33 @@ SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
                   sys.platform.startswith("darwin"))
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
 
+# Since pip builds in a temp directory by default, setting a fixed file in
+# /tmp works during the entire session.
+DEFAULT_CACHE_FILE = Path(tempfile.gettempdir()
+                          ).absolute() / ".isal_build_cache"
+BUILD_CACHE = os.environ.get("PYTHON_ISAL_BUILD_CACHE")
+BUILD_CACHE_FILE = Path(os.environ.get("PYTHON_ISAL_BUILD_CACHE_FILE",
+                                       DEFAULT_CACHE_FILE))
 
-class IsalExtension(Extension):
-    """Custom extension to allow for targeted modification."""
-    pass
 
-
-MODULES = [IsalExtension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"]),
-           IsalExtension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"])]
-if SYSTEM_IS_UNIX:
-    MODULES.append(IsalExtension("isal._isal", ["src/isal/_isal.pyx"]))
+def cythonize_modules():
+    extension_args = dict()
+    compiler_directives = dict(binding=True, language_level="3")
+    if os.getenv("CYTHON_COVERAGE") is not None:
+        compiler_directives['linetrace'] = True
+        extension_args["define_macros"] = [("CYTHON_TRACE_NOGIL", "1")]
+    modules = [Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
+                         **extension_args),
+               Extension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"],
+                         **extension_args)]
+    if SYSTEM_IS_UNIX:
+        modules.append(Extension("isal._isal", ["src/isal/_isal.pyx"],
+                                 **extension_args))
+    return cythonize(modules, compiler_directives=compiler_directives)
 
 
 class BuildIsalExt(build_ext):
     def build_extension(self, ext):
-        if not isinstance(ext, IsalExtension):
-            super().build_extension(ext)
-            return
-
         # Add option to link dynamically for packaging systems such as conda.
         # Always link dynamically on readthedocs to simplify install.
         if (os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None or
@@ -105,19 +116,6 @@ class BuildIsalExt(build_ext):
                                              "include")]
             # -fPIC needed for proper static linking
             ext.extra_compile_args = ["-fPIC"]
-        if os.getenv("CYTHON_COVERAGE") is not None:
-            # Import cython here so python setup.py can be used without
-            # installing cython.
-            from Cython.Build import cythonize
-            # Add cython directives and macros for coverage support.
-            cythonized_exts = cythonize(ext, compiler_directives=dict(
-                linetrace=True
-            ))
-            for cython_ext in cythonized_exts:
-                cython_ext.define_macros = [("CYTHON_TRACE_NOGIL", "1")]
-                cython_ext._needs_stub = False
-                super().build_extension(cython_ext)
-            return
         super().build_extension(ext)
 
 
@@ -127,6 +125,13 @@ class BuildIsalExt(build_ext):
 # see: https://docs.python.org/3/library/functools.html#functools.cache
 @functools.lru_cache(maxsize=None)
 def build_isa_l(compiler_command: str, compiler_options: str):
+    # Check for cache
+    if BUILD_CACHE:
+        if BUILD_CACHE_FILE.exists():
+            cache_path = Path(BUILD_CACHE_FILE.read_text())
+            if (cache_path / "include" / "isa-l").exists():
+                return str(cache_path)
+
     # Creating temporary directories
     build_dir = tempfile.mktemp()
     temp_prefix = tempfile.mkdtemp()
@@ -165,6 +170,8 @@ def build_isa_l(compiler_command: str, compiler_options: str):
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
     shutil.rmtree(build_dir)
+    if BUILD_CACHE:
+        BUILD_CACHE_FILE.write_text(temp_prefix)
     return temp_prefix
 
 
@@ -197,8 +204,9 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Programming Language :: Cython",
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
@@ -206,5 +214,5 @@ setup(
         "Operating System :: Microsoft :: Windows",
     ],
     python_requires=">=3.6",
-    ext_modules=MODULES
+    ext_modules=cythonize_modules()
 )

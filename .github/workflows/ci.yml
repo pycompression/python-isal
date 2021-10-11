@@ -2,6 +2,9 @@ name: Continous integration
 
 on:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '*.rst'
   push:
     branches:
       - develop
@@ -60,6 +63,7 @@ jobs:
           - "3.7"
           - "3.8"
           - "3.9"
+          - "3.10"
           - "pypy-3.6"
           - "pypy-3.7"
         os: ["ubuntu-latest"]
@@ -162,7 +166,15 @@ jobs:
     needs: [lint, package-checks, test-static, test-dynamic, test-arch]
     strategy:
       matrix:
-        os: ["macos-latest", "ubuntu-latest", "windows-latest"]
+        os:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
+        cibw_archs_linux: ["x86_64"]
+        build_sdist: [true]
+        include:
+          - os: "ubuntu-latest"
+            cibw_archs_linux: "aarch64"
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -181,7 +193,7 @@ jobs:
         uses: ilammy/setup-nasm@v1.2.0
         if: runner.os == 'Windows'
       - name: Set up QEMU
-        if: runner.os == 'Linux'
+        if: ${{runner.os == 'Linux' && matrix.cibw_archs_linux == 'aarch64'}}
         uses: docker/setup-qemu-action@v1.0.1
         with:
           platforms: arm64
@@ -189,9 +201,7 @@ jobs:
         run: cibuildwheel --output-dir dist
         env:
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
-          CIBW_MANYLINUX_X86_64_IMAGE: "manylinux2014"
-          CIBW_MANYLINUX_AARCH64_IMAGE: "manylinux2014"
-          CIBW_ARCHS_LINUX: "x86_64 aarch64"
+          CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
           # Fully test the build wheels again.
           CIBW_TEST_REQUIRES: "pytest"
           # Simple test that requires the project to be build correctly
@@ -199,9 +209,25 @@ jobs:
             pytest {project}/tests/test_igzip.py
             {project}/tests/test_compat.py
             {project}/tests/test_igzip_lib.py
+          CIBW_ENVIRONMENT_LINUX: >-
+            PYTHON_ISAL_BUILD_CACHE=True
+            # This is in the docker container. So probably a '/tmp' will be available
+            PYTHON_ISAL_BUILD_CACHE_FILE=/tmp/build_cache
+          CIBW_ENVIRONMENT_WINDOWS: >-
+            PYTHON_ISAL_BUILD_CACHE=True
+            PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}\build_cache
+          CIBW_ENVIRONMENT_MACOS: >-
+            PYTHON_ISAL_BUILD_CACHE=True
+            PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}/build_cache
       - name: Build sdist
-        if: "runner.os == 'Linux'"
-        run: python setup.py sdist
+        if: ${{runner.os == 'Linux' && matrix.cibw_archs_linux == 'x86_64'}}
+        run: |
+            pip install build
+            python -m build --sdist
+      - uses: actions/upload-artifact@v2
+        with:
+          name: "dist"
+          path: "dist/"
       - name: Publish package to TestPyPI
         # pypa/gh-action-pypi-publish@master does not work on OSX
         # Alpha, Beta and dev releases contain a - in the tag.
