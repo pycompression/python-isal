@@ -9,6 +9,7 @@ Changelog
 
 version 1.0.0-dev
 ------------------
++ Support and tests for Python 3.10 were added.
 + Due to a change in the deployment process wheels should work for older
   versions of pip.
 + Added a ``igzip_lib.decompressobj`` function to initiate an IgzipDecompressor
