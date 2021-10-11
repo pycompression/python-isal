@@ -206,7 +206,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Cython",
-        "Development Status :: 4 - Beta",
+        "Development Status :: 5 - Production/Stable",
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: MIT License",
         "Operating System :: POSIX :: Linux",
