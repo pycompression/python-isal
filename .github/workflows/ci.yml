@@ -173,7 +173,7 @@ jobs:
         cibw_archs_linux: ["x86_64"]
         cibw_before_all_linux:
           - >-
-            curl -o nasm-2.15.05.tar.gz https://codeload.github.com/netwide-assembler/nasm/tar.gz/refs/tags/nasm-2.15.05 &&
+            curl -o nasm-2.15.05.tar.gz https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.gz &&
             tar -xzvf nasm-2.15.05.tar.gz &&
             cd nasm-nasm-2.15.05/ &&
             ./autogen.sh &&
