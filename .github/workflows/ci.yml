@@ -171,10 +171,20 @@ jobs:
           - macos-latest
           - windows-latest
         cibw_archs_linux: ["x86_64"]
+        cibw_before_all_linux:
+          - >-
+            curl -o nasm-2.15.05.tar.gz https://codeload.github.com/netwide-assembler/nasm/tar.gz/refs/tags/nasm-2.15.05 &&
+            tar -xzvf nasm-2.15.05.tar.gz &&
+            cd nasm-nasm-2.15.05/ &&
+            ./autogen.sh &&
+            ./configure &&
+            make nasm &&
+            install -c nasm /usr/bin/nasm
         build_sdist: [true]
         include:
           - os: "ubuntu-latest"
             cibw_archs_linux: "aarch64"
+            cibw_before_all_linux: "true"  # The true command exits with 0
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -202,7 +212,7 @@ jobs:
         env:
           CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit.
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
-          CIBW_BEFORE_BUILD_LINUX: apt update && apt -y install nasm
+          CIBW_BEFORE_ALL_LINUX: ${{ matrix.cibw_before_all_linux }}
           # Fully test the build wheels again.
           CIBW_TEST_REQUIRES: "pytest"
           # Simple test that requires the project to be build correctly
