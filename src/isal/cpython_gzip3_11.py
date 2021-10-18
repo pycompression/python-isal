@@ -92,19 +92,18 @@ def _read_exact(fp, n):
 
 def _read_gzip_header(fp):
     '''Read a gzip header from `fp` and progress to the end of the header.
-
     Returns last mtime if header was present or None otherwise.
     '''
     magic = fp.read(2)
     if magic == b'':
         return None
+
     if magic != b'\037\213':
         raise BadGzipFile('Not a gzipped file (%r)' % magic)
     header_buffer = io.BytesIO()
     header_buffer.write(magic)
     base_header = _read_exact(fp, 8)
-    (method, flag, last_mtime, xfl, os_flag
-        ) = struct.unpack("<BBIBB", base_header)
+    (method, flag, last_mtime) = struct.unpack("<BBIxx", base_header)
     if method != 8:
         raise BadGzipFile('Unknown compression method')
     header_buffer.write(base_header)

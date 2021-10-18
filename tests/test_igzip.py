@@ -339,7 +339,11 @@ def test_header_too_short():
 
 
 def test_header_corrupt():
-    header = b"\x1f\x8b\x08\x02\x00\x00\x00\x00\x00\xff"
+    header = (b"\x1f\x8b\x08\x1f\x00\x00\x00\x00\x00\xff"  # All flags set
+              b"\x05\x00"  # Xlen = 5
+              b"extra"
+              b"name\x00"
+              b"comment\x00")
     # Create corrupt checksum by using wrong seed.
     crc = zlib.crc32(header, 50) & 0xFFFF
     true_crc = zlib.crc32(header) & 0xFFFF
