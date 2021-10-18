@@ -27,6 +27,7 @@ import io
 import os
 import re
 import shutil
+import struct
 import sys
 import tempfile
 import zlib
@@ -332,11 +333,6 @@ def headers():
     yield header + crc.to_bytes(2, "little")
 
 
-@pytest.mark.parametrize("header", list(headers()))
-def test_gzip_header_end(header):
-    assert igzip._gzip_header_end(header) == len(header)
-
-
 def test_header_too_short():
     with pytest.raises(igzip.BadGzipFile):
         gzip.decompress(b"00")
@@ -347,14 +343,14 @@ def test_header_corrupt():
     # Create corrupt checksum by using wrong seed.
     crc = zlib.crc32(header, 50) & 0xFFFF
     true_crc = zlib.crc32(header) & 0xFFFF
-    header += crc.to_bytes(2, "little")
+    header += struct.pack("<H", crc)
 
     data = isal_zlib.compress(b"", wbits=-15)
     trailer = b"\x00" * 8
     compressed = header + data + trailer
     with pytest.raises(igzip.BadGzipFile) as error:
         igzip.decompress(compressed)
-    error.match(f"Corrupted header. "
+    error.match(f"Corrupted gzip header. "
                 f"Checksums do not match: {true_crc} != {crc}")
 
 

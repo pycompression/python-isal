@@ -33,6 +33,11 @@ import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
 
+try:
+    from gzip import _read_gzip_header
+except ImportError:
+    from .cpython_gzip3_11 import _read_gzip_header
+
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile",
            "READ_BUFFER_SIZE"]
 
@@ -333,74 +338,29 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
     return header + compressed
 
 
-def _gzip_header_end(data: bytes) -> int:
-    """
-    Find the start of the raw deflate block in a gzip file.
-    :param data: Compressed data that starts with a gzip header.
-    :return: The end of the header / start of the raw deflate block.
-    """
-    eof_error = EOFError("Compressed file ended before the end-of-stream "
-                         "marker was reached")
-    if len(data) < 10:
-        raise eof_error
-    # We are not interested in mtime, xfl and os flags.
-    magic, method, flags = struct.unpack("<HBB", data[:4])
-    if magic != 0x8b1f:
-        raise BadGzipFile(f"Not a gzipped file ({repr(data[:2])})")
-    if method != 8:
-        raise BadGzipFile("Unknown compression method")
-    pos = 10
-    if flags & FEXTRA:
-        if len(data) < pos + 2:
-            raise eof_error
-        xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
-        pos += 2 + xlen
-    if flags & FNAME:
-        pos = data.find(b"\x00", pos) + 1
-        # pos will be -1 + 1 when null byte not found.
-        if not pos:
-            raise eof_error
-    if flags & FCOMMENT:
-        pos = data.find(b"\x00", pos) + 1
-        if not pos:
-            raise eof_error
-    if flags & FHCRC:
-        if len(data) < pos + 2:
-            raise eof_error
-        header_crc = int.from_bytes(data[pos: pos + 2], "little", signed=False)
-        # CRC is stored as a 16-bit integer by taking last bits of crc32.
-        crc = isal_zlib.crc32(data[:pos]) & 0xFFFF
-        if header_crc != crc:
-            raise BadGzipFile(f"Corrupted header. Checksums do not "
-                              f"match: {crc} != {header_crc}")
-        pos += 2
-    return pos
-
-
 def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    all_blocks: List[bytes] = []
+    decompressed_members = []
     while True:
-        if data == b"":
-            break
-        header_end = _gzip_header_end(data)
-        do = isal_zlib.decompressobj(-15)
-        block = do.decompress(data[header_end:]) + do.flush()
+        fp = io.BytesIO(data)
+        if _read_gzip_header(fp) is None:
+            return b"".join(decompressed_members)
+        # Use a zlib raw deflate compressor
+        do = isal_zlib.decompressobj(wbits=-isal_zlib.MAX_WBITS)
+        # Read all the data except the header
+        decompressed = do.decompress(data[fp.tell():])
         if not do.eof or len(do.unused_data) < 8:
             raise EOFError("Compressed file ended before the end-of-stream "
                            "marker was reached")
-        checksum, length = struct.unpack("<II", do.unused_data[:8])
-        crc = isal_zlib.crc32(block)
-        if crc != checksum:
+        crc, length = struct.unpack("<II", do.unused_data[:8])
+        if crc != isal_zlib.crc32(decompressed):
             raise BadGzipFile("CRC check failed")
-        if length != len(block):
+        if length != (len(decompressed) & 0xffffffff):
             raise BadGzipFile("Incorrect length of data produced")
-        all_blocks.append(block)
-        # Remove all padding null bytes and start next block.
+        decompressed_members.append(decompressed)
         data = do.unused_data[8:].lstrip(b"\x00")
-    return b"".join(all_blocks)
 
 
 def _argument_parser():
