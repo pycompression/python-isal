@@ -28,13 +28,13 @@ import os
 import struct
 import sys
 import time
-from typing import List, Optional, SupportsInt
+from typing import Optional, SupportsInt
 import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
 
 try:
-    from gzip import _read_gzip_header
+    from gzip import _read_gzip_header  # type: ignore
 except ImportError:
     from .cpython_gzip3_11 import _read_gzip_header
 
@@ -54,7 +54,7 @@ FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 try:
     BadGzipFile = gzip.BadGzipFile  # type: ignore
 except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
-    BadGzipFile = OSError
+    BadGzipFile = OSError  # type: ignore
 
 
 # The open method was copied from the CPython source with minor adjustments.

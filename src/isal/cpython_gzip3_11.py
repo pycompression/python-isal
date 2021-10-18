@@ -68,10 +68,17 @@ ea23e7820f02840368569db8082bd0ca4d59b62a
 
 https://github.com/python/cpython/commit/ea23e7820f02840368569db8082bd0ca4d59b62a
 """
+import gzip
 import io
 import struct
 import zlib
-from gzip import FCOMMENT, FEXTRA, FHCRC, FNAME, BadGzipFile
+
+try:
+    BadGzipFile = gzip.BadGzipFile  # type: ignore
+except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
+    BadGzipFile = OSError  # type: ignore
+
+FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
 
 def _read_exact(fp, n):
