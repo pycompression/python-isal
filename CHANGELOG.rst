@@ -9,6 +9,7 @@ Changelog
 
 version 1.0.0-dev
 ------------------
++ Python-isal shows up in Python profiler reports.
 + Support and tests for Python 3.10 were added.
 + Due to a change in the deployment process wheels should work for older
   versions of pip.
