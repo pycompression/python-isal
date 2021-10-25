@@ -91,6 +91,7 @@ from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
 from cpython.long cimport PyLong_AsUnsignedLongMask
+cimport cython
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
@@ -286,6 +287,7 @@ cdef class Compress:
     cdef isal_zstream stream
     cdef unsigned char * level_buf
 
+    @cython.profile(False)
     def __cinit__(self,
                   int level = ISAL_DEFAULT_COMPRESSION_I,
                   int method = DEFLATED,
@@ -315,6 +317,7 @@ cdef class Compress:
         self.level_buf = <unsigned char *>PyMem_Malloc(self.stream.level_buf_size * sizeof(char))
         self.stream.level_buf = self.level_buf
 
+    @cython.profile(False)
     def __dealloc__(self):
         if self.level_buf is not NULL:
             PyMem_Free(self.level_buf)
@@ -413,6 +416,7 @@ cdef class Decompress:
     cdef bint method_set
     cdef bint is_gzip
 
+    @cython.profile(False)
     def __cinit__(self, int wbits=ISAL_DEF_MAX_HIST_BITS, zdict = None):
         isal_inflate_init(&self.stream)
 
@@ -436,12 +440,14 @@ cdef class Decompress:
         self.unconsumed_tail = b""
         self.eof = False
 
+    @cython.profile(False)
     def _view_bitbuffer(self):
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
         a maximum of 8 bytes. This data is already read-in so is not part
         of the unconsumed tail."""
         return view_bitbuffer(&self.stream)
 
+    @cython.profile(False)
     cdef save_unconsumed_input(self, Py_buffer *data):
         cdef Py_ssize_t old_size, new_size, left_size
         cdef bytes new_data
@@ -573,6 +579,7 @@ cdef class Decompress:
             PyBuffer_Release(buffer)
             PyMem_Free(obuf)
 
+@cython.profile(False)
 cdef data_is_gzip(object data, bint *is_gzip):
     cdef Py_buffer buffer_data
     cdef Py_buffer* buffer = &buffer_data
@@ -592,6 +599,7 @@ cdef data_is_gzip(object data, bint *is_gzip):
     return
 
 
+@cython.profile(False)
 cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
                                          unsigned short * hist_bits,
                                          unsigned short * gzip_flag):
@@ -608,6 +616,7 @@ cdef wbits_to_flag_and_hist_bits_deflate(int wbits,
         raise ValueError("Invalid wbits value")
 
 
+@cython.profile(False)
 cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
                                          unsigned int * hist_bits,
                                          unsigned int * crc_flag,
@@ -630,6 +639,8 @@ cdef wbits_to_flag_and_hist_bits_inflate(int wbits,
     else:
         raise ValueError("Invalid wbits value")
 
+
+@cython.profile(False)
 cdef int zlib_mem_level_to_isal_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
     Convert zlib memory levels to isal equivalents

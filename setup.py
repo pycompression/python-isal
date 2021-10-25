@@ -48,7 +48,7 @@ BUILD_CACHE_FILE = Path(os.environ.get("PYTHON_ISAL_BUILD_CACHE_FILE",
 
 def cythonize_modules():
     extension_args = dict()
-    compiler_directives = dict(binding=True, language_level="3")
+    compiler_directives = dict(binding=True, language_level="3", profile=True)
     if os.getenv("CYTHON_COVERAGE") is not None:
         compiler_directives['linetrace'] = True
         extension_args["define_macros"] = [("CYTHON_TRACE_NOGIL", "1")]

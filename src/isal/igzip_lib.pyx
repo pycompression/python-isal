@@ -69,6 +69,7 @@ from libc.string cimport memmove, memcpy
 from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from cpython.buffer cimport PyBUF_C_CONTIGUOUS, PyObject_GetBuffer, PyBuffer_Release
 from cpython.bytes cimport PyBytes_FromStringAndSize
+cimport cython
 
 cdef extern from "<Python.h>":
     const Py_ssize_t PY_SSIZE_T_MAX
@@ -118,7 +119,15 @@ class IsalError(OSError):
     pass
 
 
+@cython.profile(False)
+cdef inline Py_ssize_t py_ssize_t_min(Py_ssize_t a, Py_ssize_t b):
+    if a <= b:
+        return a
+    else:
+        return b
 
+
+@cython.profile(False)
 cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
                                                    unsigned char **buffer,
                                                    Py_ssize_t length,
@@ -152,6 +161,8 @@ cdef Py_ssize_t arrange_output_buffer_with_maximum(stream_or_state *stream,
     stream.next_out = buffer[0] + occupied
     return length
 
+
+@cython.profile(False)
 cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
                                       unsigned char **buffer,
                                       Py_ssize_t length):
@@ -161,6 +172,8 @@ cdef Py_ssize_t arrange_output_buffer(stream_or_state *stream,
         return -1
     return ret
 
+
+@cython.profile(False)
 cdef void arrange_input_buffer(stream_or_state *stream, Py_ssize_t *remains):
     stream.avail_in = <unsigned int>py_ssize_t_min(remains[0], UINT32_MAX)
     remains[0] -= stream.avail_in
@@ -196,6 +209,8 @@ def compress(data,
     return _compress(data, level, flag, mem_level, hist_bits)
 
 
+
+@cython.profile(False)
 cdef _compress(data,
              int level,
              int flag,
@@ -283,6 +298,7 @@ def decompress(data,
     return _decompress(data, flag, hist_bits, bufsize)
 
 
+@cython.profile(False)
 cdef _decompress(data,
                  int flag,
                  int hist_bits,
@@ -330,6 +346,7 @@ cdef _decompress(data,
         PyMem_Free(obuf)
 
 
+@cython.profile(False)
 cdef bytes view_bitbuffer(inflate_state * stream):
 
         cdef int bits_in_buffer = stream.read_in_length
@@ -354,10 +371,13 @@ cdef class IgzipDecompressor:
     cdef Py_ssize_t input_buffer_size
     cdef Py_ssize_t avail_in_real
 
+    @cython.profile(False)
     def __dealloc__(self):
         if self.input_buffer != NULL:
             PyMem_Free(self.input_buffer)
 
+
+    @cython.profile(False)
     def __cinit__(self,
                   flag=ISAL_DEFLATE,
                   hist_bits=ISAL_DEF_MAX_HIST_BITS,
@@ -380,7 +400,9 @@ cdef class IgzipDecompressor:
         self.input_buffer_size = 0
         self.avail_in_real = 0
         self.needs_input = True
-        
+
+
+    @cython.profile(False)
     def _view_bitbuffer(self):
         """Shows the 64-bitbuffer of the internal inflate_state. It contains
         a maximum of 8 bytes. This data is already read-in so is not part
@@ -394,6 +416,8 @@ cdef class IgzipDecompressor:
         flag."""
         return self.stream.crc
 
+
+    @cython.profile(False)
     cdef decompress_buf(self, Py_ssize_t max_length, unsigned char ** obuf):
         obuf[0] = NULL
         cdef Py_ssize_t obuflen = DEF_BUF_SIZE_I
@@ -540,6 +564,7 @@ def decompressobj(flag=ISAL_DEFLATE,
     return IgzipDecompressor.__new__(IgzipDecompressor, flag, hist_bits, zdict)
 
 
+@cython.profile(False)
 cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int *bufsize):
     """
     Convert zlib memory levels to isal equivalents
@@ -607,6 +632,8 @@ cdef int mem_level_to_bufsize(int compression_level, int mem_level, unsigned int
             bufsize[0] = ISAL_DEF_LVL3_EXTRA_LARGE
     return 0
 
+
+@cython.profile(False)
 cdef check_isal_deflate_rc(int rc):
     if rc == COMP_OK:
         return
@@ -627,6 +654,8 @@ cdef check_isal_deflate_rc(int rc):
     else:
         raise IsalError("Unknown Error")
 
+
+@cython.profile(False)
 cdef check_isal_inflate_rc(int rc):
     if rc >= ISAL_DECOMP_OK:
         return
