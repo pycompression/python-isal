@@ -16,6 +16,7 @@ version 1.0.0-dev
   mentioned below in python-isal as well.
 + Fixed a bug upstream in ISA-L were zlib headers would be created with an
   incorrect wbits value.
++ Python-isal shows up in Python profiler reports.
 + Support and tests for Python 3.10 were added.
 + Due to a change in the deployment process wheels should work for older
   versions of pip.
