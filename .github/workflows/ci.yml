@@ -175,7 +175,7 @@ jobs:
           - >-
             curl -o nasm-2.15.05.tar.gz https://www.nasm.us/pub/nasm/releasebuilds/2.15.05/nasm-2.15.05.tar.gz &&
             tar -xzvf nasm-2.15.05.tar.gz &&
-            cd nasm-nasm-2.15.05/ &&
+            cd nasm-2.15.05/ &&
             ./autogen.sh &&
             ./configure &&
             make nasm &&
