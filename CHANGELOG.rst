@@ -7,6 +7,8 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
++ Fixed the issue that building failed if TMPDIR is mounted noexec.
+
 version 0.11.1
 ------------------
 + Fixed an issue which occurred rarely that caused IgzipDecompressor's
