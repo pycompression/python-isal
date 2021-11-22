@@ -149,11 +149,14 @@ def build_isa_l(compiler_command: str, compiler_options: str):
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
     if SYSTEM_IS_UNIX:
-        subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
-        subprocess.run([os.path.join(build_dir, "configure"),
-                        "--prefix", temp_prefix], **run_args)
-        subprocess.run(["make", "-j", str(cpu_count)], **run_args)
-        subprocess.run(["make", "-j", str(cpu_count), "install"], **run_args)
+        # we need libisal.a compiled with -fPIC
+        # we build .a from slib .o
+        subprocess.run(["make", "-f", "Makefile.unx", "-j", str(cpu_count), "slib", "isa-l.h"], **run_args)
+        shutil.copytree(os.path.join(build_dir, "include"),
+                        os.path.join(temp_prefix, "include", "isa-l"))
+        shutil.copy(os.path.join(build_dir, "isa-l.h"), os.path.join(temp_prefix, "include", "isa-l.h"))
+        os.mkdir(os.path.join(temp_prefix, "lib"))
+        subprocess.run(["ar","cr", os.path.join(temp_prefix, "lib/libisal.a")] + [os.path.join(build_dir, 'bin', obj) for obj in os.listdir(os.path.join(build_dir, 'bin')) if obj.endswith('.o')], **run_args)
     elif SYSTEM_IS_WINDOWS:
         subprocess.run(["nmake", "/E", "/f", "Makefile.nmake"], **run_args)
         Path(temp_prefix, "include").mkdir()
