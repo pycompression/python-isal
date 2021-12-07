@@ -55,10 +55,9 @@ def cythonize_modules():
     modules = [Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
                          **extension_args),
                Extension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"],
+                         **extension_args),
+               Extension("isal._isal", ["src/isal/_isal.pyx"],
                          **extension_args)]
-    if SYSTEM_IS_UNIX:
-        modules.append(Extension("isal._isal", ["src/isal/_isal.pyx"],
-                                 **extension_args))
     return cythonize(modules, compiler_directives=compiler_directives)
 
 
