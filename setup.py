@@ -166,6 +166,8 @@ def build_isa_l(compiler_command: str, compiler_options: str):
                         Path(temp_prefix, "include", "isa-l"))
         shutil.copy(os.path.join(build_dir, "isa-l_static.lib"),
                     os.path.join(temp_prefix, "isa-l_static.lib"))
+        shutil.copy(os.path.join(build_dir, "isa-l.h"),
+                    os.path.join(temp_prefix, "include", "isa-l.h"))
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
     shutil.rmtree(build_dir)
