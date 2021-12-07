@@ -28,7 +28,7 @@ import os
 import struct
 import sys
 import time
-from typing import List, Optional, SupportsInt
+from typing import Optional, SupportsInt
 import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
@@ -49,7 +49,7 @@ FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 try:
     BadGzipFile = gzip.BadGzipFile  # type: ignore
 except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
-    BadGzipFile = OSError
+    BadGzipFile = OSError  # type: ignore
 
 
 # The open method was copied from the CPython source with minor adjustments.
@@ -353,7 +353,7 @@ def _gzip_header_end(data: bytes) -> int:
     if flags & FEXTRA:
         if len(data) < pos + 2:
             raise eof_error
-        xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        xlen, = struct.unpack("<H", data[pos: pos+2])
         pos += 2 + xlen
     if flags & FNAME:
         pos = data.find(b"\x00", pos) + 1
@@ -367,12 +367,12 @@ def _gzip_header_end(data: bytes) -> int:
     if flags & FHCRC:
         if len(data) < pos + 2:
             raise eof_error
-        header_crc = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        header_crc, = struct.unpack("<H", data[pos: pos+2])
         # CRC is stored as a 16-bit integer by taking last bits of crc32.
         crc = isal_zlib.crc32(data[:pos]) & 0xFFFF
         if header_crc != crc:
-            raise BadGzipFile(f"Corrupted header. Checksums do not "
-                              f"match: {crc} != {header_crc}")
+            raise BadGzipFile(f"Corrupted gzip header. Checksums do not "
+                              f"match: {crc:04x} != {header_crc:04x}")
         pos += 2
     return pos
 
@@ -381,26 +381,25 @@ def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    all_blocks: List[bytes] = []
+    decompressed_members = []
     while True:
-        if data == b"":
-            break
+        if not data:  # Empty data returns empty bytestring
+            return b"".join(decompressed_members)
         header_end = _gzip_header_end(data)
-        do = isal_zlib.decompressobj(-15)
-        block = do.decompress(data[header_end:]) + do.flush()
+        # Use a zlib raw deflate compressor
+        do = isal_zlib.decompressobj(wbits=-isal_zlib.MAX_WBITS)
+        # Read all the data except the header
+        decompressed = do.decompress(data[header_end:])
         if not do.eof or len(do.unused_data) < 8:
             raise EOFError("Compressed file ended before the end-of-stream "
                            "marker was reached")
-        checksum, length = struct.unpack("<II", do.unused_data[:8])
-        crc = isal_zlib.crc32(block)
-        if crc != checksum:
+        crc, length = struct.unpack("<II", do.unused_data[:8])
+        if crc != isal_zlib.crc32(decompressed):
             raise BadGzipFile("CRC check failed")
-        if length != len(block):
+        if length != (len(decompressed) & 0xffffffff):
             raise BadGzipFile("Incorrect length of data produced")
-        all_blocks.append(block)
-        # Remove all padding null bytes and start next block.
+        decompressed_members.append(decompressed)
         data = do.unused_data[8:].lstrip(b"\x00")
-    return b"".join(all_blocks)
 
 
 def _argument_parser():
