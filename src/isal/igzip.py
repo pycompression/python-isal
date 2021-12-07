@@ -349,6 +349,8 @@ def _gzip_header_end(data: bytes) -> int:
         raise BadGzipFile(f"Not a gzipped file ({repr(data[:2])})")
     if method != 8:
         raise BadGzipFile("Unknown compression method")
+    if not flags:  # Likely when data compressed in memory
+        return 10
     pos = 10
     if flags & FEXTRA:
         if len(data) < pos + 2:
