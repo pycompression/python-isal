@@ -4,17 +4,20 @@
 typedef struct {
     PyTypeObject *Comptype;
     PyTypeObject *Decomptype;
-    PyObject *ZlibError;
+    PyObject *IsalError;
 } isal_zlib_state;
 
+static PyMethodDef IsalZlibMethods[] = {
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
 
-static struct PyModuleDef isal_zlib_module {
+static struct PyModuleDef isal_zlib_module = {
     PyModuleDef_HEAD_INIT,
     "isal_zlib",   /* name of module */
     NULL, /* module documentation, may be NULL */
     sizeof(isal_zlib_state),
     IsalZlibMethods
-}
+};
 
 PyMODINIT_FUNC
 PyInit_isal_zlib(void)
