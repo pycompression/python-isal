@@ -47,6 +47,47 @@ exit:
     return return_value;
 }
 
+static PyObject *
+isal_zlib_crc32_impl(PyObject *module, Py_buffer *data, uint32_t value)
+{
+    value = crc32_gzip_refl(value, data->buf, (uint64_t)data->len);
+    return PyLong_FromUnsignedLong(value & 0xffffffffU);
+}
+
+static PyObject *
+isal_zlib_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
+{
+    PyObject *return_value = NULL;
+    Py_buffer data = {NULL, NULL};
+    uint32_t value = 0;
+
+    if (!_PyArg_CheckPositional("crc32", nargs, 1, 2)) {
+        goto exit;
+    }
+    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
+        goto exit;
+    }
+    if (!PyBuffer_IsContiguous(&data, 'C')) {
+        _PyArg_BadArgument("crc32", "argument 1", "contiguous buffer", args[0]);
+        goto exit;
+    }
+    if (nargs < 2) {
+        goto skip_optional;
+    }
+    value = (uint32_t)PyLong_AsUnsignedLongMask(args[1]);
+    if (value == (uint32_t)-1 && PyErr_Occurred()) {
+        goto exit;
+    }
+skip_optional:
+    return_value = isal_zlib_crc32_impl(module, &data, value);
+
+exit:
+    /* Cleanup for data */
+    if (data.obj) {
+       PyBuffer_Release(&data);
+    }
+    return return_value;
+}
 
 typedef struct {
     PyTypeObject *Comptype;
@@ -56,6 +97,7 @@ typedef struct {
 
 static PyMethodDef IsalZlibMethods[] = {
     {"adler32", (PyCFunction)(void(*)(void))isal_zlib_adler32, METH_FASTCALL, NULL},
+    {"crc32", (PyCFunction)(void(*)(void))isal_zlib_crc32, METH_FASTCALL, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
