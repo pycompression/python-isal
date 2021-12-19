@@ -9,6 +9,7 @@ Changelog
 
 version 1.0.0-dev
 ------------------
++ ISA-L library version variables are now available on windows as well.
 + Wheels are now always build with nasm for the x86 architecture. Previously
   yasm was used for Linux and MacOS due to build issues that have since been
   fixed upstream.

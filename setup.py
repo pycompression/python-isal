@@ -55,10 +55,9 @@ def cythonize_modules():
     modules = [Extension("isal.isal_zlib", ["src/isal/isal_zlib.pyx"],
                          **extension_args),
                Extension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"],
+                         **extension_args),
+               Extension("isal._isal", ["src/isal/_isal.pyx"],
                          **extension_args)]
-    if SYSTEM_IS_UNIX:
-        modules.append(Extension("isal._isal", ["src/isal/_isal.pyx"],
-                                 **extension_args))
     return cythonize(modules, compiler_directives=compiler_directives)
 
 
@@ -167,6 +166,8 @@ def build_isa_l(compiler_command: str, compiler_options: str):
                         Path(temp_prefix, "include", "isa-l"))
         shutil.copy(os.path.join(build_dir, "isa-l_static.lib"),
                     os.path.join(temp_prefix, "isa-l_static.lib"))
+        shutil.copy(os.path.join(build_dir, "isa-l.h"),
+                    os.path.join(temp_prefix, "include", "isa-l.h"))
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
     shutil.rmtree(build_dir)
