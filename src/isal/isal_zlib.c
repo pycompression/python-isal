@@ -1,16 +1,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#include <isa-l/crc.h>
-#include <isa-l/igzip_lib.h>
-#include <stdint.h>
-
-static PyObject *
-isal_zlib_adler32_impl(PyObject *module, Py_buffer *data, uint32_t value)
-{
-    value = isal_adler32(value, data->buf, (uint64_t)data->len);
-    return PyLong_FromUnsignedLong(value & 0xffffffffU);
-}
+#include "isal_zlib_impl.h"
 
 static PyObject *
 isal_zlib_adler32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
@@ -45,13 +36,6 @@ exit:
        PyBuffer_Release(&data);
     }
     return return_value;
-}
-
-static PyObject *
-isal_zlib_crc32_impl(PyObject *module, Py_buffer *data, uint32_t value)
-{
-    value = crc32_gzip_refl(value, data->buf, (uint64_t)data->len);
-    return PyLong_FromUnsignedLong(value & 0xffffffffU);
 }
 
 static PyObject *
