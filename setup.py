@@ -214,6 +214,6 @@ setup(
     ],
     python_requires=">=3.6",
     ext_modules=cythonize_modules() + [
-        Extension("isal.isal_zlib", ["src/isal/isalmodule.c"])
+        Extension("isal.isal_zlib", ["src/isal/isal_zlib.c"])
     ]
 )
