@@ -6,14 +6,29 @@
 
 /* Initial buffer size. */
 #define DEF_BUF_SIZE (16*1024)
+#define ISAL_BEST_SPEED ISAL_DEF_MIN_LEVEL
+#define ISAL_BEST_COMPRESSION ISAL_DEF_MAX_LEVEL
+#define ISAL_DEFAULT_COMPRESSION 2
+#define COMP_DEFLATE IGZIP_DEFLATE
+#define COMP_GZIP = IGZIP_GZIP
+#define COMP_GZIP_NO_HDR IGZIP_GZIP_NO_HDR
+#define COMP_ZLIB IGZIP_ZLIB
+#define COMP_ZLIB_NO_HDR IGZIP_ZLIB_NO_HDR
+#define DECOMP_DEFLATE ISAL_DEFLATE
+#define DECOMP_GZIP ISAL_GZIP
+#define DECOMP_GZIP_NO_HDR ISAL_GZIP_NO_HDR
+#define DECOMP_ZLIB ISAL_ZLIB
+#define DECOMP_ZLIB_NO_HDR ISAL_ZLIB_NO_HDR
+#define DECOMP_ZLIB_NO_HDR_VER ISAL_ZLIB_NO_HDR_VER
+#define DECOMP_GZIP_NO_HDR_VER ISAL_GZIP_NO_HDR_VER
 
 enum MemLevel {
-    MEM_DEFAULT,
-    MEM_MIN,
-    MEM_SMALL,
-    MEM_MEDIUM,
-    MEM_LARGE,
-    MEM_EXTRA_LARGE
+    MEM_LEVEL_DEFAULT,
+    MEM_LEVEL_MIN,
+    MEM_LEVEL_SMALL,
+    MEM_LEVEL_MEDIUM,
+    MEM_LEVEL_LARGE,
+    MEM_LEVEL_EXTRA_LARGE
 };
 
 static int mem_level_to_bufsize(int compression_level, int mem_level,
@@ -21,45 +36,45 @@ static int mem_level_to_bufsize(int compression_level, int mem_level,
 {
     if (compression_level == 0){
         switch(mem_level){
-            case MEM_DEFAULT: *bufsize = ISAL_DEF_LVL0_DEFAULT;
-            case MEM_MIN: *bufsize = ISAL_DEF_LVL0_MIN;
-            case MEM_SMALL: *bufsize = ISAL_DEF_LVL0_SMALL;
-            case MEM_MEDIUM: *bufsize = ISAL_DEF_LVL0_MEDIUM;
-            case MEM_LARGE: *bufsize = ISAL_DEF_LVL0_LARGE;
-            case MEM_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL0_EXTRA_LARGE;
+            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL0_DEFAULT;
+            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL0_MIN;
+            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL0_SMALL;
+            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL0_MEDIUM;
+            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL0_LARGE;
+            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL0_EXTRA_LARGE;
             default: *bufsize = 0; return -1;
         }
     }
     else if (compression_level == 1){
         switch(mem_level){
-            case MEM_DEFAULT: *bufsize = ISAL_DEF_LVL1_DEFAULT;
-            case MEM_MIN: *bufsize = ISAL_DEF_LVL1_MIN;
-            case MEM_SMALL: *bufsize = ISAL_DEF_LVL1_SMALL;
-            case MEM_MEDIUM: *bufsize = ISAL_DEF_LVL1_MEDIUM;
-            case MEM_LARGE: *bufsize = ISAL_DEF_LVL1_LARGE;
-            case MEM_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL1_EXTRA_LARGE;
+            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL1_DEFAULT;
+            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL1_MIN;
+            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL1_SMALL;
+            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL1_MEDIUM;
+            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL1_LARGE;
+            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL1_EXTRA_LARGE;
             default: *bufsize = 0; return -1;
         }
     }
     else if (compression_level == 2){
         switch(mem_level){
-            case MEM_DEFAULT: *bufsize = ISAL_DEF_LVL2_DEFAULT;
-            case MEM_MIN: *bufsize = ISAL_DEF_LVL2_MIN;
-            case MEM_SMALL: *bufsize = ISAL_DEF_LVL2_SMALL;
-            case MEM_MEDIUM: *bufsize = ISAL_DEF_LVL2_MEDIUM;
-            case MEM_LARGE: *bufsize = ISAL_DEF_LVL2_LARGE;
-            case MEM_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL2_EXTRA_LARGE;
+            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL2_DEFAULT;
+            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL2_MIN;
+            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL2_SMALL;
+            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL2_MEDIUM;
+            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL2_LARGE;
+            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL2_EXTRA_LARGE;
             default: *bufsize = 0; return -1;
         }
     }
     else if (compression_level == 3){
         switch(mem_level){
-            case MEM_DEFAULT: *bufsize = ISAL_DEF_LVL3_DEFAULT;
-            case MEM_MIN: *bufsize = ISAL_DEF_LVL3_MIN;
-            case MEM_SMALL: *bufsize = ISAL_DEF_LVL3_SMALL;
-            case MEM_MEDIUM: *bufsize = ISAL_DEF_LVL3_MEDIUM;
-            case MEM_LARGE: *bufsize = ISAL_DEF_LVL3_LARGE;
-            case MEM_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL3_EXTRA_LARGE;
+            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL3_DEFAULT;
+            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL3_MIN;
+            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL3_SMALL;
+            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL3_MEDIUM;
+            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL3_LARGE;
+            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL3_EXTRA_LARGE;
             default: *bufsize = 0; return -1;
         }
     }
@@ -168,14 +183,15 @@ arrange_output_buffer(uint32_t *avail_out,
 }
 
 static PyObject *
-igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level,
-                        uint16_t flag,
+igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
+                        int level,
+                        int flag,
                         int mem_level,
-                        uint16_t hist_bits)
+                        int hist_bits)
 {
     PyObject *RetVal = NULL;
     uint8_t *ibuf;
-    uint8_t *level_buf;
+    uint8_t *level_buf = NULL;
     uint32_t level_buf_size;
     if (mem_level_to_bufsize(level, mem_level, &level_buf_size, ErrorClass) != 0){
         PyErr_SetString(ErrorClass, "Invalid memory level or compression level");
@@ -186,11 +202,11 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level,
     int err;
     struct isal_zstream zst;
     isal_deflate_init(&zst);
-    zst.level = level;
+    zst.level = (uint32_t)level;
     zst.level_buf = level_buf;
     zst.level_buf_size = level_buf_size;
-    zst.hist_bits = hist_bits;
-    zst.gzip_flag = flag ;
+    zst.hist_bits = (uint16_t)hist_bits;
+    zst.gzip_flag = (uint16_t)flag ;
 
     ibuf = (uint8_t *)data->buf;
     ibuflen = data->len;

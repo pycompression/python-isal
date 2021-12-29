@@ -52,9 +52,7 @@ def cythonize_modules():
     if os.getenv("CYTHON_COVERAGE") is not None:
         compiler_directives['linetrace'] = True
         extension_args["define_macros"] = [("CYTHON_TRACE_NOGIL", "1")]
-    modules = [Extension("isal.igzip_lib", ["src/isal/igzip_lib.pyx"],
-                         **extension_args),
-               Extension("isal._isal", ["src/isal/_isal.pyx"],
+    modules = [Extension("isal._isal", ["src/isal/_isal.pyx"],
                          **extension_args)]
     return cythonize(modules, compiler_directives=compiler_directives)
 
@@ -214,6 +212,7 @@ setup(
     ],
     python_requires=">=3.6",
     ext_modules=cythonize_modules() + [
-        Extension("isal.isal_zlib", ["src/isal/isal_zlib.c"])
+        Extension("isal.isal_zlib", ["src/isal/isal_zlib.c"]),
+        Extension("isal.igzip_lib", ["src/isal/igzip_lib.c"])
     ]
 )
