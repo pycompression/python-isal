@@ -8,13 +8,13 @@
 #define DEF_BUF_SIZE (16*1024)
 
 enum MemLevel {
-    MEM_DEFAULT
-    MEM_MIN
-    MEM_SMALL
-    MEM_MEDIUM
-    MEM_LARGE
+    MEM_DEFAULT,
+    MEM_MIN,
+    MEM_SMALL,
+    MEM_MEDIUM,
+    MEM_LARGE,
     MEM_EXTRA_LARGE
-}
+};
 
 static int mem_level_to_bufsize(int compression_level, int mem_level,
                                 uint32_t * bufsize, PyObject *ErrorClass)
@@ -66,44 +66,42 @@ static int mem_level_to_bufsize(int compression_level, int mem_level,
     else {
         *bufsize = 0; return -1;
     }
-    return 0
+    return 0;
 }
 
 static void isal_deflate_error(int err, PyObject *ErrorClass)
 {
-    const char * msg = NULL
-    switch(err){
-        case COMP_OK: return;
-        case INVALID_FLUSH: msg = "Invalid flush type";
-        case INVALID_PARAM: msg = "Invalid parameter";
-        case STATELESS_OVERFLOW: msg = "Not enough room in output buffer";
-        case ISAL_INVALID_OPERATION: msg = "Invalid operation";
-        case ISAL_INVALID_STATE: msg = "Invalid state";
-        case ISAL_INVALID_LEVEL: msg = "Invalid compression level.";
-        case ISAL_INVALID_LEVEL_BUF: msg = "Level buffer too small.";
-        default: msg = "Unknown Error"
-    }
+    const char * msg = NULL;
+    if (err == COMP_OK) return;
+    else if (err == INVALID_FLUSH) msg = "Invalid flush type";
+    else if (err == INVALID_PARAM) msg = "Invalid parameter";
+    else if (err == STATELESS_OVERFLOW) msg = "Not enough room in output buffer";
+    else if (err == ISAL_INVALID_OPERATION) msg = "Invalid operation";
+    else if (err == ISAL_INVALID_STATE) msg = "Invalid state";
+    else if (err == ISAL_INVALID_LEVEL) msg = "Invalid compression level.";
+    else if (err == ISAL_INVALID_LEVEL_BUF) msg = "Level buffer too small.";
+    else msg = "Unknown Error";
+
     PyErr_Format(ErrorClass, "Error %d %s", err, msg);
 }
 
 static void isal_inflate_error(int err, PyObject *ErrorClass){
-    const char * msg = NULL
-    switch(err) {
-        case ISAL_DECOMP_OK: return;
-        case ISAL_END_INPUT: msg = "End of input reached";
-        case ISAL_OUT_OVERFLOW: msg = "End of output reached";
-        case ISAL_NAME_OVERFLOW: msg = "End of gzip name buffer reached";
-        case ISAL_COMMENT_OVERFLOW: msg = "End of gzip comment buffer reached";
-        case ISAL_EXTRA_OVERFLOW: msg = "End of extra buffer reached";
-        case ISAL_NEED_DICT: msg = "Dictionary needed to continue";
-        case ISAL_INVALID_BLOCK: msg = "Invalid deflate block found";
-        case ISAL_INVALID_SYMBOL: msg = "Invalid deflate symbol found";
-        case ISAL_INVALID_LOOKBACK: msg = "Invalid lookback distance found";
-        case ISAL_INVALID_WRAPPER: msg = "Invalid gzip/zlib wrapper found";
-        case ISAL_UNSUPPORTED_METHOD: msg = "Gzip/zlib wrapper specifies unsupported compress method";
-        case ISAL_INCORRECT_CHECKSUM: msg = "Incorrect checksum found";
-        case default: msg = "Unknown error";
-    }
+    const char * msg = NULL;
+    if (err == ISAL_DECOMP_OK) return;
+    else if (err == ISAL_END_INPUT) msg = "End of input reached";
+    else if (err == ISAL_OUT_OVERFLOW) msg = "End of output reached";
+    else if (err == ISAL_NAME_OVERFLOW) msg = "End of gzip name buffer reached";
+    else if (err == ISAL_COMMENT_OVERFLOW) msg = "End of gzip comment buffer reached";
+    else if (err == ISAL_EXTRA_OVERFLOW) msg = "End of extra buffer reached";
+    else if (err == ISAL_NEED_DICT) msg = "Dictionary needed to continue";
+    else if (err == ISAL_INVALID_BLOCK) msg = "Invalid deflate block found";
+    else if (err == ISAL_INVALID_SYMBOL) msg = "Invalid deflate symbol found";
+    else if (err == ISAL_INVALID_LOOKBACK) msg = "Invalid lookback distance found";
+    else if (err == ISAL_INVALID_WRAPPER) msg = "Invalid gzip/zlib wrapper found";
+    else if (err == ISAL_UNSUPPORTED_METHOD) msg = "Gzip/zlib wrapper specifies unsupported compress method";
+    else if (err == ISAL_INCORRECT_CHECKSUM) msg = "Incorrect checksum found";
+    else msg = "Unknown error";
+
     PyErr_Format(ErrorClass, "Error %d %s", err, msg);
 }
 
@@ -172,7 +170,7 @@ arrange_output_buffer(uint32_t *avail_out,
 static PyObject *
 igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level,
                         uint16_t flag,
-                        int mem_level
+                        int mem_level,
                         uint16_t hist_bits)
 {
     PyObject *RetVal = NULL;
@@ -185,8 +183,8 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level,
     }
     level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
     Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE;
-    int err, flush;
-    isal_zstream zst;
+    int err;
+    struct isal_zstream zst;
     isal_deflate_init(&zst);
     zst.level = level;
     zst.level_buf = level_buf;
@@ -229,106 +227,6 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level,
     return RetVal;
  error:
     PyMem_Free(level_buf);
-    Py_XDECREF(RetVal);
-    return NULL;
-}
-
-static PyObject *
-zlib_decompress_impl(PyObject *module, Py_buffer *data, int wbits,
-                     Py_ssize_t bufsize)
-/*[clinic end generated code: output=77c7e35111dc8c42 input=21960936208e9a5b]*/
-{
-    PyObject *RetVal = NULL;
-    Byte *ibuf;
-    Py_ssize_t ibuflen;
-    int err, flush;
-    z_stream zst;
-
-    if (bufsize < 0) {
-        PyErr_SetString(PyExc_ValueError, "bufsize must be non-negative");
-        return NULL;
-    } else if (bufsize == 0) {
-        bufsize = 1;
-    }
-
-    ibuf = data->buf;
-    ibuflen = data->len;
-
-    zst.opaque = NULL;
-    zst.zalloc = PyZlib_Malloc;
-    zst.zfree = PyZlib_Free;
-    zst.avail_in = 0;
-    zst.next_in = ibuf;
-    err = inflateInit2(&zst, wbits);
-
-    switch (err) {
-    case Z_OK:
-        break;
-    case Z_MEM_ERROR:
-        PyErr_SetString(PyExc_MemoryError,
-                        "Out of memory while decompressing data");
-        goto error;
-    default:
-        inflateEnd(&zst);
-        zlib_error(zst, err, "while preparing to decompress data");
-        goto error;
-    }
-
-    do {
-        arrange_input_buffer(&zst, &ibuflen);
-        flush = ibuflen == 0 ? Z_FINISH : Z_NO_FLUSH;
-
-        do {
-            bufsize = arrange_output_buffer(&zst, &RetVal, bufsize);
-            if (bufsize < 0) {
-                inflateEnd(&zst);
-                goto error;
-            }
-
-            Py_BEGIN_ALLOW_THREADS
-            err = inflate(&zst, flush);
-            Py_END_ALLOW_THREADS
-
-            switch (err) {
-            case Z_OK:            /* fall through */
-            case Z_BUF_ERROR:     /* fall through */
-            case Z_STREAM_END:
-                break;
-            case Z_MEM_ERROR:
-                inflateEnd(&zst);
-                PyErr_SetString(PyExc_MemoryError,
-                                "Out of memory while decompressing data");
-                goto error;
-            default:
-                inflateEnd(&zst);
-                zlib_error(zst, err, "while decompressing data");
-                goto error;
-            }
-
-        } while (zst.avail_out == 0);
-
-    } while (err != Z_STREAM_END && ibuflen != 0);
-
-
-    if (err != Z_STREAM_END) {
-        inflateEnd(&zst);
-        zlib_error(zst, err, "while decompressing data");
-        goto error;
-    }
-
-    err = inflateEnd(&zst);
-    if (err != Z_OK) {
-        zlib_error(zst, err, "while finishing decompression");
-        goto error;
-    }
-
-    if (_PyBytes_Resize(&RetVal, zst.next_out -
-                        (Byte *)PyBytes_AS_STRING(RetVal)) < 0)
-        goto error;
-
-    return RetVal;
-
- error:
     Py_XDECREF(RetVal);
     return NULL;
 }
