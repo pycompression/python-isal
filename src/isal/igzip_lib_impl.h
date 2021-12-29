@@ -69,6 +69,44 @@ static int mem_level_to_bufsize(int compression_level, int mem_level,
     return 0
 }
 
+static void isal_deflate_error(int err)
+{
+    const char * msg = NULL
+    switch(err){
+        case COMP_OK: return;
+        case INVALID_FLUSH: msg = "Invalid flush type";
+        case INVALID_PARAM: msg = "Invalid parameter";
+        case STATELESS_OVERFLOW: msg = "Not enough room in output buffer";
+        case ISAL_INVALID_OPERATION: msg = "Invalid operation";
+        case ISAL_INVALID_STATE: msg = "Invalid state";
+        case ISAL_INVALID_LEVEL: msg = "Invalid compression level.";
+        case ISAL_INVALID_LEVEL_BUF: msg = "Level buffer too small.";
+        default: msg = "Unknown Error"
+    }
+    PyErr_Format(_zlibstate_global->ZlibError, "Error %d %s", err, msg);
+}
+
+static void isal_inflate_error(int err){
+    const char * msg = NULL
+    switch(err) {
+        case ISAL_DECOMP_OK: return;
+        case ISAL_END_INPUT: msg = "End of input reached";
+        case ISAL_OUT_OVERFLOW: msg = "End of output reached";
+        case ISAL_NAME_OVERFLOW: msg = "End of gzip name buffer reached";
+        case ISAL_COMMENT_OVERFLOW: msg = "End of gzip comment buffer reached";
+        case ISAL_EXTRA_OVERFLOW: msg = "End of extra buffer reached";
+        case ISAL_NEED_DICT: msg = "Dictionary needed to continue";
+        case ISAL_INVALID_BLOCK: msg = "Invalid deflate block found";
+        case ISAL_INVALID_SYMBOL: msg = "Invalid deflate symbol found";
+        case ISAL_INVALID_LOOKBACK: msg = "Invalid lookback distance found";
+        case ISAL_INVALID_WRAPPER: msg = "Invalid gzip/zlib wrapper found";
+        case ISAL_UNSUPPORTED_METHOD: msg = "Gzip/zlib wrapper specifies unsupported compress method";
+        case ISAL_INCORRECT_CHECKSUM: msg = "Incorrect checksum found";
+        case default: msg = "Unknown error";
+    }
+    PyErr_Format(_zlibstate_global->ZlibError, "Error %d %s", err, msg);
+}
+
 static void
 arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
 {
