@@ -31,56 +31,40 @@ enum MemLevel {
     MEM_LEVEL_EXTRA_LARGE
 };
 
+uint32_t LEVEL_BUF_SIZES[24] = {
+    ISAL_DEF_LVL0_DEFAULT,
+    ISAL_DEF_LVL0_MIN,
+    ISAL_DEF_LVL0_SMALL,
+    ISAL_DEF_LVL0_MEDIUM,
+    ISAL_DEF_LVL0_LARGE,
+    ISAL_DEF_LVL0_EXTRA_LARGE,
+    ISAL_DEF_LVL1_DEFAULT,
+    ISAL_DEF_LVL1_MIN,
+    ISAL_DEF_LVL1_SMALL,
+    ISAL_DEF_LVL1_MEDIUM,
+    ISAL_DEF_LVL1_LARGE,
+    ISAL_DEF_LVL1_EXTRA_LARGE,
+    ISAL_DEF_LVL2_DEFAULT,
+    ISAL_DEF_LVL2_MIN,
+    ISAL_DEF_LVL2_SMALL,
+    ISAL_DEF_LVL2_MEDIUM,
+    ISAL_DEF_LVL2_LARGE,
+    ISAL_DEF_LVL2_EXTRA_LARGE,
+    ISAL_DEF_LVL3_DEFAULT,
+    ISAL_DEF_LVL3_MIN,
+    ISAL_DEF_LVL3_SMALL,
+    ISAL_DEF_LVL3_MEDIUM,
+    ISAL_DEF_LVL3_LARGE,
+    ISAL_DEF_LVL3_EXTRA_LARGE
+};
+
 static int mem_level_to_bufsize(int compression_level, int mem_level,
                                 uint32_t * bufsize, PyObject *ErrorClass)
 {
-    if (compression_level == 0){
-        switch(mem_level){
-            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL0_DEFAULT;
-            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL0_MIN;
-            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL0_SMALL;
-            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL0_MEDIUM;
-            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL0_LARGE;
-            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL0_EXTRA_LARGE;
-            default: *bufsize = 0; return -1;
-        }
-    }
-    else if (compression_level == 1){
-        switch(mem_level){
-            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL1_DEFAULT;
-            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL1_MIN;
-            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL1_SMALL;
-            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL1_MEDIUM;
-            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL1_LARGE;
-            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL1_EXTRA_LARGE;
-            default: *bufsize = 0; return -1;
-        }
-    }
-    else if (compression_level == 2){
-        switch(mem_level){
-            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL2_DEFAULT;
-            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL2_MIN;
-            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL2_SMALL;
-            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL2_MEDIUM;
-            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL2_LARGE;
-            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL2_EXTRA_LARGE;
-            default: *bufsize = 0; return -1;
-        }
-    }
-    else if (compression_level == 3){
-        switch(mem_level){
-            case MEM_LEVEL_DEFAULT: *bufsize = ISAL_DEF_LVL3_DEFAULT;
-            case MEM_LEVEL_MIN: *bufsize = ISAL_DEF_LVL3_MIN;
-            case MEM_LEVEL_SMALL: *bufsize = ISAL_DEF_LVL3_SMALL;
-            case MEM_LEVEL_MEDIUM: *bufsize = ISAL_DEF_LVL3_MEDIUM;
-            case MEM_LEVEL_LARGE: *bufsize = ISAL_DEF_LVL3_LARGE;
-            case MEM_LEVEL_EXTRA_LARGE: *bufsize = ISAL_DEF_LVL3_EXTRA_LARGE;
-            default: *bufsize = 0; return -1;
-        }
-    }
-    else {
+    if (compression_level < 0 || compression_level > 3 || mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
         *bufsize = 0; return -1;
     }
+    *bufsize = LEVEL_BUF_SIZES[compression_level * 6 + mem_level];
     return 0;
 }
 

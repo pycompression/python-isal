@@ -90,7 +90,7 @@ exit:
 }
 
 static PyMethodDef IgzipLibMethods[] = {
-    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_FASTCALL, NULL},
+    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_FASTCALL|METH_KEYWORDS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 
