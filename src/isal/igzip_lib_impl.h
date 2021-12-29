@@ -17,7 +17,7 @@ enum MemLevel {
 }
 
 static int mem_level_to_bufsize(int compression_level, int mem_level,
-                                uint32_t * bufsize)
+                                uint32_t * bufsize, PyObject *ErrorClass)
 {
     if (compression_level == 0){
         switch(mem_level){
@@ -69,7 +69,7 @@ static int mem_level_to_bufsize(int compression_level, int mem_level,
     return 0
 }
 
-static void isal_deflate_error(int err)
+static void isal_deflate_error(int err, PyObject *ErrorClass)
 {
     const char * msg = NULL
     switch(err){
@@ -83,10 +83,10 @@ static void isal_deflate_error(int err)
         case ISAL_INVALID_LEVEL_BUF: msg = "Level buffer too small.";
         default: msg = "Unknown Error"
     }
-    PyErr_Format(_zlibstate_global->ZlibError, "Error %d %s", err, msg);
+    PyErr_Format(ErrorClass, "Error %d %s", err, msg);
 }
 
-static void isal_inflate_error(int err){
+static void isal_inflate_error(int err, PyObject *ErrorClass){
     const char * msg = NULL
     switch(err) {
         case ISAL_DECOMP_OK: return;
@@ -104,7 +104,7 @@ static void isal_inflate_error(int err){
         case ISAL_INCORRECT_CHECKSUM: msg = "Incorrect checksum found";
         case default: msg = "Unknown error";
     }
-    PyErr_Format(_zlibstate_global->ZlibError, "Error %d %s", err, msg);
+    PyErr_Format(ErrorClass, "Error %d %s", err, msg);
 }
 
 static void
@@ -116,7 +116,7 @@ arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
 
 static Py_ssize_t
 arrange_output_buffer_with_maximum(uint32_t *avail_out,
-                                   uint8_t *next_out,
+                                   uint8_t **next_out,
                                    PyObject **buffer,
                                    Py_ssize_t length,
                                    Py_ssize_t max_length)
@@ -155,7 +155,7 @@ arrange_output_buffer_with_maximum(uint32_t *avail_out,
 
 static Py_ssize_t
 arrange_output_buffer(uint32_t *avail_out,
-                      uint8_t *next_out,
+                      uint8_t **next_out,
                       PyObject **buffer,
                       Py_ssize_t length)
 {
@@ -170,84 +170,65 @@ arrange_output_buffer(uint32_t *avail_out,
 }
 
 static PyObject *
-igzip_lib_compress_impl(PyObject *module, Py_buffer *data, int level,
+igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level,
                         uint16_t flag,
                         int mem_level
                         uint16_t hist_bits)
 {
     PyObject *RetVal = NULL;
     uint8_t *ibuf;
-    uint8_t *level_buf
-    uint32_t level_buf_size
+    uint8_t *level_buf;
+    uint32_t level_buf_size;
+    if (mem_level_to_bufsize(level, mem_level, &level_buf_size, ErrorClass) != 0){
+        PyErr_SetString(ErrorClass, "Invalid memory level or compression level");
+        goto error;
+    }
+    level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
     Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE;
     int err, flush;
     isal_zstream zst;
-    zst.level = level
-    zst.level_buf = level_buf
-    zst.level_buf_size = level_buf_size
+    isal_deflate_init(&zst);
+    zst.level = level;
+    zst.level_buf = level_buf;
+    zst.level_buf_size = level_buf_size;
+    zst.hist_bits = hist_bits;
+    zst.gzip_flag = flag ;
 
-    ibuf = data->buf;
+    ibuf = (uint8_t *)data->buf;
     ibuflen = data->len;
 
-    zst.opaque = NULL;
-    zst.zalloc = PyZlib_Malloc;
-    zst.zfree = PyZlib_Free;
     zst.next_in = ibuf;
-    err = deflateInit(&zst, level);
-
-    switch (err) {
-    case Z_OK:
-        break;
-    case Z_MEM_ERROR:
-        PyErr_SetString(PyExc_MemoryError,
-                        "Out of memory while compressing data");
-        goto error;
-    case Z_STREAM_ERROR:
-        PyErr_SetString(_zlibstate_global->ZlibError, "Bad compression level");
-        goto error;
-    default:
-        deflateEnd(&zst);
-        zlib_error(zst, err, "while compressing data");
-        goto error;
-    }
 
     do {
-        arrange_input_buffer(&zst, &ibuflen);
-        flush = ibuflen == 0 ? Z_FINISH : Z_NO_FLUSH;
+        arrange_input_buffer(&(zst.avail_in), &ibuflen);
+        if (ibuflen == 0){
+            zst.flush = FULL_FLUSH;
+            zst.end_of_stream = 1;
+        }
+        else zst.flush = NO_FLUSH;
 
         do {
-            obuflen = arrange_output_buffer(&zst, &RetVal, obuflen);
+            obuflen = arrange_output_buffer(&(zst.avail_out), &(zst.next_out), &RetVal, obuflen);
             if (obuflen < 0) {
-                deflateEnd(&zst);
+                PyErr_SetString(PyExc_MemoryError,
+                        "Unsufficient memory for buffer allocation");
                 goto error;
             }
+            err = isal_deflate(&zst);
 
-            Py_BEGIN_ALLOW_THREADS
-            err = deflate(&zst, flush);
-            Py_END_ALLOW_THREADS
-
-            if (err == Z_STREAM_ERROR) {
-                deflateEnd(&zst);
-                zlib_error(zst, err, "while compressing data");
+            if (err != COMP_OK) {
+                isal_deflate_error(err, ErrorClass);
                 goto error;
             }
 
         } while (zst.avail_out == 0);
         assert(zst.avail_in == 0);
 
-    } while (flush != Z_FINISH);
-    assert(err == Z_STREAM_END);
-
-    err = deflateEnd(&zst);
-    if (err == Z_OK) {
-        if (_PyBytes_Resize(&RetVal, zst.next_out -
-                            (Byte *)PyBytes_AS_STRING(RetVal)) < 0)
-            goto error;
-        return RetVal;
-    }
-    else
-        zlib_error(zst, err, "while finishing compression");
+    } while (zst.internal_state.state != ZSTATE_END);
+    PyMem_Free(level_buf);
+    return RetVal;
  error:
+    PyMem_Free(level_buf);
     Py_XDECREF(RetVal);
     return NULL;
 }
