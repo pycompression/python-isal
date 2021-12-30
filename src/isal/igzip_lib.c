@@ -24,9 +24,10 @@ igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
     static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
     PyObject *argsbuf[5];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    PyObject *ErrorClass = get_igzip_lib_state(module)->IsalError;
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
-    int flag = DECOMP_DEFLATE;
+    int flag = COMP_DEFLATE;
     int mem_level = MEM_LEVEL_DEFAULT;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
 
@@ -45,7 +46,7 @@ igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
         goto skip_optional_pos;
     }
     if (args[1]) {
-        level = (uint32_t)_PyLong_AsInt(args[1]);
+        level = _PyLong_AsInt(args[1]);
         if (level == -1 && PyErr_Occurred()) {
             goto exit;
         }
@@ -54,8 +55,8 @@ igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
         }
     }
     if (args[2]) {
-        flag = (uint16_t)_PyLong_AsInt(args[2]);
-        if (level == -1 && PyErr_Occurred()) {
+        flag = _PyLong_AsInt(args[2]);
+        if (flag == -1 && PyErr_Occurred()) {
             goto exit;
         }
         if (!--noptargs) {
@@ -77,8 +78,7 @@ igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
     }
 skip_optional_pos:
     return_value = igzip_lib_compress_impl(
-        get_igzip_lib_state(module)->IsalError,
-        &data, level, flag, mem_level, hist_bits);
+        ErrorClass, &data, level, flag, mem_level, hist_bits);
 
 exit:
     /* Cleanup for data */
@@ -89,8 +89,90 @@ exit:
     return return_value;
 }
 
+
+static PyObject *
+igzip_lib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+{
+    PyObject *return_value = NULL;
+    static const char * const _keywords[] = {"", "flag", "hist_bits" "bufsize", NULL};
+    static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
+    PyObject *argsbuf[4];
+    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    PyObject *ErrorClass = get_igzip_lib_state(module)->IsalError;
+    Py_buffer data = {NULL, NULL};
+    int flag = DECOMP_DEFLATE;
+    int hist_bits = ISAL_DEF_MAX_HIST_BITS;
+    Py_ssize_t bufsize = DEF_BUF_SIZE;
+
+    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 4, 0, argsbuf);
+    if (!args) {
+        goto exit;
+    }
+    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
+        goto exit;
+    }
+    if (!PyBuffer_IsContiguous(&data, 'C')) {
+        _PyArg_BadArgument("decompress", "argument 1", "contiguous buffer", args[0]);
+        goto exit;
+    }
+    if (!noptargs) {
+        goto skip_optional_pos;
+    }
+    if (args[1]) {
+        flag = _PyLong_AsInt(args[1]);
+        if (flag == -1 && PyErr_Occurred()) {
+            goto exit;
+        }
+        if (!--noptargs) {
+            goto skip_optional_pos;
+        }
+    }
+    if (args[2]) {
+        hist_bits = _PyLong_AsInt(args[2]);
+        if (hist_bits == -1 && PyErr_Occurred()) {
+            goto exit;
+        }
+        if (!--noptargs) {
+            goto skip_optional_pos;
+        }
+    }
+    if (args[2]) {
+        flag = _PyLong_AsInt(args[2]);
+        if (flag == -1 && PyErr_Occurred()) {
+            goto exit;
+        }
+        if (!--noptargs) {
+            goto skip_optional_pos;
+        }
+    }
+    {
+        Py_ssize_t ival = -1;
+        PyObject *iobj = PyNumber_Index(args[3]);
+        if (iobj != NULL) {
+            ival = PyLong_AsSsize_t(iobj);
+            Py_DECREF(iobj);
+        }
+        if (ival == -1 && PyErr_Occurred()) {
+            goto exit;
+        }
+        bufsize = ival;
+    }
+skip_optional_pos:
+    return_value = igzip_lib_decompress_impl(ErrorClass, &data, flag, hist_bits, bufsize);
+
+exit:
+    /* Cleanup for data */
+    if (data.obj) {
+       PyBuffer_Release(&data);
+    }
+
+    return return_value;
+}
+
+
 static PyMethodDef IgzipLibMethods[] = {
     {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_FASTCALL|METH_KEYWORDS, NULL},
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_decompress, METH_FASTCALL|METH_KEYWORDS, NULL},
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
 

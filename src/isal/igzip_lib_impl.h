@@ -242,9 +242,9 @@ igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
     PyObject *RetVal = NULL;
     uint8_t *ibuf;
     Py_ssize_t ibuflen;
-    int err, flush;
+    int err;
     struct inflate_state zst;
-    isal_inflate_init(&zst)
+    isal_inflate_init(&zst);
 
     if (bufsize < 0) {
         PyErr_SetString(PyExc_ValueError, "bufsize must be non-negative");
@@ -253,11 +253,11 @@ igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
         bufsize = 1;
     }
 
-    ibuf = <uint8_t *>data->buf;
+    ibuf = (uint8_t *)data->buf;
     ibuflen = data->len;
 
-    zst.hist_bits = (uint32_t)hist_bits
-    zst.crc_flag = (uint32_t)flag
+    zst.hist_bits = (uint32_t)hist_bits;
+    zst.crc_flag = (uint32_t)flag;
     zst.avail_in = 0;
     zst.next_in = ibuf;
 
@@ -273,7 +273,7 @@ igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
 
             err = isal_inflate(&zst);
             if (err != ISAL_DECOMP_OK) {
-                isal_inflate_error(err, ErrorClass)
+                isal_inflate_error(err, ErrorClass);
                 goto error;
             }
         } while (zst.avail_out == 0);
@@ -287,7 +287,7 @@ igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
     }
 
     if (_PyBytes_Resize(&RetVal, zst.next_out -
-                        (Byte *)PyBytes_AS_STRING(RetVal)) < 0)
+                        (uint8_t *)PyBytes_AS_STRING(RetVal)) < 0)
         goto error;
 
     return RetVal;
