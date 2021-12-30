@@ -222,7 +222,11 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
         } while (zst.avail_out == 0);
         assert(zst.avail_in == 0);
 
-    } while (zst.internal_state.state != ZSTATE_END);
+    } while (zst.end_of_stream != 1);
+    assert(zst.internal_state.state == ZSTATE_END);
+    if (_PyBytes_Resize(&RetVal, zst.next_out -
+                        (uint8_t *)PyBytes_AS_STRING(RetVal)) < 0)
+        goto error;
     PyMem_Free(level_buf);
     return RetVal;
  error:
