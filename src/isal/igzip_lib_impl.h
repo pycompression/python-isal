@@ -22,7 +22,7 @@
 #define DECOMP_ZLIB_NO_HDR_VER ISAL_ZLIB_NO_HDR_VER
 #define DECOMP_GZIP_NO_HDR_VER ISAL_GZIP_NO_HDR_VER
 
-enum MemLevel {
+static enum MemLevel {
     MEM_LEVEL_DEFAULT,
     MEM_LEVEL_MIN,
     MEM_LEVEL_SMALL,
@@ -31,7 +31,7 @@ enum MemLevel {
     MEM_LEVEL_EXTRA_LARGE
 };
 
-uint32_t LEVEL_BUF_SIZES[24] = {
+static const uint32_t LEVEL_BUF_SIZES[24] = {
     ISAL_DEF_LVL0_DEFAULT,
     ISAL_DEF_LVL0_MIN,
     ISAL_DEF_LVL0_SMALL,
@@ -231,6 +231,68 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
     return RetVal;
  error:
     PyMem_Free(level_buf);
+    Py_XDECREF(RetVal);
+    return NULL;
+}
+
+static PyObject *
+igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
+                          int hist_bits, Py_ssize_t bufsize)
+{
+    PyObject *RetVal = NULL;
+    uint8_t *ibuf;
+    Py_ssize_t ibuflen;
+    int err, flush;
+    struct inflate_state zst;
+    isal_inflate_init(&zst)
+
+    if (bufsize < 0) {
+        PyErr_SetString(PyExc_ValueError, "bufsize must be non-negative");
+        return NULL;
+    } else if (bufsize == 0) {
+        bufsize = 1;
+    }
+
+    ibuf = <uint8_t *>data->buf;
+    ibuflen = data->len;
+
+    zst.hist_bits = (uint32_t)hist_bits
+    zst.crc_flag = (uint32_t)flag
+    zst.avail_in = 0;
+    zst.next_in = ibuf;
+
+    do {
+        arrange_input_buffer(&(zst.avail_in), &ibuflen);
+
+        do {
+            bufsize = arrange_output_buffer(&(zst.avail_out), &(zst.next_out),
+                                            &RetVal, bufsize);
+            if (bufsize < 0) {
+                goto error;
+            }
+
+            err = isal_inflate(&zst);
+            if (err != ISAL_DECOMP_OK) {
+                isal_inflate_error(err, ErrorClass)
+                goto error;
+            }
+        } while (zst.avail_out == 0);
+
+    } while (zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
+
+    if (zst.block_state != ISAL_BLOCK_FINISH) {
+         PyErr_SetString(ErrorClass,
+                         "incomplete or truncated stream");
+        goto error;
+    }
+
+    if (_PyBytes_Resize(&RetVal, zst.next_out -
+                        (Byte *)PyBytes_AS_STRING(RetVal)) < 0)
+        goto error;
+
+    return RetVal;
+
+ error:
     Py_XDECREF(RetVal);
     return NULL;
 }
