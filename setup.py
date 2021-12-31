@@ -26,8 +26,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-from Cython.Build import cythonize
-
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
@@ -44,17 +42,6 @@ DEFAULT_CACHE_FILE = Path(tempfile.gettempdir()
 BUILD_CACHE = os.environ.get("PYTHON_ISAL_BUILD_CACHE")
 BUILD_CACHE_FILE = Path(os.environ.get("PYTHON_ISAL_BUILD_CACHE_FILE",
                                        DEFAULT_CACHE_FILE))
-
-
-def cythonize_modules():
-    extension_args = dict()
-    compiler_directives = dict(binding=True, language_level="3", profile=True)
-    if os.getenv("CYTHON_COVERAGE") is not None:
-        compiler_directives['linetrace'] = True
-        extension_args["define_macros"] = [("CYTHON_TRACE_NOGIL", "1")]
-    modules = [Extension("isal._isal", ["src/isal/_isal.pyx"],
-                         **extension_args)]
-    return cythonize(modules, compiler_directives=compiler_directives)
 
 
 class BuildIsalExt(build_ext):
@@ -211,8 +198,9 @@ setup(
         "Operating System :: Microsoft :: Windows",
     ],
     python_requires=">=3.6",
-    ext_modules=cythonize_modules() + [
+    ext_modules=[
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.c"]),
-        Extension("isal.igzip_lib", ["src/isal/igzip_lib.c"])
+        Extension("isal.igzip_lib", ["src/isal/igzip_lib.c"]),
+        Extension("isal._isal", ["src/isal/_isal.c"])
     ]
 )
