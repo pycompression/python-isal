@@ -182,6 +182,10 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
         goto error;
     }
     level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
+    if (level_buf == NULL){
+        PyErr_NoMemory();
+        goto error;
+    }
     Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE;
     int err;
     struct isal_zstream zst;
