@@ -91,6 +91,7 @@ static int zlib_mem_level_to_isal(int mem_level) {
     return ZLIB_MEM_LEVEL_TO_ISAL[mem_level];
 }
 
+static int
 data_is_gzip(Py_buffer *data){
     if (data->len < 2) 
         return 0;
