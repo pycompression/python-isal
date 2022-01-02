@@ -5,6 +5,24 @@
 
 #include <isa-l/crc.h>
 
+typedef struct {
+    PyTypeObject *Comptype;
+    PyTypeObject *Decomptype;
+    PyObject *IsalError;
+} _isal_zlibstate;
+
+static inline _isal_zlibstate*
+get_isal_zlib_state(PyObject *module)
+{
+    void *state = PyModule_GetState(module);
+    assert(state != NULL);
+    return (_isal_zlibstate *)state;
+}
+
+static PyModuleDef isal_zlibmodule;
+#define _isal_zlibstate_global ((_isal_zlibstate *)PyModule_GetState(PyState_FindModule(&isal_zlibmodule)))
+
+
 static PyObject *
 isal_zlib_adler32_impl(PyObject *module, Py_buffer *data, uint32_t value)
 {
@@ -21,8 +39,7 @@ isal_zlib_crc32_impl(PyObject *module, Py_buffer *data, uint32_t value)
 
 
 static int 
-wbits_to_flag_and_hist_bits_deflate(PyObject * ErrorClass, 
-                                    int wbits, int *hist_bits, int *flag) 
+wbits_to_flag_and_hist_bits_deflate(int wbits, int *hist_bits, int *flag) 
 {
     if (wbits >= 9 && wbits <= 15){
         *hist_bits = wbits;
@@ -37,15 +54,14 @@ wbits_to_flag_and_hist_bits_deflate(PyObject * ErrorClass,
         *flag = IGZIP_DEFLATE;
     }
     else {
-        PyErr_Format(ErrorClass, "Invalid wbits value: %d", wbits);
+        PyErr_Format(_isal_zlibstate_global->IsalError, "Invalid wbits value: %d", wbits);
         return -1;
     }
     return 0;
 }
 
 static int 
-wbits_to_flag_and_hist_bits_inflate(PyObject * ErrorClass, 
-                                    int wbits, int *hist_bits, int *flag) 
+wbits_to_flag_and_hist_bits_inflate(int wbits, int *hist_bits, int *flag) 
 {
     if (wbits >= 8 && wbits <= 15){
         *hist_bits = wbits;
@@ -64,7 +80,7 @@ wbits_to_flag_and_hist_bits_inflate(PyObject * ErrorClass,
         return 1;
     }
     else {
-        PyErr_Format(ErrorClass, "Invalid wbits value: %d", wbits);
+        PyErr_Format(_isal_zlibstate_global->IsalError, "Invalid wbits value: %d", wbits);
         return -1;
     }
     return 0;
@@ -106,7 +122,7 @@ isal_zlib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level, int wb
 {
     int hist_bits;
     int flag;
-    if (wbits_to_flag_and_hist_bits_deflate(ErrorClass, wbits, &hist_bits, &flag) != 0)
+    if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) != 0)
         return NULL;
     return igzip_lib_compress_impl(ErrorClass, data, level, 
                                    flag, MEM_LEVEL_DEFAULT, hist_bits);
@@ -118,8 +134,7 @@ isal_zlib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int wbits,
 {
     int hist_bits;
     int flag; 
-    int convert_result = wbits_to_flag_and_hist_bits_inflate(ErrorClass, wbits, 
-                                                             &hist_bits, &flag);
+    int convert_result = wbits_to_flag_and_hist_bits_inflate(wbits, &hist_bits, &flag);
     if (convert_result < 0)
         return NULL;
     if (convert_result > 0) {
@@ -173,8 +188,8 @@ newcompobject(PyTypeObject *type)
 }
 
 static PyObject *
-isal_zlib_compressobj_impl(PyObject *ErrorClass, PyTypeObject *compobj, int level, int method, int wbits,
-                      int memLevel, int strategy, Py_buffer *zdict)
+isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
+                           int memLevel, int strategy, Py_buffer *zdict)
 {
     compobject *self = NULL;
     int err;
@@ -191,13 +206,15 @@ isal_zlib_compressobj_impl(PyObject *ErrorClass, PyTypeObject *compobj, int leve
     int isal_mem_level = zlib_mem_level_to_isal(memLevel);
     if (isal_mem_level == -1)
         goto error;
+    if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) == -1)
+        goto error;
     if (mem_level_to_bufsize(
-        level, isal_mem_level, &level_buf_size, ErrorClass) == -1)
+        level, isal_mem_level, &level_buf_size) == -1) {
+        PyErr_Format(PyExc_ValueError, "Invalid compression level: %d. Compression level should be between 0 and 3", level)
         goto error;
-    if (wbits_to_flag_and_hist_bits_deflate(ErrorClass, wbits, &hist_bits, &flag) == -1)
-        goto error;
+    }   
 
-    self = newcompobject(compobj);
+    self = newcompobject(_isal_zlibstate_global->Comptype);
     if (self == NULL)
         goto error;
     level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);

@@ -59,7 +59,7 @@ static const uint32_t LEVEL_BUF_SIZES[24] = {
 };
 
 static int mem_level_to_bufsize(int compression_level, int mem_level,
-                                uint32_t * bufsize, PyObject *ErrorClass)
+                                uint32_t * bufsize)
 {
     if (compression_level < 0 || compression_level > 3 || mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
         *bufsize = 0; return -1;
@@ -177,7 +177,7 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
     uint8_t *ibuf;
     uint8_t *level_buf = NULL;
     uint32_t level_buf_size;
-    if (mem_level_to_bufsize(level, mem_level, &level_buf_size, ErrorClass) != 0){
+    if (mem_level_to_bufsize(level, mem_level, &level_buf_size) != 0){
         PyErr_SetString(ErrorClass, "Invalid memory level or compression level");
         goto error;
     }
