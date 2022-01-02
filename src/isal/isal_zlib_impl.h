@@ -5,6 +5,10 @@
 
 #include <isa-l/crc.h>
 
+// Below values are copied from zlib.h
+#define Z_DEFAULT_STRATEGY 0
+#define Z_DEFLATED 8
+
 typedef struct {
     PyTypeObject *Comptype;
     PyTypeObject *Decomptype;
@@ -198,6 +202,21 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     int flag;
     int hist_bits;
 
+    if (method != Z_DEFLATED){
+         PyErr_Format(PyExc_ValueError, 
+                      "Unsupported method: %d. Only DEFLATED is supported.",
+                      method);
+         goto error; 
+    }
+    if (strategy != Z_DEFAULT_STRATEGY){
+        err = PyErr_WarnEx(
+            PyExc_UserWarning, 
+            "Only one strategy is supported when using isal_zlib. Using the default strategy.",
+            1);
+        if (err == -1)
+            // Warning was turned into an exception.
+            goto error;
+    }
     if (zdict->buf != NULL && (size_t)zdict->len > UINT32_MAX) {
         PyErr_SetString(PyExc_OverflowError,
                         "zdict length does not fit in an unsigned 32-bit int");
@@ -210,7 +229,9 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
         goto error;
     if (mem_level_to_bufsize(
         level, isal_mem_level, &level_buf_size) == -1) {
-        PyErr_Format(PyExc_ValueError, "Invalid compression level: %d. Compression level should be between 0 and 3", level)
+        PyErr_Format(PyExc_ValueError, 
+                     "Invalid compression level: %d. Compression level should be between 0 and 3", 
+                     level);
         goto error;
     }   
 
