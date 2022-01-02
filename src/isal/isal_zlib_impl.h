@@ -162,6 +162,20 @@ typedef struct
     PyThread_type_lock lock;
 } compobject;
 
+static void
+Comp_dealloc(compobject *self)
+{
+    if (self->is_initialised)
+        PyMem_Free(&self->zst.level_buf);
+    PyObject *type = (PyObject *)Py_TYPE(self);
+    PyThread_free_lock(self->lock);
+    Py_XDECREF(self->unused_data);
+    Py_XDECREF(self->unconsumed_tail);
+    Py_XDECREF(self->zdict);
+    PyObject_Del(self);
+    Py_DECREF(type);
+}
+
 static compobject *
 newcompobject(PyTypeObject *type)
 {
@@ -269,3 +283,126 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
  success:
     return (PyObject *)self;
 }
+
+typedef struct
+{
+    PyObject_HEAD
+    struct inflate_state zst;
+    PyObject *unused_data;
+    PyObject *unconsumed_tail;
+    char eof;
+    int is_initialised;
+    int method_set;
+    PyObject *zdict;
+    PyThread_type_lock lock;
+} decompobject;
+
+static void
+Decomp_dealloc(decompobject *self)
+{
+    PyObject *type = (PyObject *)Py_TYPE(self);
+    PyThread_free_lock(self->lock);
+    Py_XDECREF(self->unused_data);
+    Py_XDECREF(self->unconsumed_tail);
+    Py_XDECREF(self->zdict);
+    PyObject_Del(self);
+    Py_DECREF(type);
+}
+
+static int
+set_inflate_zdict(compobject *self)
+{
+    Py_buffer zdict_buf;
+    int err;
+
+    if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
+        return -1;
+    }
+    if ((size_t)zdict_buf.len > UINT32_MAX) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "zdict length does not fit in an unsigned 32-bits int");
+        PyBuffer_Release(&zdict_buf);
+        return -1;
+    }
+    err = isal_inflate_set_dict(&self->zst,
+                               zdict_buf.buf, (uint32_t)zdict_buf.len);
+    PyBuffer_Release(&zdict_buf);
+    if (err != ISAL_DECOMP_OK) {
+        zlib_error(self->zst, err, "while setting zdict");
+        return -1;
+    }
+    return 0;
+}
+
+static decompobject *
+newdecompobject(PyTypeObject *type)
+{
+    decompobject *self;
+    self = PyObject_New(decompobject, type);
+    if (self == NULL)
+        return NULL;
+    self->eof = 0;
+    self->is_initialised = 0;
+    self->method_set = 0;
+    self->zdict = NULL;
+    self->unused_data = PyBytes_FromStringAndSize("", 0);
+    if (self->unused_data == NULL) {
+        Py_DECREF(self);
+        return NULL;
+    }
+    self->unconsumed_tail = PyBytes_FromStringAndSize("", 0);
+    if (self->unconsumed_tail == NULL) {
+        Py_DECREF(self);
+        return NULL;
+    }
+    self->lock = PyThread_allocate_lock();
+    if (self->lock == NULL) {
+        Py_DECREF(self);
+        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
+        return NULL;
+    }
+    return self;
+}
+
+static PyObject *
+isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
+{
+    int err;
+    decompobject *self;
+    int flag;
+    int hist_bits; 
+    if (zdict != NULL && !PyObject_CheckBuffer(zdict)) {
+        PyErr_SetString(PyExc_TypeError,
+                        "zdict argument must support the buffer protocol");
+        return NULL;
+    }
+    self = newdecompobject(_isal_zlibstate_global->Decomptype);
+    if (self == NULL)
+        return NULL;
+
+    isal_inflate_init(&(self->zst));
+    err = wbits_to_flag_and_hist_bits_inflate(wbits, &hist_bits, &flag);
+    if (err < 0) 
+        return NULL;
+    else if (err = 0) {
+        self->zst.crc_flag = flag;
+        self->method_set = 1;
+    }
+    self->zst.hist_bits = hist_bits;
+    self->zst.next_in = NULL;
+    self->zst.avail_in = 0;
+    if (zdict != NULL) {
+        Py_INCREF(zdict);
+        self->zdict = zdict;
+    }
+    self->is_initialised = 1;
+    //Apparently zlibmodule.c only adds dicts for raw deflate streams.
+    if (self->zdict != NULL && flag == ISAL_DEFLATE) {  
+        if (set_inflate_zdict(&(self->zst)) < 0) {
+            Py_DECREF(self);
+            return NULL;
+        }
+    }
+    return (PyObject *)self;
+}
+
