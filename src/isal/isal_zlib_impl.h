@@ -6,14 +6,24 @@
 #include <isa-l/crc.h>
 
 // Below values are copied from zlib.h
-#define Z_DEFAULT_STRATEGY 0
+#define Z_DEFAULT_STRATEGY    0
+#define Z_FILTERED            1
+#define Z_HUFFMAN_ONLY        2
+#define Z_RLE                 3
+#define Z_FIXED               4
+
 #define Z_DEFLATED 8
 
 // Flush modes copied from zlib.h
 #define Z_NO_FLUSH      0
+#define Z_PARTIAL_FLUSH 1
 #define Z_SYNC_FLUSH    2
 #define Z_FULL_FLUSH    3
 #define Z_FINISH        4
+#define Z_BLOCK         5
+#define Z_TREES         6
+
+#define DEF_MEM_LEVEL 8
 
 typedef struct {
     PyTypeObject *Comptype;
@@ -130,8 +140,8 @@ data_is_gzip(Py_buffer *data){
 static PyObject *
 isal_zlib_compress_impl(PyObject *ErrorClass, Py_buffer *data, int level, int wbits)
 {
-    int hist_bits;
-    int flag;
+    int hist_bits = -1;
+    int flag = -1;
     if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) != 0)
         return NULL;
     return igzip_lib_compress_impl(ErrorClass, data, level, 
@@ -196,8 +206,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     compobject *self = NULL;
     int err;
     uint32_t level_buf_size = 0;
-    int flag;
-    int hist_bits;
+    int flag = -1;
+    int hist_bits = -1;
 
     if (method != Z_DEFLATED){
          PyErr_Format(PyExc_ValueError, 
@@ -237,7 +247,7 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
         goto error;
     self->level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
     if (self->level_buf == NULL){
-        PyErr_NoMemory;
+        PyErr_NoMemory();
         goto error;
     }
     isal_deflate_init(&(self->zst));
@@ -255,7 +265,7 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     } else {
         err = isal_deflate_set_dict(&(self->zst),
                                     zdict->buf, (uint32_t)zdict->len);
-        if (err = COMP_OK)
+        if (err == COMP_OK)
             goto success;
         PyErr_SetString(PyExc_ValueError, "Invalid dictionary");
         goto error;
@@ -291,7 +301,7 @@ Decomp_dealloc(decompobject *self)
 }
 
 static int
-set_inflate_zdict(compobject *self)
+set_inflate_zdict(decompobject *self)
 {
     Py_buffer zdict_buf;
     int err;
@@ -305,7 +315,7 @@ set_inflate_zdict(compobject *self)
         PyBuffer_Release(&zdict_buf);
         return -1;
     }
-    err = isal_inflate_set_dict(&self->zst,
+    err = isal_inflate_set_dict(&(self->zst),
                                zdict_buf.buf, (uint32_t)zdict_buf.len);
     PyBuffer_Release(&zdict_buf);
     if (err != ISAL_DECOMP_OK) {
@@ -359,7 +369,7 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
     err = wbits_to_flag_and_hist_bits_inflate(wbits, &hist_bits, &flag);
     if (err < 0) 
         return NULL;
-    else if (err = 0) {
+    else if (err == 0) {
         self->zst.crc_flag = flag;
         self->method_set = 1;
     }
@@ -373,7 +383,7 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
     self->is_initialised = 1;
     //Apparently zlibmodule.c only adds dicts for raw deflate streams.
     if (self->zdict != NULL && flag == ISAL_DEFLATE) {  
-        if (set_inflate_zdict(&(self->zst)) < 0) {
+        if (set_inflate_zdict(self) < 0) {
             Py_DECREF(self);
             return NULL;
         }
@@ -382,7 +392,7 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
 }
 
 static PyObject *
-isal_zlib_Compress_compress_impl(decompobject *self, Py_buffer *data)
+isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 /*[clinic end generated code: output=5d5cd791cbc6a7f4 input=0d95908d6e64fab8]*/
 {
     PyObject *RetVal = NULL;
@@ -434,7 +444,7 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             Py_ssize_t new_size, left_size;
             PyObject *new_data;
             int bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
-            left_size = (char *)data->buf + data->len - self->zst.next_in;
+            left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
             if (left_size + bytes_in_bitbuffer > (PY_SSIZE_T_MAX - old_size)) {
                 PyErr_NoMemory();
                 return -1;
@@ -459,7 +469,7 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
         /* This code handles two distinct cases:
            1. Output limit was reached. Save leftover input in unconsumed_tail.
            2. All input data was consumed. Clear unconsumed_tail. */
-        Py_ssize_t left_size = (char *)data->buf + data->len - self->zst.next_in;
+        Py_ssize_t left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
         PyObject *new_data = PyBytes_FromStringAndSize(
                 (char *)self->zst.next_in, left_size);
         if (new_data == NULL)
@@ -608,14 +618,13 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         Py_CLEAR(RetVal);
 
  error:
-    LEAVE_ZLIB(self);
     return RetVal;
 }
 
 static PyObject *
 isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 {
-    int err, flush;
+    int err;
     Py_buffer data;
     PyObject *RetVal = NULL;
     Py_ssize_t ibuflen;
