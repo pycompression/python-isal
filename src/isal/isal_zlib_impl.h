@@ -9,6 +9,12 @@
 #define Z_DEFAULT_STRATEGY 0
 #define Z_DEFLATED 8
 
+// Flush modes copied from zlib.h
+#define Z_NO_FLUSH      0
+#define Z_SYNC_FLUSH    2
+#define Z_FULL_FLUSH    3
+#define Z_FINISH        4
+
 typedef struct {
     PyTypeObject *Comptype;
     PyTypeObject *Decomptype;
@@ -303,7 +309,7 @@ set_inflate_zdict(compobject *self)
                                zdict_buf.buf, (uint32_t)zdict_buf.len);
     PyBuffer_Release(&zdict_buf);
     if (err != ISAL_DECOMP_OK) {
-        zlib_error(self->zst, err, "while setting zdict");
+        isal_inflate_error(err, _isal_zlibstate_global->IsalError);
         return -1;
     }
     return 0;
@@ -463,8 +469,9 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
 
     return 0;
 }
+
 static PyObject *
-zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
+isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
                                 Py_ssize_t max_length)
 {
     int err = ISAL_DECOMP_OK;
@@ -528,6 +535,7 @@ zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
 
     if (self->zst.block_state == ISAL_BLOCK_FINISH) {
         self->eof = 1;
+    }
 
     if (_PyBytes_Resize(&RetVal, self->zst.next_out -
                         (uint8_t *)PyBytes_AS_STRING(RetVal)) == 0)
@@ -536,5 +544,70 @@ zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
  abort:
     Py_CLEAR(RetVal);
  success:
+    return RetVal;
+}
+
+static PyObject *
+isal_zlib_Compress_flush_impl(compobject *self, int mode)
+{
+    int err;
+    Py_ssize_t length = DEF_BUF_SIZE;
+    PyObject *RetVal = NULL;
+
+    /* Flushing with Z_NO_FLUSH is a no-op, so there's no point in
+       doing any work at all; just return an empty string. */
+    if (mode == Z_NO_FLUSH) {
+        return PyBytes_FromStringAndSize(NULL, 0);
+    } else if (mode == Z_FINISH) {
+        self->zst.flush = FULL_FLUSH;
+        self->zst.end_of_stream = 1;
+    } else if (mode == Z_FULL_FLUSH){
+        self->zst.flush = FULL_FLUSH;
+    } else if (mode == Z_SYNC_FLUSH) {
+        self->zst.flush = SYNC_FLUSH;
+    } else {
+        PyErr_Format(_isal_zlibstate_global->IsalError, 
+                     "Unsupported flush mode: %d", mode);
+    }
+
+    self->zst.avail_in = 0;
+
+    do {
+        length = arrange_output_buffer(&(self->zst.avail_out), 
+                                       &(self->zst.next_out), &RetVal, length);
+        if (length < 0) {
+            Py_CLEAR(RetVal);
+            goto error;
+        }
+
+        err = isal_deflate(&self->zst);
+
+        if (err != COMP_OK) {
+            isal_deflate_error(err, _isal_zlibstate_global->IsalError);
+            Py_CLEAR(RetVal);
+            goto error;
+        }
+    } while (self->zst.avail_out == 0);
+    assert(self->zst.avail_in == 0);
+
+    /* If mode is Z_FINISH, we free the level buffer. 
+       Note we should only get ZSTATE_END when
+       mode is Z_FINISH, but checking both for safety*/
+    if (self->zst.internal_state.state == ZSTATE_END && mode == Z_FINISH) {
+        PyMem_FREE(self->level_buf);
+        self->zst.level_buf_size = 0;
+        self->zst.level_buf = NULL;
+        self->is_initialised = 0;
+    } else {
+        // reset the flush mode back so compressobject can be used again.
+        self->zst.flush = NO_FLUSH;
+    }
+
+    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
+                        (uint8_t *)PyBytes_AS_STRING(RetVal)) < 0)
+        Py_CLEAR(RetVal);
+
+ error:
+    LEAVE_ZLIB(self);
     return RetVal;
 }
