@@ -521,7 +521,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
         obuflen = max_length;
 
     do {
-        arrange_input_buffer(&(self->zst.avail_out), &ibuflen);
+        arrange_input_buffer(&(self->zst.avail_in), &ibuflen);
 
         do {
             obuflen = arrange_output_buffer_with_maximum(&(self->zst.avail_out),
@@ -543,7 +543,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
                 isal_inflate_error(err, _isal_zlibstate_global->IsalError);
             }
 
-        } while (self->zst.avail_out == 0);
+        } while (self->zst.avail_out == 0 && self->zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
