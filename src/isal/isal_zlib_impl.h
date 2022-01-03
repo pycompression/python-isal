@@ -178,7 +178,7 @@ typedef struct
 static void
 Comp_dealloc(compobject *self)
 {
-    if (self->is_initialised)
+    if (self->is_initialised && self->level_buf != NULL)
         PyMem_Free(self->level_buf);
     PyObject *type = (PyObject *)Py_TYPE(self);
     Py_XDECREF(self->zdict);
@@ -272,7 +272,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
         }
  error:
     Py_CLEAR(self);
-    PyMem_Free(self->level_buf);
+    if (self->level_buf != NULL)
+        PyMem_Free(self->level_buf);
  success:
     return (PyObject *)self;
 }

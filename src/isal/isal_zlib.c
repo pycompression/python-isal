@@ -290,7 +290,7 @@ isal_zlib_compressobj(PyObject *module, PyObject *const *args, Py_ssize_t nargs,
     int level = ISAL_DEFAULT_COMPRESSION;
     int method = Z_DEFLATED;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
-    int memLevel = MEM_LEVEL_DEFAULT;
+    int memLevel = DEF_MEM_LEVEL;
     int strategy = Z_DEFAULT_STRATEGY;
     Py_buffer zdict = {NULL, NULL};
 
