@@ -611,3 +611,64 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     LEAVE_ZLIB(self);
     return RetVal;
 }
+
+static PyObject *
+isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
+{
+    int err, flush;
+    Py_buffer data;
+    PyObject *RetVal = NULL;
+    Py_ssize_t ibuflen;
+
+    if (length <= 0) {
+        PyErr_SetString(PyExc_ValueError, "length must be greater than zero");
+        return NULL;
+    }
+
+    if (PyObject_GetBuffer(self->unconsumed_tail, &data, PyBUF_SIMPLE) == -1) {
+        return NULL;
+    }
+
+    self->zst.next_in = data.buf;
+    ibuflen = data.len;
+
+    do {
+        arrange_input_buffer(&(self->zst.avail_in), &ibuflen);
+
+        do {
+            length = arrange_output_buffer(&(self->zst.avail_out),
+                                           &(self->zst.next_out), &RetVal, length);
+            if (length < 0)
+                goto abort;
+
+            err = isal_inflate(&self->zst);
+
+            if (err != ISAL_DECOMP_OK) {
+                isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+                goto abort;
+            }
+
+        } while (self->zst.avail_out == 0 || self->zst.block_state == ISAL_BLOCK_FINISH);
+
+    } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
+
+ save:
+    if (save_unconsumed_input(self, &data, err) < 0)
+        goto abort;
+
+    /* If at end of stream, clean up any memory allocated by zlib. */
+    if (self->zst.block_state != ISAL_BLOCK_FINISH) {
+        self->eof = 1;
+        self->is_initialised = 0;
+    }
+
+    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
+                        (uint8_t *)PyBytes_AS_STRING(RetVal)) == 0)
+        goto success;
+
+ abort:
+    Py_CLEAR(RetVal);
+ success:
+    PyBuffer_Release(&data);
+    return RetVal;
+}
