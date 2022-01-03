@@ -29,14 +29,14 @@ PyInit__isal(void)
     // in charcters is 3x20+2+1=63. Round up to the nearest 
     // power of 2 is 64.
     char version[64];
-    int length = snprintf(&version, 64, "%d.%d.%d",
+    int length = snprintf(version, 64, "%d.%d.%d",
                           ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, ISAL_PATCH_VERSION);  
     if (length > 64){
         // This is extremely unlikely to happen given the calculation above.
         PyErr_SetString(PyExc_MemoryError, "Could not allocate enough memory for ISA-L version string");
         return NULL;
     }
-    PyObject *isal_version = PyUnicode_DecodeASCII(&version, length, "strict");
+    PyObject *isal_version = PyUnicode_DecodeASCII(version, length, "strict");
     if (isal_version == NULL)
         return NULL;
     PyModule_AddObject(m, "ISAL_VERSION", isal_version);
