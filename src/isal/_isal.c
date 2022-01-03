@@ -37,7 +37,7 @@ PyInit__isal(void)
         return NULL;
     }
     PyObject *isal_version = PyUnicode_DecodeASCII(&version, length, "strict");
-    if (isal_version == NULL);
+    if (isal_version == NULL)
         return NULL;
     PyModule_AddObject(m, "ISAL_VERSION", isal_version);
     return m;
