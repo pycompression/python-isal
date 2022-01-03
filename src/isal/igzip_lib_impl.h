@@ -104,6 +104,20 @@ static void isal_inflate_error(int err, PyObject *ErrorClass){
     PyErr_Format(ErrorClass, "Error %d %s", err, msg);
 }
 
+static int bitbuffer_size(struct inflate_state *state){
+    return state->read_in_length / 8;
+}
+
+static void bitbuffer_copy(struct inflate_state *state, char *to){
+    int bits_in_buffer = state->read_in_length;
+    size_t bytes_in_buffer = bits_in_buffer / 8;
+    int remainder = bits_in_buffer % 8;
+    // Shift the 8-byte bitbuffer read_in so that the bytes are aligned.
+    uint64_t remaining_bytes = state->read_in >> remainder;
+    char * remaining_bytes_ptr = (char *)(&remaining_bytes);
+    memcpy(to, remaining_bytes_ptr, bytes_in_buffer);
+}
+
 static void
 arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
 {

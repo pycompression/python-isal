@@ -177,7 +177,6 @@ newcompobject(PyTypeObject *type)
     self = PyObject_New(compobject, type);
     if (self == NULL)
         return NULL;
-    self->eof = 0;
     self->is_initialised = 0;
     self->zdict = NULL;
     self->level_buf = NULL;
@@ -230,7 +229,7 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     self = newcompobject(_isal_zlibstate_global->Comptype);
     if (self == NULL)
         goto error;
-    sefl->level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
+    self->level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
     if (self->level_buf == NULL){
         PyErr_NoMemory;
         goto error;
@@ -257,7 +256,7 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
         }
  error:
     Py_CLEAR(self);
-    PyMem_Free(level_buf);
+    PyMem_Free(self->level_buf);
  success:
     return (PyObject *)self;
 }
@@ -376,3 +375,166 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
     return (PyObject *)self;
 }
 
+static PyObject *
+isal_zlib_Compress_compress_impl(decompobject *self, Py_buffer *data)
+/*[clinic end generated code: output=5d5cd791cbc6a7f4 input=0d95908d6e64fab8]*/
+{
+    PyObject *RetVal = NULL;
+    Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE;
+    int err;
+
+    self->zst.next_in = data->buf;
+    ibuflen = data->len;
+
+    do {
+        arrange_input_buffer(&(self->zst.avail_in), &ibuflen);
+        do {
+            obuflen = arrange_output_buffer(&(self->zst.avail_out),
+                                            &(self->zst.next_out), &RetVal, obuflen);
+            if (obuflen < 0)
+                goto error;
+
+            err = isal_deflate(&self->zst);
+
+            if (err != COMP_OK) {
+                isal_deflate_error(err, _isal_zlibstate_global->IsalError);
+                goto error;
+            }
+        } while (self->zst.avail_out == 0);
+        assert(self->zst.avail_in == 0);
+
+    } while (ibuflen != 0);
+
+    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
+                        (uint8_t *)PyBytes_AS_STRING(RetVal)) == 0)
+        goto success;
+
+ error:
+    Py_CLEAR(RetVal);
+ success:
+    return RetVal;
+}
+
+/* Helper for objdecompress() and flush(). Saves any unconsumed input data in
+   self->unused_data or self->unconsumed_tail, as appropriate. */
+static int
+save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
+{
+    if (self->zst.block_state == ISAL_BLOCK_FINISH) {
+        /* The end of the compressed data has been reached. Store the leftover
+           input data in self->unused_data. */
+        if (self->zst.avail_in > 0) {
+            Py_ssize_t old_size = PyBytes_GET_SIZE(self->unused_data);
+            Py_ssize_t new_size, left_size;
+            PyObject *new_data;
+            int bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
+            left_size = (char *)data->buf + data->len - self->zst.next_in;
+            if (left_size + bytes_in_bitbuffer > (PY_SSIZE_T_MAX - old_size)) {
+                PyErr_NoMemory();
+                return -1;
+            }
+            // There might also be data left in the bit_buffer.
+            new_size = old_size + left_size + bytes_in_bitbuffer;
+            new_data = PyBytes_FromStringAndSize(NULL, new_size);
+            if (new_data == NULL)
+                return -1;
+            char * new_data_ptr = PyBytes_AS_STRING(new_data);
+            memcpy(new_data_ptr,
+                   PyBytes_AS_STRING(self->unused_data), old_size);
+            memcpy(new_data_ptr + old_size,
+                   self->zst.next_in, left_size);
+            bitbuffer_copy(&(self->zst), new_data_ptr + old_size + left_size);
+            Py_SETREF(self->unused_data, new_data);
+            self->zst.avail_in = 0;
+        }
+    }
+
+    if (self->zst.avail_in > 0 || PyBytes_GET_SIZE(self->unconsumed_tail)) {
+        /* This code handles two distinct cases:
+           1. Output limit was reached. Save leftover input in unconsumed_tail.
+           2. All input data was consumed. Clear unconsumed_tail. */
+        Py_ssize_t left_size = (char *)data->buf + data->len - self->zst.next_in;
+        PyObject *new_data = PyBytes_FromStringAndSize(
+                (char *)self->zst.next_in, left_size);
+        if (new_data == NULL)
+            return -1;
+        Py_SETREF(self->unconsumed_tail, new_data);
+    }
+
+    return 0;
+}
+static PyObject *
+zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
+                                Py_ssize_t max_length)
+{
+    int err = ISAL_DECOMP_OK;
+    Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE, hard_limit;
+    PyObject *RetVal = NULL;
+
+    if (max_length < 0) {
+        PyErr_SetString(PyExc_ValueError, "max_length must be non-negative");
+        return NULL;
+    } else if (max_length == 0)
+        hard_limit = PY_SSIZE_T_MAX;
+    else
+        hard_limit = max_length;
+
+    if (!self->method_set) {
+        if (data_is_gzip(data)){
+            self->zst.crc_flag = ISAL_GZIP;
+        }
+        else {
+            self->zst.crc_flag = ISAL_ZLIB;
+        }
+        self->method_set = 1;
+    }
+    self->zst.next_in = data->buf;
+    ibuflen = data->len;
+
+    /* limit amount of data allocated to max_length */
+    if (max_length && obuflen > max_length)
+        obuflen = max_length;
+
+    do {
+        arrange_input_buffer(&(self->zst.avail_out), &ibuflen);
+
+        do {
+            obuflen = arrange_output_buffer_with_maximum(&(self->zst.avail_out),
+                                                         &(self->zst.next_in), 
+                                                         &RetVal,
+                                                         obuflen, hard_limit);
+            if (obuflen == -2) {
+                if (max_length > 0) {
+                    goto save;
+                }
+                PyErr_NoMemory();
+            }
+            if (obuflen < 0) {
+                goto abort;
+            }
+
+            err = isal_inflate(&self->zst);
+            if (err != ISAL_DECOMP_OK){
+                isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+            }
+
+        } while (self->zst.avail_out == 0);
+
+    } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
+
+ save:
+    if (save_unconsumed_input(self, data, err) < 0)
+        goto abort;
+
+    if (self->zst.block_state == ISAL_BLOCK_FINISH) {
+        self->eof = 1;
+
+    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
+                        (uint8_t *)PyBytes_AS_STRING(RetVal)) == 0)
+        goto success;
+
+ abort:
+    Py_CLEAR(RetVal);
+ success:
+    return RetVal;
+}
