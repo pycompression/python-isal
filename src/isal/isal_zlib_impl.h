@@ -665,7 +665,7 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
                 goto abort;
             }
 
-        } while (self->zst.avail_out == 0 || self->zst.block_state == ISAL_BLOCK_FINISH);
+        } while (self->zst.avail_out == 0 && self->zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
