@@ -232,8 +232,10 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     int isal_mem_level = zlib_mem_level_to_isal(memLevel);
     if (isal_mem_level == -1)
         goto error;
-    if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) == -1)
+    if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) == -1) {
+        PyErr_Format(PyExc_ValueError, "Invalid wbits value: %d", wbits);
         goto error;
+    }
     if (mem_level_to_bufsize(
         level, isal_mem_level, &level_buf_size) == -1) {
         PyErr_Format(PyExc_ValueError, 
@@ -271,9 +273,12 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
         goto error;
         }
  error:
-    Py_CLEAR(self);
-    if (self->level_buf != NULL)
-        PyMem_Free(self->level_buf);
+    if (self != NULL) {
+        if (self->level_buf != NULL)
+            PyMem_Free(self->level_buf);
+        Py_CLEAR(self);
+    }
+
  success:
     return (PyObject *)self;
 }
@@ -368,8 +373,10 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
 
     isal_inflate_init(&(self->zst));
     err = wbits_to_flag_and_hist_bits_inflate(wbits, &hist_bits, &flag);
-    if (err < 0) 
+    if (err < 0) {
+        PyErr_Format(PyExc_ValueError, "Invalid wbits value: %d", wbits);
         return NULL;
+    }
     else if (err == 0) {
         self->zst.crc_flag = flag;
         self->method_set = 1;
