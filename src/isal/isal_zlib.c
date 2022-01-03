@@ -4,20 +4,6 @@
 #include "isal_zlib_impl.h"
 
 
-typedef struct {
-    PyTypeObject *Comptype;
-    PyTypeObject *Decomptype;
-    PyObject *IsalError;
-} _isal_zlibstate;
-
-static inline _isal_zlibstate*
-get_isal_zlib_state(PyObject *module)
-{
-    void *state = PyModule_GetState(module);
-    assert(state != NULL);
-    return (_isal_zlibstate *)state;
-}
-
 static PyObject *
 isal_zlib_adler32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
 {
