@@ -39,8 +39,8 @@ get_isal_zlib_state(PyObject *module)
     return (_isal_zlibstate *)state;
 }
 
-static PyModuleDef isal_zlibmodule;
-#define _isal_zlibstate_global ((_isal_zlibstate *)PyModule_GetState(PyState_FindModule(&isal_zlibmodule)))
+static PyModuleDef isal_zlib_module;
+#define _isal_zlibstate_global ((_isal_zlibstate *)PyModule_GetState(PyState_FindModule(&isal_zlib_module)))
 
 
 static PyObject *

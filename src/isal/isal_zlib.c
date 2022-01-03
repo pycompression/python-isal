@@ -746,6 +746,6 @@ PyInit_isal_zlib(void)
     PyModule_AddIntMacro(m, Z_BLOCK);
     PyModule_AddIntMacro(m, Z_TREES);
 
-    PyState_AddModule(m, &isal_zlibmodule);
+    PyState_AddModule(m, &isal_zlib_module);
     return m;
 }
