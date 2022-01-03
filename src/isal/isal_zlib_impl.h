@@ -525,7 +525,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
 
         do {
             obuflen = arrange_output_buffer_with_maximum(&(self->zst.avail_out),
-                                                         &(self->zst.next_in), 
+                                                         &(self->zst.next_out), 
                                                          &RetVal,
                                                          obuflen, hard_limit);
             if (obuflen == -2) {
