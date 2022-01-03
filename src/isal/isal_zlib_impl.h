@@ -154,23 +154,17 @@ typedef struct
 {
     PyObject_HEAD
     struct isal_zstream zst;
-    PyObject *unused_data;
-    PyObject *unconsumed_tail;
-    char eof;
     int is_initialised;
+    uint8_t * level_buf;
     PyObject *zdict;
-    PyThread_type_lock lock;
 } compobject;
 
 static void
 Comp_dealloc(compobject *self)
 {
     if (self->is_initialised)
-        PyMem_Free(&self->zst.level_buf);
+        PyMem_Free(self->level_buf);
     PyObject *type = (PyObject *)Py_TYPE(self);
-    PyThread_free_lock(self->lock);
-    Py_XDECREF(self->unused_data);
-    Py_XDECREF(self->unconsumed_tail);
     Py_XDECREF(self->zdict);
     PyObject_Del(self);
     Py_DECREF(type);
@@ -186,22 +180,7 @@ newcompobject(PyTypeObject *type)
     self->eof = 0;
     self->is_initialised = 0;
     self->zdict = NULL;
-    self->unused_data = PyBytes_FromStringAndSize("", 0);
-    if (self->unused_data == NULL) {
-        Py_DECREF(self);
-        return NULL;
-    }
-    self->unconsumed_tail = PyBytes_FromStringAndSize("", 0);
-    if (self->unconsumed_tail == NULL) {
-        Py_DECREF(self);
-        return NULL;
-    }
-    self->lock = PyThread_allocate_lock();
-    if (self->lock == NULL) {
-        Py_DECREF(self);
-        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
-        return NULL;
-    }
+    self->level_buf = NULL;
     return self;
 }
 
@@ -212,7 +191,6 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     compobject *self = NULL;
     int err;
     uint32_t level_buf_size = 0;
-    uint8_t * level_buf = NULL;
     int flag;
     int hist_bits;
 
@@ -252,8 +230,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     self = newcompobject(_isal_zlibstate_global->Comptype);
     if (self == NULL)
         goto error;
-    level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
-    if (level_buf == NULL){
+    sefl->level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
+    if (self->level_buf == NULL){
         PyErr_NoMemory;
         goto error;
     }
@@ -261,7 +239,7 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     self->zst.next_in = NULL;
     self->zst.avail_in = 0;
     self->zst.level_buf_size = level_buf_size;
-    self->zst.level_buf = level_buf;
+    self->zst.level_buf = self->level_buf;
     self->zst.level = level;
     self->zst.hist_bits = (uint16_t)hist_bits;
     self->zst.gzip_flag = (uint16_t)flag;
@@ -294,14 +272,12 @@ typedef struct
     int is_initialised;
     int method_set;
     PyObject *zdict;
-    PyThread_type_lock lock;
 } decompobject;
 
 static void
 Decomp_dealloc(decompobject *self)
 {
     PyObject *type = (PyObject *)Py_TYPE(self);
-    PyThread_free_lock(self->lock);
     Py_XDECREF(self->unused_data);
     Py_XDECREF(self->unconsumed_tail);
     Py_XDECREF(self->zdict);
@@ -353,12 +329,6 @@ newdecompobject(PyTypeObject *type)
     self->unconsumed_tail = PyBytes_FromStringAndSize("", 0);
     if (self->unconsumed_tail == NULL) {
         Py_DECREF(self);
-        return NULL;
-    }
-    self->lock = PyThread_allocate_lock();
-    if (self->lock == NULL) {
-        Py_DECREF(self);
-        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
     return self;
