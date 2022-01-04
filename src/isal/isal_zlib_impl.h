@@ -83,7 +83,11 @@ wbits_to_flag_and_hist_bits_deflate(int wbits, int *hist_bits, int *flag)
 static int 
 wbits_to_flag_and_hist_bits_inflate(int wbits, int *hist_bits, int *flag) 
 {
-    if (wbits >= 8 && wbits <= 15){
+    if (wbits == 0) {
+        *hist_bits = 0;
+        *flag = ISAL_ZLIB;
+    }
+    else if (wbits >= 8 && wbits <= 15){
         *hist_bits = wbits;
         *flag = ISAL_ZLIB;
     }
