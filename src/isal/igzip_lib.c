@@ -204,5 +204,37 @@ PyInit_igzip_lib(void)
     }
     get_igzip_lib_state(m)->IsalError = IsalError;
 
+    PyModule_AddIntConstant(m, "ISAL_BEST_SPEED", ISAL_DEF_MIN_LEVEL);
+    PyModule_AddIntConstant(m, "ISAL_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL);
+    PyModule_AddIntMacro(m, ISAL_DEFAULT_COMPRESSION);
+
+    PyModule_AddIntMacro(m, DEF_BUF_SIZE);
+    PyModule_AddIntConstant(m, "MAX_HIST_BITS", ISAL_DEF_MAX_HIST_BITS);
+    
+    PyModule_AddIntConstant(m, "ISAL_NO_FLUSH", NO_FLUSH);
+    PyModule_AddIntConstant(m, "ISAL_SYNC_FLUSH", SYNC_FLUSH);
+    PyModule_AddIntConstant(m, "ISAL_FULL_FLUSH", FULL_FLUSH);
+
+    PyModule_AddIntConstant(m, "COMP_DEFLATE", IGZIP_DEFLATE);
+    PyModule_AddIntConstant(m, "COMP_GZIP", IGZIP_GZIP);
+    PyModule_AddIntConstant(m, "COMP_GZIP_NO_HDR", IGZIP_GZIP_NO_HDR);
+    PyModule_AddIntConstant(m, "COMP_ZLIB", IGZIP_ZLIB);
+    PyModule_AddIntConstant(m, "COMP_ZLIB_NO_HDR", IGZIP_ZLIB_NO_HDR);
+
+    PyModule_AddIntConstant(m, "DECOMP_DEFLATE", ISAL_DEFLATE);
+    PyModule_AddIntConstant(m, "DECOMP_GZIP", ISAL_GZIP);
+    PyModule_AddIntConstant(m, "DECOMP_GZIP_NO_HDR", DECOMP_GZIP_NO_HDR);
+    PyModule_AddIntConstant(m, "DECOMP_ZLIB", ISAL_ZLIB);
+    PyModule_AddIntConstant(m, "DECOMP_ZLIB_NO_HDR", ISAL_ZLIB_NO_HDR);
+    PyModule_AddIntConstant(m, "DECOMP_ZLIB_NO_HDR_VER", ISAL_ZLIB_NO_HDR_VER);
+    PyModule_AddIntConstant(m, "DECOMP_GZIP_NO_HDR_VER", ISAL_GZIP_NO_HDR_VER);
+
+    PyModule_AddIntMacro(m, MEM_LEVEL_DEFAULT);
+    PyModule_AddIntMacro(m, MEM_LEVEL_MIN);
+    PyModule_AddIntMacro(m, MEM_LEVEL_SMALL);
+    PyModule_AddIntMacro(m, MEM_LEVEL_MEDIUM);
+    PyModule_AddIntMacro(m, MEM_LEVEL_LARGE);
+    PyModule_AddIntMacro(m, MEM_LEVEL_EXTRA_LARGE);
+
     return m;
 }
