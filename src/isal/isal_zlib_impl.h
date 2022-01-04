@@ -393,8 +393,8 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
         self->zdict = zdict;
     }
     self->is_initialised = 1;
-    //Apparently zlibmodule.c only adds dicts for raw deflate streams.
-    if (self->zdict != NULL && flag == ISAL_DEFLATE) {  
+
+    if (self->zdict != NULL) {  
         if (set_inflate_zdict(self) < 0) {
             Py_DECREF(self);
             return NULL;
