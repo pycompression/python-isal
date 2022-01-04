@@ -10,7 +10,7 @@
 #define ISAL_BEST_COMPRESSION ISAL_DEF_MAX_LEVEL
 #define ISAL_DEFAULT_COMPRESSION 2
 #define COMP_DEFLATE IGZIP_DEFLATE
-#define COMP_GZIP = IGZIP_GZIP
+#define COMP_GZIP IGZIP_GZIP
 #define COMP_GZIP_NO_HDR IGZIP_GZIP_NO_HDR
 #define COMP_ZLIB IGZIP_ZLIB
 #define COMP_ZLIB_NO_HDR IGZIP_ZLIB_NO_HDR
@@ -30,6 +30,22 @@ static enum MemLevel {
     MEM_LEVEL_LARGE,
     MEM_LEVEL_EXTRA_LARGE
 };
+
+typedef struct {
+    PyTypeObject *Decomptype;
+    PyObject *IsalError;
+} _igzip_lib_state;
+
+static inline _igzip_lib_state*
+get_igzip_lib_state(PyObject *module)
+{
+    void *state = PyModule_GetState(module);
+    assert(state != NULL);
+    return (_igzip_lib_state*)state;
+}
+static PyModuleDef igzip_lib_module;
+#define _igzip_lib_state_global ((_igzip_lib_state *)PyModule_GetState(PyState_FindModule(&igzip_lib_module)))
+
 
 static const uint32_t LEVEL_BUF_SIZES[24] = {
     ISAL_DEF_LVL0_DEFAULT,
@@ -342,13 +358,13 @@ typedef struct {
     PyObject *unused_data;
     PyObject *zdict;
     char needs_input;
-    char *input_buffer;
-    size_t input_buffer_size;
+    uint8_t *input_buffer;
+    Py_ssize_t input_buffer_size;
 
     /* inflate_state>avail_in is only 32 bit, so we store the true length
        separately. Conversion and looping is encapsulated in
        decompress_buf() */
-    size_t avail_in_real;
+    Py_ssize_t avail_in_real;
 } IgzipDecompressor;
 
 static void
@@ -362,7 +378,7 @@ IgzipDecompressor_dealloc(IgzipDecompressor *self)
 }
 
 static int
-_igzip_lib_IgzipDecompressor___init___impl(IgzipDecompressor *self,
+igzip_lib_IgzipDecompressor___init___impl(IgzipDecompressor *self,
                                            int flag,
                                            int hist_bits,
                                            PyObject *zdict)
@@ -393,7 +409,7 @@ _igzip_lib_IgzipDecompressor___init___impl(IgzipDecompressor *self,
                                     (uint32_t)zdict_buf.len);
         PyBuffer_Release(&zdict_buf);
         if (err != ISAL_DECOMP_OK) {
-            isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+            isal_inflate_error(err, _igzip_lib_state_global->IsalError);
             goto error;
         }        
     }
@@ -404,8 +420,6 @@ error:
     Py_CLEAR(self->zdict);
     return -1;
 }
-
-static PyTypeObject IgzipDecompressor_Type;
 
 /* Decompress data of length d->bzs_avail_in_real in d->state.next_in.  The output
    buffer is allocated dynamically and returned.  At most max_length bytes are
@@ -442,7 +456,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
         arrange_input_buffer(&(self->state.avail_in), &(self->avail_in_real));
         err = isal_inflate(&(self->state));
         if (err != ISAL_DECOMP_OK){
-            isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+            isal_inflate_error(err, _igzip_lib_state_global->IsalError);
             goto error;
         }
         self->avail_in_real += self->state.avail_in;
@@ -461,7 +475,7 @@ error:
 
 
 static PyObject *
-decompress(IgzipDecompressor *self, char *data, size_t len, Py_ssize_t max_length)
+decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_length)
 {
     char input_buffer_in_use;
     PyObject *result;
@@ -481,7 +495,7 @@ decompress(IgzipDecompressor *self, char *data, size_t len, Py_ssize_t max_lengt
 
         if (avail_total < len) {
             size_t offset = self->state.next_in - self->input_buffer;
-            char *tmp;
+            uint8_t *tmp;
             size_t new_size = self->input_buffer_size + len - avail_now;
 
             /* Assign to temporary variable first, so we don't
@@ -575,7 +589,7 @@ error:
 }
 
 static PyObject *
-_igzip_lib_IgzipDecompressor_decompress_impl(IgzipDecompressor *self, Py_buffer *data,
+igzip_lib_IgzipDecompressor_decompress_impl(IgzipDecompressor *self, Py_buffer *data,
                                              Py_ssize_t max_length)
 {
     PyObject *result = NULL;

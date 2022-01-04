@@ -1,21 +1,8 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-
+#include "structmember.h"         // PyMemberDef
 #include "igzip_lib_impl.h"
 
-
-typedef struct {
-    PyTypeObject *Decomptype;
-    PyObject *IsalError;
-} _igzip_lib_state;
-
-static inline _igzip_lib_state*
-get_igzip_lib_state(PyObject *module)
-{
-    void *state = PyModule_GetState(module);
-    assert(state != NULL);
-    return (_igzip_lib_state*)state;
-}
 static PyObject *
 igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
@@ -169,7 +156,7 @@ exit:
     return return_value;
 }
 
-PyDoc_STRVAR(_igzlip_lib_IgzipDecompressor_decompress__doc__,
+PyDoc_STRVAR(igzip_lib_IgzipDecompressor_decompress__doc__,
 "decompress($self, /, data, max_length=-1)\n"
 "--\n"
 "\n"
@@ -188,11 +175,11 @@ PyDoc_STRVAR(_igzlip_lib_IgzipDecompressor_decompress__doc__,
 "EOFError.  Any data found after the end of the stream is ignored and saved in\n"
 "the unused_data attribute.");
 
-#define _IGZIP_LIB_IGZIPDECOMPRESSOR_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))_igzip_lib_IgzipDecompressor_decompress, METH_FASTCALL|METH_KEYWORDS, _igzlip_lib_IgzipDecompressor_decompress__doc__}
+#define IGZIP_LIB_IGZIPDECOMPRESSOR_DECOMPRESS_METHODDEF    \
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_IgzipDecompressor_decompress, METH_FASTCALL|METH_KEYWORDS, igzip_lib_IgzipDecompressor_decompress__doc__}
 
 static PyObject *
-_igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
     static const char * const _keywords[] = {"data", "max_length", NULL};
@@ -234,7 +221,7 @@ _igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *const
         max_length = ival;
     }
 skip_optional_pos:
-    return_value = _igzip_lib_IgzipDecompressor_decompress_impl(self, &data, max_length);
+    return_value = igzip_lib_IgzipDecompressor_decompress_impl(self, &data, max_length);
 
 exit:
     /* Cleanup for data */
@@ -244,7 +231,7 @@ exit:
 
     return return_value;
 }
-PyDoc_STRVAR(_igzip_lib_IgzipDecompressor___init____doc__,
+PyDoc_STRVAR(igzip_lib_IgzipDecompressor___init____doc__,
 "IgzipDecompressor(flag=DECOMP_DEFLATE, hist_bits=MAX_HIST_BITS, zdict=b\'\')\n"
 "--\n"
 "\n"
@@ -260,7 +247,7 @@ PyDoc_STRVAR(_igzip_lib_IgzipDecompressor___init____doc__,
 "For one-shot decompression, use the decompress() function instead.");
 
 static int
-_igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *kwargs)
+igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     int return_value = -1;
     static const char * const _keywords[] = {"flag", "hist_bits", "zdict", NULL};
@@ -310,12 +297,78 @@ _igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *
     }
     zdict = fastargs[2];
 skip_optional_pos:
-    return_value = _igzip_lib_IgzipDecompressor___init___impl((IgzipDecompressor *)self, flag, hist_bits, zdict);
+    return_value = igzip_lib_IgzipDecompressor___init___impl((IgzipDecompressor *)self, flag, hist_bits, zdict);
 
 exit:
     return return_value;
 }
 
+static PyMethodDef IgzipDecompressor_methods[] = {
+    IGZIP_LIB_IGZIPDECOMPRESSOR_DECOMPRESS_METHODDEF,
+    {NULL}
+};
+
+PyDoc_STRVAR(IgzipDecompressor_eof__doc__,
+"True if the end-of-stream marker has been reached.");
+
+PyDoc_STRVAR(IgzipDecompressor_unused_data__doc__,
+"Data found after the end of the compressed stream.");
+
+PyDoc_STRVAR(IgzipDecompressor_needs_input_doc,
+"True if more input is needed before more decompressed data can be produced.");
+
+#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
+
+static PyMemberDef IgzipDecompressor_members[] = {
+    {"eof", T_BOOL, offsetof(IgzipDecompressor, eof),
+     READONLY, IgzipDecompressor_eof__doc__},
+    {"unused_data", T_OBJECT_EX, offsetof(IgzipDecompressor, unused_data),
+     READONLY, IgzipDecompressor_unused_data__doc__},
+    {"needs_input", T_BOOL, offsetof(IgzipDecompressor, needs_input), READONLY,
+     IgzipDecompressor_needs_input_doc},
+    {NULL}
+};
+
+static PyTypeObject IgzipDecompressor_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    "igzip_lib.IgzipDecompressor",      /* tp_name */
+    sizeof(IgzipDecompressor),          /* tp_basicsize */
+    0,                                  /* tp_itemsize */
+    (destructor)IgzipDecompressor_dealloc,/* tp_dealloc */
+    0,                                  /* tp_vectorcall_offset */
+    0,                                  /* tp_getattr */
+    0,                                  /* tp_setattr */
+    0,                                  /* tp_as_async */
+    0,                                  /* tp_repr */
+    0,                                  /* tp_as_number */
+    0,                                  /* tp_as_sequence */
+    0,                                  /* tp_as_mapping */
+    0,                                  /* tp_hash  */
+    0,                                  /* tp_call */
+    0,                                  /* tp_str */
+    0,                                  /* tp_getattro */
+    0,                                  /* tp_setattro */
+    0,                                  /* tp_as_buffer */
+    Py_TPFLAGS_DEFAULT,                 /* tp_flags */
+    igzip_lib_IgzipDecompressor___init____doc__,  /* tp_doc */
+    0,                                  /* tp_traverse */
+    0,                                  /* tp_clear */
+    0,                                  /* tp_richcompare */
+    0,                                  /* tp_weaklistoffset */
+    0,                                  /* tp_iter */
+    0,                                  /* tp_iternext */
+    IgzipDecompressor_methods,            /* tp_methods */
+    IgzipDecompressor_members,            /* tp_members */
+    0,                                  /* tp_getset */
+    0,                                  /* tp_base */
+    0,                                  /* tp_dict */
+    0,                                  /* tp_descr_get */
+    0,                                  /* tp_descr_set */
+    0,                                  /* tp_dictoffset */
+    igzip_lib_IgzipDecompressor___init__,      /* tp_init */
+    0,                                  /* tp_alloc */
+    PyType_GenericNew,                  /* tp_new */
+};
 
 static PyMethodDef IgzipLibMethods[] = {
     {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_FASTCALL|METH_KEYWORDS, NULL},
@@ -341,7 +394,7 @@ PyInit_igzip_lib(void)
     if (m == NULL)
         return NULL;
 
-    IsalError = PyErr_NewException("igzip_lib.error", NULL, NULL);
+    IsalError = PyErr_NewException("IsalError", NULL, NULL);
     Py_XINCREF(IsalError);
     if (PyModule_AddObject(m, "error", IsalError) < 0) {
         Py_XDECREF(IsalError);
@@ -350,6 +403,10 @@ PyInit_igzip_lib(void)
         return NULL;
     }
     get_igzip_lib_state(m)->IsalError = IsalError;
+
+    if (PyModule_AddType(m, &IgzipDecompressor_Type) < 0) {
+        return NULL;
+    }
 
     PyModule_AddIntConstant(m, "ISAL_BEST_SPEED", ISAL_DEF_MIN_LEVEL);
     PyModule_AddIntConstant(m, "ISAL_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL);
@@ -362,19 +419,19 @@ PyInit_igzip_lib(void)
     PyModule_AddIntConstant(m, "ISAL_SYNC_FLUSH", SYNC_FLUSH);
     PyModule_AddIntConstant(m, "ISAL_FULL_FLUSH", FULL_FLUSH);
 
-    PyModule_AddIntConstant(m, "COMP_DEFLATE", IGZIP_DEFLATE);
-    PyModule_AddIntConstant(m, "COMP_GZIP", IGZIP_GZIP);
-    PyModule_AddIntConstant(m, "COMP_GZIP_NO_HDR", IGZIP_GZIP_NO_HDR);
-    PyModule_AddIntConstant(m, "COMP_ZLIB", IGZIP_ZLIB);
-    PyModule_AddIntConstant(m, "COMP_ZLIB_NO_HDR", IGZIP_ZLIB_NO_HDR);
+    PyModule_AddIntMacro(m, COMP_DEFLATE);
+    PyModule_AddIntMacro(m, COMP_GZIP);
+    PyModule_AddIntMacro(m, COMP_GZIP_NO_HDR);
+    PyModule_AddIntMacro(m, COMP_ZLIB);
+    PyModule_AddIntMacro(m, COMP_ZLIB_NO_HDR);
 
-    PyModule_AddIntConstant(m, "DECOMP_DEFLATE", ISAL_DEFLATE);
-    PyModule_AddIntConstant(m, "DECOMP_GZIP", ISAL_GZIP);
-    PyModule_AddIntConstant(m, "DECOMP_GZIP_NO_HDR", DECOMP_GZIP_NO_HDR);
-    PyModule_AddIntConstant(m, "DECOMP_ZLIB", ISAL_ZLIB);
-    PyModule_AddIntConstant(m, "DECOMP_ZLIB_NO_HDR", ISAL_ZLIB_NO_HDR);
-    PyModule_AddIntConstant(m, "DECOMP_ZLIB_NO_HDR_VER", ISAL_ZLIB_NO_HDR_VER);
-    PyModule_AddIntConstant(m, "DECOMP_GZIP_NO_HDR_VER", ISAL_GZIP_NO_HDR_VER);
+    PyModule_AddIntMacro(m, DECOMP_DEFLATE);
+    PyModule_AddIntMacro(m, DECOMP_GZIP);
+    PyModule_AddIntMacro(m, DECOMP_GZIP_NO_HDR);
+    PyModule_AddIntMacro(m, DECOMP_ZLIB);
+    PyModule_AddIntMacro(m, DECOMP_ZLIB_NO_HDR);
+    PyModule_AddIntMacro(m, DECOMP_ZLIB_NO_HDR_VER);
+    PyModule_AddIntMacro(m, DECOMP_GZIP_NO_HDR_VER);
 
     PyModule_AddIntMacro(m, MEM_LEVEL_DEFAULT);
     PyModule_AddIntMacro(m, MEM_LEVEL_MIN);
