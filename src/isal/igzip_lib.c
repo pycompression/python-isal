@@ -394,7 +394,7 @@ PyInit_igzip_lib(void)
     if (m == NULL)
         return NULL;
 
-    IsalError = PyErr_NewException("IsalError", NULL, NULL);
+    IsalError = PyErr_NewException("igzip_lib.error", NULL, NULL);
     Py_XINCREF(IsalError);
     if (PyModule_AddObject(m, "error", IsalError) < 0) {
         Py_XDECREF(IsalError);
