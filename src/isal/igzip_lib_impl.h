@@ -334,3 +334,255 @@ igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
     Py_XDECREF(RetVal);
     return NULL;
 }
+
+typedef struct {
+    PyObject_HEAD
+    struct inflate_state state;
+    char eof;           /* T_BOOL expects a char */
+    PyObject *unused_data;
+    PyObject *zdict;
+    char needs_input;
+    char *input_buffer;
+    size_t input_buffer_size;
+
+    /* inflate_state>avail_in is only 32 bit, so we store the true length
+       separately. Conversion and looping is encapsulated in
+       decompress_buf() */
+    size_t avail_in_real;
+} IgzipDecompressor;
+
+static void
+IgzipDecompressor_dealloc(IgzipDecompressor *self)
+{
+    if(self->input_buffer != NULL)
+        PyMem_Free(self->input_buffer);
+    Py_CLEAR(self->unused_data);
+    Py_CLEAR(self->zdict);
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static int
+_igzip_lib_IgzipDecompressor___init___impl(IgzipDecompressor *self,
+                                           int flag,
+                                           int hist_bits,
+                                           PyObject *zdict)
+{
+    int err;
+    self->needs_input = 1;
+    self->avail_in_real = 0;
+    self->input_buffer = NULL;
+    self->input_buffer_size = 0;
+    self->zdict = zdict;
+    Py_XSETREF(self->unused_data, PyBytes_FromStringAndSize(NULL, 0));
+    if (self->unused_data == NULL)
+        goto error;
+    isal_inflate_init(&(self->state));
+    self->state.hist_bits = hist_bits;
+    self->state.crc_flag = flag;
+    if (self->zdict != NULL){
+        Py_buffer zdict_buf;
+        if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
+            goto error;
+        }
+        if ((size_t)zdict_buf.len > UINT32_MAX) {
+            PyErr_SetString(PyExc_OverflowError,
+                           "zdict length does not fit in an unsigned 32-bits int");
+            PyBuffer_Release(&zdict_buf);
+        }
+        err = isal_inflate_set_dict(&(self->state), zdict_buf.buf, 
+                                    (uint32_t)zdict_buf.len);
+        PyBuffer_Release(&zdict_buf);
+        if (err != ISAL_DECOMP_OK) {
+            isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+            goto error;
+        }        
+    }
+    return 0;
+
+error:
+    Py_CLEAR(self->unused_data);
+    Py_CLEAR(self->zdict);
+    return -1;
+}
+
+static PyTypeObject IgzipDecompressor_Type;
+
+/* Decompress data of length d->bzs_avail_in_real in d->state.next_in.  The output
+   buffer is allocated dynamically and returned.  At most max_length bytes are
+   returned, so some of the input may not be consumed. d->state.next_in and
+   d->bzs_avail_in_real are updated to reflect the consumed input. */
+static PyObject*
+decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
+{
+    /* data_size is strictly positive, but because we repeatedly have to
+       compare against max_length and PyBytes_GET_SIZE we declare it as
+       signed */
+    PyObject * RetVal;
+    Py_ssize_t obuflen = DEF_BUF_SIZE;
+
+    if (obuflen > max_length)
+        obuflen = max_length;
+
+
+    do {
+        int err;
+
+        obuflen = arrange_output_buffer_with_maximum(&(self->state.avail_out), 
+                                                     &(self->state.next_out),
+                                                     &RetVal,
+                                                     obuflen,
+                                                     max_length);
+        if (obuflen == -1){
+            PyErr_SetString(PyExc_MemoryError, 
+                            "Unsufficient memory for buffer allocation");
+            goto error;
+        }
+        else if (obuflen == -2)
+            break;
+        arrange_input_buffer(&(self->state.avail_in), &(self->avail_in_real));
+        err = isal_inflate(&(self->state));
+        if (err != ISAL_DECOMP_OK){
+            isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+            goto error;
+        }
+        self->avail_in_real += self->state.avail_in;
+        if (self->state.block_state == ISAL_BLOCK_FINISH){
+            self->eof = 1;
+            break;
+        }
+    } while(self->avail_in_real != 0);
+
+    return RetVal;
+
+error:
+    Py_XDECREF(RetVal);
+    return NULL;
+}
+
+
+static PyObject *
+decompress(IgzipDecompressor *self, char *data, size_t len, Py_ssize_t max_length)
+{
+    char input_buffer_in_use;
+    PyObject *result;
+
+    /* Prepend unconsumed input if necessary */
+    if (self->state.next_in != NULL) {
+        size_t avail_now, avail_total;
+
+        /* Number of bytes we can append to input buffer */
+        avail_now = (self->input_buffer + self->input_buffer_size)
+            - (self->state.next_in + self->avail_in_real);
+
+        /* Number of bytes we can append if we move existing
+           contents to beginning of buffer (overwriting
+           consumed input) */
+        avail_total = self->input_buffer_size - self->avail_in_real;
+
+        if (avail_total < len) {
+            size_t offset = self->state.next_in - self->input_buffer;
+            char *tmp;
+            size_t new_size = self->input_buffer_size + len - avail_now;
+
+            /* Assign to temporary variable first, so we don't
+               lose address of allocated buffer if realloc fails */
+            tmp = PyMem_Realloc(self->input_buffer, new_size);
+            if (tmp == NULL) {
+                PyErr_SetNone(PyExc_MemoryError);
+                return NULL;
+            }
+            self->input_buffer = tmp;
+            self->input_buffer_size = new_size;
+
+            self->state.next_in = self->input_buffer + offset;
+        }
+        else if (avail_now < len) {
+            memmove(self->input_buffer, self->state.next_in,
+                    self->avail_in_real);
+            self->state.next_in = self->input_buffer;
+        }
+        memcpy((void*)(self->state.next_in + self->avail_in_real), data, len);
+        self->avail_in_real += len;
+        input_buffer_in_use = 1;
+    }
+    else {
+        self->state.next_in = data;
+        self->avail_in_real = len;
+        input_buffer_in_use = 0;
+    }
+
+    result = decompress_buf(self, max_length);
+    if(result == NULL) {
+        self->state.next_in = NULL;
+        return NULL;
+    }
+
+    if (self->eof) {
+        self->needs_input = 0;
+        if (self->avail_in_real > 0) {
+            Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->state));
+            PyObject * new_data = PyBytes_FromStringAndSize(
+                NULL, self->avail_in_real + bytes_in_bitbuffer);
+            if (new_data == NULL)
+                goto error;
+            char * new_data_ptr = PyBytes_AS_STRING(new_data);
+            bitbuffer_copy(&(self->state), new_data_ptr, bytes_in_bitbuffer);
+            memcpy(new_data_ptr + bytes_in_bitbuffer, self->state.next_in, self->avail_in_real);
+            Py_XSETREF(self->unused_data, new_data);
+        }
+    }
+    else if (self->avail_in_real == 0) {
+        self->state.next_in = NULL;
+        self->needs_input = 1;
+    }
+    else {
+        self->needs_input = 0;
+
+        /* If we did not use the input buffer, we now have
+           to copy the tail from the caller's buffer into the
+           input buffer */
+        if (!input_buffer_in_use) {
+
+            /* Discard buffer if it's too small
+               (resizing it may needlessly copy the current contents) */
+            if (self->input_buffer != NULL &&
+                self->input_buffer_size < self->avail_in_real) {
+                PyMem_Free(self->input_buffer);
+                self->input_buffer = NULL;
+            }
+
+            /* Allocate if necessary */
+            if (self->input_buffer == NULL) {
+                self->input_buffer = PyMem_Malloc(self->avail_in_real);
+                if (self->input_buffer == NULL) {
+                    PyErr_SetNone(PyExc_MemoryError);
+                    goto error;
+                }
+                self->input_buffer_size = self->avail_in_real;
+            }
+
+            /* Copy tail */
+            memcpy(self->input_buffer, self->state.next_in, self->avail_in_real);
+            self->state.next_in = self->input_buffer;
+        }
+    }
+
+    return result;
+
+error:
+    Py_XDECREF(result);
+    return NULL;
+}
+
+static PyObject *
+_igzip_lib_IgzipDecompressor_decompress_impl(IgzipDecompressor *self, Py_buffer *data,
+                                             Py_ssize_t max_length)
+{
+    PyObject *result = NULL;
+    if (self->eof)
+        PyErr_SetString(PyExc_EOFError, "End of stream already reached");
+    else
+        result = decompress(self, data->buf, data->len, max_length);
+    return result;
+}
+
