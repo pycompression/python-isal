@@ -451,7 +451,7 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             Py_ssize_t old_size = PyBytes_GET_SIZE(self->unused_data);
             Py_ssize_t new_size, left_size;
             PyObject *new_data;
-            int bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
+            size_t bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
             left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
             if (left_size + bytes_in_bitbuffer > (PY_SSIZE_T_MAX - old_size)) {
                 PyErr_NoMemory();
@@ -465,9 +465,9 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             char * new_data_ptr = PyBytes_AS_STRING(new_data);
             memcpy(new_data_ptr,
                    PyBytes_AS_STRING(self->unused_data), old_size);
-            memcpy(new_data_ptr + old_size,
-                   self->zst.next_in, left_size);
-            bitbuffer_copy(&(self->zst), new_data_ptr + old_size + left_size);
+            bitbuffer_copy(&(self->zst), new_data_ptr + old_size, bytes_in_bitbuffer);
+            memcpy(new_data_ptr + old_size + bytes_in_bitbuffer,
+                   self->zst.next_in, left_size);       
             Py_SETREF(self->unused_data, new_data);
             self->zst.avail_in = 0;
         }

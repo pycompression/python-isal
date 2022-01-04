@@ -104,18 +104,38 @@ static void isal_inflate_error(int err, PyObject *ErrorClass){
     PyErr_Format(ErrorClass, "Error %d %s", err, msg);
 }
 
-static int bitbuffer_size(struct inflate_state *state){
+/**
+ * @brief Returns the length in number of bytes of the bitbuffer read_in of an
+ *        inflate state.
+ * 
+ * @param state An inflate_state
+ * @return size_t 
+ */
+static size_t bitbuffer_size(struct inflate_state *state){
     return state->read_in_length / 8;
 }
 
-static void bitbuffer_copy(struct inflate_state *state, char *to){
+/**
+ * @brief Copy n bytes in state->read_in to to. 
+ * 
+ * @param state ISA-L inflate_state
+ * @param to the destination pointer
+ * @param n the number of bytes to copy. Must be 8 or lower.
+ * @return int Returns -1 if n > 8, 0 otherwise.
+ */
+static int bitbuffer_copy(struct inflate_state *state, char *to, size_t n){
+    if (n > 8){
+        // Size should not be greater than 8 as there are 8 bytes in a uint64_t
+        PyErr_BadInternalCall();
+        return -1;
+    }
     int bits_in_buffer = state->read_in_length;
-    size_t bytes_in_buffer = bits_in_buffer / 8;
     int remainder = bits_in_buffer % 8;
     // Shift the 8-byte bitbuffer read_in so that the bytes are aligned.
     uint64_t remaining_bytes = state->read_in >> remainder;
     char * remaining_bytes_ptr = (char *)(&remaining_bytes);
-    memcpy(to, remaining_bytes_ptr, bytes_in_buffer);
+    memcpy(to, remaining_bytes_ptr, n);
+    return 0;
 }
 
 static void
