@@ -674,7 +674,7 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
         goto abort;
 
     /* If at end of stream, clean up any memory allocated by zlib. */
-    if (self->zst.block_state != ISAL_BLOCK_FINISH) {
+    if (self->zst.block_state == ISAL_BLOCK_FINISH) {
         self->eof = 1;
         self->is_initialised = 0;
     }
