@@ -545,6 +545,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
             err = isal_inflate(&self->zst);
             if (err != ISAL_DECOMP_OK){
                 isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+                goto abort;
             }
 
         } while (self->zst.avail_out == 0 && self->zst.block_state != ISAL_BLOCK_FINISH);
