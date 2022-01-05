@@ -429,11 +429,11 @@ PyDoc_STRVAR(isal_zlib_Compress_compress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_COMPRESS_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, METH_METHOD|METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_compress__doc__}
 
 
 static PyObject *
-isal_zlib_Compress_compress(compobject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Compress_compress(compobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
     static const char * const _keywords[] = {"", NULL};
@@ -473,11 +473,11 @@ PyDoc_STRVAR(isal_zlib_Decompress_decompress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_DECOMPRESS_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, METH_METHOD|METH_FASTCALL|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
 
 
 static PyObject *
-isal_zlib_Decompress_decompress(decompobject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Decompress_decompress(decompobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
     static const char * const _keywords[] = {"", "max_length", NULL};
@@ -513,11 +513,11 @@ PyDoc_STRVAR(isal_zlib_Compress_flush__doc__,
 "    can still be compressed.");
 
 #define ISAL_ZLIB_COMPRESS_FLUSH_METHODDEF    \
-    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Compress_flush, METH_METHOD|METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_flush__doc__}
+    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Compress_flush, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_flush__doc__}
 
 
 static PyObject *
-isal_zlib_Compress_flush(compobject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Compress_flush(compobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
     static const char * const _keywords[] = {"", NULL};
@@ -544,10 +544,10 @@ PyDoc_STRVAR(isal_zlib_Decompress_flush__doc__,
 
 
 #define ISAL_ZLIB_DECOMPRESS_FLUSH_METHODDEF    \
-    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, METH_METHOD|METH_FASTCALL|METH_KEYWORDS, isal_zlib_Decompress_flush__doc__}
+    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Decompress_flush__doc__}
 
 static PyObject *
-isal_zlib_Decompress_flush(decompobject *self, PyTypeObject *cls, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
     static const char * const _keywords[] = {"", NULL};
