@@ -539,8 +539,8 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
 
     if (self->eof) {
         self->needs_input = 0;
-        if (self->avail_in_real > 0) {
-            Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->state));
+        Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->state));
+        if (self->avail_in_real + bytes_in_bitbuffer > 0) {
             PyObject * new_data = PyBytes_FromStringAndSize(
                 NULL, self->avail_in_real + bytes_in_bitbuffer);
             if (new_data == NULL)
