@@ -60,7 +60,8 @@ class IgzipDecompressor:
     eof: bool
     crc: int
 
-    def __init__(flag: int = DECOMP_DEFLATE,
+    def __init__(self,
+                 flag: int = DECOMP_DEFLATE,
                  hist_bits: int = MAX_HIST_BITS,
                  zdict = None) -> None: ...
 
