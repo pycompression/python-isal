@@ -674,7 +674,6 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
- save:
     if (save_unconsumed_input(self, &data, err) < 0)
         goto abort;
 

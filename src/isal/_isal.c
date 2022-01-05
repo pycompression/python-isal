@@ -8,7 +8,7 @@ static struct PyModuleDef _isal_module = {
     "_isal",   /* name of module */
     NULL, /* module documentation, may be NULL */
     -1,
-    {{NULL, NULL, 0, NULL}}
+    NULL
 };
 
 
