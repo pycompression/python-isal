@@ -317,6 +317,9 @@ PyDoc_STRVAR(IgzipDecompressor_unused_data__doc__,
 PyDoc_STRVAR(IgzipDecompressor_needs_input_doc,
 "True if more input is needed before more decompressed data can be produced.");
 
+PyDoc_STRVAR(IgzipDecompressor_crc_doc,
+"The checksum that is saved if DECOMP_ZLIB* or DECOMP_GZIP* flags are used.");
+
 #define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
 
 static PyMemberDef IgzipDecompressor_members[] = {
@@ -326,6 +329,8 @@ static PyMemberDef IgzipDecompressor_members[] = {
      READONLY, IgzipDecompressor_unused_data__doc__},
     {"needs_input", T_BOOL, offsetof(IgzipDecompressor, needs_input), READONLY,
      IgzipDecompressor_needs_input_doc},
+    {"crc", T_UINT, offsetof(IgzipDecompressor, state) + offsetof(struct inflate_state, crc), READONLY,
+     IgzipDecompressor_crc_doc},
     {NULL}
 };
 
