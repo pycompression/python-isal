@@ -433,43 +433,48 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
        signed */
     PyObject * RetVal = NULL;
     Py_ssize_t obuflen = DEF_BUF_SIZE;
+    int err;
 
     if (obuflen > max_length)
         obuflen = max_length;
 
 
     do {
-        int err;
-
-        obuflen = arrange_output_buffer_with_maximum(&(self->state.avail_out), 
-                                                     &(self->state.next_out),
-                                                     &RetVal,
-                                                     obuflen,
-                                                     max_length);
-        if (obuflen == -1){
-            PyErr_SetString(PyExc_MemoryError, 
-                            "Unsufficient memory for buffer allocation");
-            goto error;
-        }
-        else if (obuflen == -2)
-            break;
         arrange_input_buffer(&(self->state.avail_in), &(self->avail_in_real));
-        err = isal_inflate(&(self->state));
-        if (err != ISAL_DECOMP_OK){
-            isal_inflate_error(err, _igzip_lib_state_global->IsalError);
-            goto error;
-        }
-        self->avail_in_real += self->state.avail_in;
-        if (self->state.block_state == ISAL_BLOCK_FINISH){
-            self->eof = 1;
-            break;
-        }
-    } while(self->avail_in_real != 0);
+
+        do {
+            obuflen = arrange_output_buffer_with_maximum(&(self->state.avail_out), 
+                                                        &(self->state.next_out),
+                                                        &RetVal,
+                                                        obuflen,
+                                                        max_length);
+            if (obuflen == -1){
+                PyErr_SetString(PyExc_MemoryError, 
+                                "Unsufficient memory for buffer allocation");
+                goto error;
+            }
+            else if (obuflen == -2)
+                break;
+        
+            err = isal_inflate(&(self->state));
+            if (err != ISAL_DECOMP_OK){
+                isal_inflate_error(err, _igzip_lib_state_global->IsalError);
+                goto error;
+            }
+        } while (self->state.avail_out == 0 && self->state.block_state != ISAL_BLOCK_FINISH);
+    } while(self->avail_in_real != 0 && self->state.block_state != ISAL_BLOCK_FINISH);
+
+    if (self->state.block_state == ISAL_BLOCK_FINISH){
+        self->eof = 1;
+    }
+    if (_PyBytes_Resize(&RetVal, self->state.next_out -
+                        (uint8_t *)PyBytes_AS_STRING(RetVal)) != 0)
+        goto error;
 
     return RetVal;
 
 error:
-    Py_XDECREF(RetVal);
+    Py_CLEAR(RetVal);
     return NULL;
 }
 
