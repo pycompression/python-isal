@@ -686,7 +686,10 @@ PyInit_igzip_lib(void)
     }
     get_igzip_lib_state(m)->IsalError = IsalError;
 
-    if (PyModule_AddType(m, &IgzipDecompressor_Type) < 0) {
+    if (PyType_Ready(&IgzipDecompressor_Type) != 0)
+        return NULL;
+    Py_INCREF(&IgzipDecompressor_Type);
+    if (PyModule_AddObject(m, "IgzipDecompressor",  (PyObject *)&IgzipDecompressor_Type) < 0) {
         return NULL;
     }
 
