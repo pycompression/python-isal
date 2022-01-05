@@ -54,14 +54,14 @@ def decompress(data, flag: int = DECOMP_DEFLATE,
                hist_bits: int = MAX_HIST_BITS,
                bufsize: int = DEF_BUF_SIZE) -> bytes: ...
 
-def decompressobj(flag: int = DECOMP_DEFLATE,
-                  hist_bits: int = MAX_HIST_BITS,
-                  zdict = None) -> IgzipDecompressor: ...
-
 class IgzipDecompressor:
     unused_data: bytes
     needs_input: bool
     eof: bool
     crc: int
+
+    def __init__(flag: int = DECOMP_DEFLATE,
+                 hist_bits: int = MAX_HIST_BITS,
+                 zdict = None) -> None: ...
 
     def decompress(self, data, max_length = -1) -> bytes: ...
