@@ -464,9 +464,11 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
         } while (self->state.avail_out == 0 && self->state.block_state != ISAL_BLOCK_FINISH);
     } while(self->avail_in_real != 0 && self->state.block_state != ISAL_BLOCK_FINISH);
 
-    if (self->state.block_state == ISAL_BLOCK_FINISH){
+    if (self->state.block_state == ISAL_BLOCK_FINISH)
         self->eof = 1;
-    }
+
+    self->avail_in_real += self->state.avail_in;
+
     if (_PyBytes_Resize(&RetVal, self->state.next_out -
                         (uint8_t *)PyBytes_AS_STRING(RetVal)) != 0)
         goto error;
