@@ -431,7 +431,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
     /* data_size is strictly positive, but because we repeatedly have to
        compare against max_length and PyBytes_GET_SIZE we declare it as
        signed */
-    PyObject * RetVal;
+    PyObject * RetVal = NULL;
     Py_ssize_t obuflen = DEF_BUF_SIZE;
 
     if (obuflen > max_length)
@@ -479,7 +479,6 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
 {
     char input_buffer_in_use;
     PyObject *result;
-
     /* Prepend unconsumed input if necessary */
     if (self->state.next_in != NULL) {
         size_t avail_now, avail_total;
@@ -580,7 +579,6 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
             self->state.next_in = self->input_buffer;
         }
     }
-
     return result;
 
 error:
