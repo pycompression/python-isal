@@ -3,6 +3,9 @@
 
 #include "isal_zlib_impl.h"
 #include "structmember.h"  
+#ifndef _PyArg_CheckPositional
+#include "python_args.h"
+#endif
 
 PyDoc_STRVAR(isal_zlib_adler32__doc__,
 "adler32($module, data, value=1, /)\n"
