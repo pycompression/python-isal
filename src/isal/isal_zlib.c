@@ -627,10 +627,20 @@ static PyType_Spec Comptype_spec = {
 
 #define COMP_OFF(x) offsetof(decompobject, x)
 
+PyDoc_STRVAR(Decomp_unconsumed_tail,
+"A bytes object that contains any data that was not consumed by the last\n"
+"decompress() call because it exceeded the limit for the uncompressed data\n"
+"buffer. This data has not yet been seen by the zlib machinery, so you must\n"
+"feed it (possibly with further data concatenated to it) back to a \n"
+"subsequent decompress() method call in order to get correct output.");
+
 static PyMemberDef Decomp_members[] = {
-    {"unused_data",     T_OBJECT, COMP_OFF(unused_data), READONLY},
-    {"unconsumed_tail", T_OBJECT, COMP_OFF(unconsumed_tail), READONLY},
-    {"eof",             T_BOOL,   COMP_OFF(eof), READONLY},
+    {"unused_data",     T_OBJECT, COMP_OFF(unused_data), READONLY,
+    "Data found after the end of the compressed stream."},
+    {"unconsumed_tail", T_OBJECT, COMP_OFF(unconsumed_tail), READONLY,
+    Decomp_unconsumed_tail},
+    {"eof",             T_BOOL,   COMP_OFF(eof), READONLY,
+    "True if the end-of-stream marker has been reached."},
     {NULL},
 };
 
@@ -734,6 +744,18 @@ PyInit_isal_zlib(void)
         return NULL;
     get_isal_zlib_state(m)->Decomptype = Decomptype;
 
+    if (PyType_Ready(Comptype) != 0)
+        return NULL;
+    Py_INCREF(Comptype);
+    if (PyModule_AddObject(m, "Compress",  (PyObject *)Comptype) < 0) {
+        return NULL;
+    }
+    if (PyType_Ready(Decomptype) != 0)
+        return NULL;
+    Py_INCREF(Decomptype);
+    if (PyModule_AddObject(m, "Decompress",  (PyObject *)Decomptype) < 0) {
+        return NULL;
+    }
 
     PyModule_AddIntConstant(m, "MAX_WBITS", ISAL_DEF_MAX_HIST_BITS);
     PyModule_AddIntConstant(m, "DEFLATED", Z_DEFLATED);
