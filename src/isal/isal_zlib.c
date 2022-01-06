@@ -120,7 +120,7 @@ exit:
     return return_value;
 }
 PyDoc_STRVAR(zlib_compress__doc__,
-"compress($module, data, /, level=Z_DEFAULT_COMPRESSION, wbits=MAX_WBITS)\n"
+"compress($module, data, /, level=ISAL_DEFAULT_COMPRESSION, wbits=MAX_WBITS)\n"
 "--\n"
 "\n"
 "Returns a bytes object containing compressed data.\n"
@@ -128,7 +128,7 @@ PyDoc_STRVAR(zlib_compress__doc__,
 "  data\n"
 "    Binary data to be compressed.\n"
 "  level\n"
-"    Compression level, in 0-9 or -1.\n"
+"    Compression level, in 0-3.\n"
 "  wbits\n"
 "    The window buffer size and container format.");
 
@@ -265,7 +265,7 @@ exit:
 }
 
 PyDoc_STRVAR(isal_zlib_compressobj__doc__,
-"compressobj($module, /, level=Z_DEFAULT_COMPRESSION, method=DEFLATED,\n"
+"compressobj($module, /, level=ISAL_DEFAULT_COMPRESSION, method=DEFLATED,\n"
 "            wbits=MAX_WBITS, memLevel=DEF_MEM_LEVEL,\n"
 "            strategy=Z_DEFAULT_STRATEGY, zdict=None)\n"
 "--\n"
@@ -273,23 +273,23 @@ PyDoc_STRVAR(isal_zlib_compressobj__doc__,
 "Return a compressor object.\n"
 "\n"
 "  level\n"
-"    The compression level (an integer in the range 0-9 or -1; default is\n"
-"    currently equivalent to 6).  Higher compression levels are slower,\n"
+"    The compression level (an integer in the range 0-3; default is\n"
+"    currently equivalent to 2).  Higher compression levels are slower,\n"
 "    but produce smaller results.\n"
 "  method\n"
 "    The compression algorithm.  If given, this must be DEFLATED.\n"
 "  wbits\n"
-"    +9 to +15: The base-two logarithm of the window size.  Include a zlib\n"
-"        container.\n"
-"    -9 to -15: Generate a raw stream.\n"
-"    +25 to +31: Include a gzip container.\n"
+"    * +9 to +15: The base-two logarithm of the window size.  Include a zlib\n"
+"      container.\n"
+"    * -9 to -15: Generate a raw stream.\n"
+"    * +25 to +31: Include a gzip container.\n"
 "  memLevel\n"
 "    Controls the amount of memory used for internal compression state.\n"
 "    Valid values range from 1 to 9.  Higher values result in higher memory\n"
 "    usage, faster compression, and smaller output.\n"
 "  strategy\n"
-"    Used to tune the compression algorithm.  Possible values are\n"
-"    Z_DEFAULT_STRATEGY, Z_FILTERED, and Z_HUFFMAN_ONLY.\n"
+"    Used to tune the compression algorithm. Not supported by ISA-L.\n"
+"    Only a default strategy is used.\n"
 "  zdict\n"
 "    The predefined compression dictionary - a sequence of bytes\n"
 "    containing subsequences that are likely to occur in the input data.");
@@ -654,14 +654,15 @@ PyDoc_STRVAR(isal_zlib_module_documentation,
 "The functions in this module allow compression and decompression using the\n"
 "zlib library, which is based on GNU zip.\n"
 "\n"
-"adler32(string[, start]) -- Compute an Adler-32 checksum.\n"
-"compress(data[, level]) -- Compress data, with compression level 0-9 or -1.\n"
-"compressobj([level[, ...]]) -- Return a compressor object.\n"
-"crc32(string[, start]) -- Compute a CRC-32 checksum.\n"
-"decompress(string,[wbits],[bufsize]) -- Decompresses a compressed string.\n"
-"decompressobj([wbits[, zdict]]) -- Return a decompressor object.\n"
+"- adler32(string[, start]) -- Compute an Adler-32 checksum.\n"
+"- compress(data[, level]) -- Compress data, with compression level 0-9 or -1.\n"
+"- compressobj([level[, ...]]) -- Return a compressor object.\n"
+"- crc32(string[, start]) -- Compute a CRC-32 checksum.\n"
+"- decompress(string,[wbits],[bufsize]) -- Decompresses a compressed string.\n"
+"- decompressobj([wbits[, zdict]]) -- Return a decompressor object.\n"
 "\n"
 "'wbits' is window buffer size and container format.\n"
+"\n"
 "Compressor objects support compress() and flush() methods; decompressor\n"
 "objects support decompress() and flush().");
 
