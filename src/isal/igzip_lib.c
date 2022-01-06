@@ -301,6 +301,30 @@ igzip_lib_IgzipDecompressor_decompress_impl(IgzipDecompressor *self, Py_buffer *
     return result;
 }
 
+PyDoc_STRVAR(igzip_lib_compress__doc__,
+"compress($module, data, /, level=ISAL_DEFAULT_COMPRESSION, flag=COMP_DEFLATE,\n"
+"         mem_level=MEM_LEVEL_DEFAULT, hist_bits=MAX_HIST_BITS)\n"
+"--\n"
+"\n"
+"Returns a bytes object containing compressed data.\n"
+"\n"
+"  data\n"
+"    Binary data to be compressed.\n"
+"  level\n"
+"    Compression level, in 0-3.\n"
+"  flag\n"
+"    Controls which header and trailer are used.\n"
+"  mem_level\n"
+"    Sets the memory level for the memory buffer. \n"
+"    Larger buffers improve performance.\n"
+"  hist_bits\n"
+"    Sets the size of the view window. The size equals \n"
+"    2^hist_bits. Similar to zlib wbits value except that \n"
+"    the header and trailer are controlled by the flag parameter.");
+
+#define IGZIP_LIB_COMPRESS_METHODDEF    \
+    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_FASTCALL|METH_KEYWORDS, igzip_lib_compress__doc__}
+
 static PyObject *
 igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
@@ -374,6 +398,24 @@ exit:
     return return_value;
 }
 
+PyDoc_STRVAR(igzip_lib_decompress__doc__,
+"decompress($module, data, /, flag=DECOMP_DEFLATE, hist_bits=MAX_HIST_BITS,\n"
+"           bufsize=DEF_BUF_SIZE)\n"
+"--\n"
+"\n"
+"Returns a bytes object containing the uncompressed data.\n"
+"\n"
+"  data\n"
+"    Compressed data.\n"
+"  flag\n"
+"    The container format.\n"
+"  hist_bits\n"
+"    The window buffer size.\n"
+"  bufsize\n"
+"    The initial output buffer size.");
+
+#define IGZIP_LIB_DECOMPRESS_METHODDEF    \
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_decompress, METH_FASTCALL|METH_KEYWORDS, igzip_lib_decompress__doc__}
 
 static PyObject *
 igzip_lib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
@@ -674,18 +716,64 @@ static PyTypeObject IgzipDecompressor_Type = {
 };
 
 static PyMethodDef IgzipLibMethods[] = {
-    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_FASTCALL|METH_KEYWORDS, NULL},
-    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_decompress, METH_FASTCALL|METH_KEYWORDS, NULL},
+    IGZIP_LIB_COMPRESS_METHODDEF,
+    IGZIP_LIB_DECOMPRESS_METHODDEF,
     {NULL, NULL, 0, NULL}        /* Sentinel */
 };
+
+PyDoc_STRVAR(igizp_lib_module_documentation,
+"Pythonic interface to ISA-L's igzip_lib.\n"
+"\n"
+"This module comes with the following constants:\n"
+"\n"
+"============================== ================================================\n"
+"``ISAL_BEST_SPEED``            The lowest compression level (0)\n"
+"``ISAL_BEST_COMPRESSION``      The highest compression level (3)\n"
+" ``ISAL_DEFAULT_COMPRESSION``  The compromise compression level (2)\n"
+"``DEF_BUF_SIZE``               Default size for the starting buffer (16K)\n"
+"``MAX_HIST_BITS``              Maximum window size bits (15).\n"
+"``COMP_DEFLATE``               Flag to compress to a raw deflate block\n"
+"``COMP_GZIP``                  Flag to compress a gzip block, consisting of a\n"
+"                               gzip header, raw deflate block and a gzip\n"
+"                               trailer.\n"
+"``COMP_GZIP_NO_HDR``           Flag to compress a gzip block without a header.\n"
+"``COMP_ZLIB``                  Flag to compress a zlib block, consisting of a\n"
+"                               zlib header, a raw deflate block and a zlib\n"
+"                               trailer.\n"
+"``COMP_ZLIB_NO_HDR``           Flag to compress a zlib block without a header.\n"
+"``DECOMP_DEFLATE``             Flag to decompress a raw deflate block.\n"
+"``DECOMP_GZIP``                Flag to decompress a gzip block including header\n"
+"                               and verify the checksums in the trailer.\n"
+"``DECOMP_GZIP_NO_HDR``         Decompresses a raw deflate block (no header,\n"
+"                               no trailer) and updates the crc member on the\n"
+"                               IgzipCompressor object with a crc32 checksum.\n"
+"``DECOMP_GZIP_NO_HDR_VER``     Like DECOMP_GZIP_NO_HDR but reads the trailer\n"
+"                               and verifies the crc32 checksum.\n"
+"``DECOMP_ZLIB``                Flag to decompress a zlib block including header\n"
+"                               and verify the checksums in the trailer.\n"
+"``DECOMP_ZLIB_NO_HDR``         Decompresses a raw deflate block (no header,\n"
+"                               no trailer) and updates the crc member on the\n"
+"                               IgzipCompressor object with an adler32 checksum.\n"
+"``DECOMP_ZLIB_NO_HDR_VER``     Like DECOMP_ZLIB_NO_HDR but reads the trailer\n"
+"                               and verifies the adler32 checksum.\n"
+"``MEM_LEVEL_DEFAULT``          The default memory level for the internal level\n"
+"                               buffer. (Equivalent to MEM_LEVEL_LARGE.)\n"
+"``MEM_LEVEL_MIN``              The minimum memory level.\n"
+"``MEM_LEVEL_SMALL``\n"
+"``MEM_LEVEL_MEDIUM``\n"
+"``MEM_LEVEL_LARGE``\n"
+"``MEM_LEVEL_EXTRA_LARGE``      The largest memory level.\n"
+"============================== ================================================\n"
+);
 
 static struct PyModuleDef igzip_lib_module = {
     PyModuleDef_HEAD_INIT,
     "igzip_lib",   /* name of module */
-    NULL, /* module documentation, may be NULL */
+    igizp_lib_module_documentation, /* module documentation, may be NULL */
     sizeof(_igzip_lib_state),
     IgzipLibMethods
 };
+
 
 PyMODINIT_FUNC
 PyInit_igzip_lib(void)
