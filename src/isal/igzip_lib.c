@@ -572,7 +572,7 @@ exit:
     return return_value;
 }
 PyDoc_STRVAR(igzip_lib_IgzipDecompressor___init____doc__,
-"IgzipDecompressor(flag=DECOMP_DEFLATE, hist_bits=MAX_HIST_BITS, zdict=b\'\')\n"
+"IgzipDecompressor(flag=0, hist_bits=15, zdict=b\'\')\n"
 "--\n"
 "\n"
 "Create a decompressor object for decompressing data incrementally.\n"
@@ -746,14 +746,14 @@ PyDoc_STRVAR(igizp_lib_module_documentation,
 "                               and verify the checksums in the trailer.\n"
 "``DECOMP_GZIP_NO_HDR``         Decompresses a raw deflate block (no header,\n"
 "                               no trailer) and updates the crc member on the\n"
-"                               IgzipCompressor object with a crc32 checksum.\n"
+"                               IgzipDecompressor object with a crc32 checksum.\n"
 "``DECOMP_GZIP_NO_HDR_VER``     Like DECOMP_GZIP_NO_HDR but reads the trailer\n"
 "                               and verifies the crc32 checksum.\n"
 "``DECOMP_ZLIB``                Flag to decompress a zlib block including header\n"
 "                               and verify the checksums in the trailer.\n"
 "``DECOMP_ZLIB_NO_HDR``         Decompresses a raw deflate block (no header,\n"
 "                               no trailer) and updates the crc member on the\n"
-"                               IgzipCompressor object with an adler32 checksum.\n"
+"                               IgzipDecompressor object with an adler32 checksum.\n"
 "``DECOMP_ZLIB_NO_HDR_VER``     Like DECOMP_ZLIB_NO_HDR but reads the trailer\n"
 "                               and verifies the adler32 checksum.\n"
 "``MEM_LEVEL_DEFAULT``          The default memory level for the internal level\n"

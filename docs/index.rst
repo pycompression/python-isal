@@ -115,7 +115,7 @@ API Documentation: igzip_lib
 ============================
 
 .. automodule:: isal.igzip_lib
-   :members:
+   :members: compress, decompress, IgzipDecompressor
 
 ==========================
 python -m isal.igzip usage
