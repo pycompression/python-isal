@@ -1,22 +1,11 @@
 # Copyright (c) 2020 Leiden University Medical Center
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
 import copy
 import functools
 import os
@@ -170,7 +159,7 @@ setup(
     long_description=Path("README.rst").read_text(),
     long_description_content_type="text/x-rst",
     cmdclass={"build_ext": BuildIsalExt},
-    license="MIT",
+    license="PSF-2.0",
     keywords="isal isa-l compression deflate gzip igzip",
     zip_safe=False,
     packages=find_packages('src'),
@@ -192,7 +181,7 @@ setup(
         "Programming Language :: Cython",
         "Development Status :: 5 - Production/Stable",
         "Topic :: System :: Archiving :: Compression",
-        "License :: OSI Approved :: MIT License",
+        "License :: OSI Approved :: Python Software Foundation License",
         "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS",
         "Operating System :: Microsoft :: Windows",

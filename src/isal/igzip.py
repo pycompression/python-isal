@@ -1,22 +1,29 @@
-# Copyright (c) 2020 Leiden University Medical Center
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the 
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
+# This file uses code from CPython's Lib/gzip.py
+# Changes compared to CPython:
+# - Subclassed GzipFile to IGzipFile. Methods that included calls to zlib have
+#   been overwritten with the same methods, but now calling to isal_zlib.
+# - _GzipReader uses a igzip_lib.IgzipDecompressor. This Decompressor is
+#   derived from the BZ2Decompressor as such it does not produce an unconsumed
+#   tail but keeps the read data internally. This prevents unnecessary copying
+#   of data. To accomodate this, the read method has been rewritten.
+# - _GzipReader._add_read_data uses isal_zlib.crc32 instead of zlib.crc32.
+# - Gzip.compress does not use a GzipFile to compress in memory, but creates a
+#   simple header using _create_simple_gzip_header and compresses the data with
+#   igzip_lib.compress using the DECOMP_GZIP_NO_HDR flag. This change was
+#   ported to Python 3.11, using zlib.compress(wbits=-15) in that instance.
+# - Gzip.decompress creates an isal_zlib.decompressobj and decompresses the
+#   data that way instead of using GzipFile. This change was ported to
+#   Python 3.11.
+# - The main() function's gzip utility has now support for a -c flag for easier
+#   use.
+
 
 """Similar to the stdlib gzip module. But using the Intel Storage Accelaration
 Library to speed up its methods."""

@@ -1,3 +1,27 @@
+//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+// Python Software Foundation; All Rights Reserved
+
+// This file is part of python-isal which is distributed under the 
+// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
+// This file was modified from Cpython Modules/zlibmodule.c file from the 3.9
+// branch. This is because the BlocksBuffer used in Python 3.10 and higher is
+// not available in python 3.7-3.9 which this project supports.
+
+// Changes compared to CPython:
+// - All zlib naming changed to isal_zlib
+// - Zlib to ISA-L conversion functions were included.
+// - All compression and checksum functions from zlib replaced with ISA-L
+//   compatible functions.
+// - No locks in Compress and Decompress objects. These were deemed unnecessary
+//   as the ISA-L functions do not allocate memory, unlike the zlib
+//   counterparts.
+// - zlib.compress also has a 'wbits' argument. This change was included in
+//   Python 3.11. It allows for faster gzip compression by using
+//   isal_zlib.compress(data, wbits=31).
+
+
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 

@@ -1,3 +1,21 @@
+//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+// Python Software Foundation; All Rights Reserved
+
+// This file is part of python-isal which is distributed under the 
+// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
+// This file was modified from Cpython Modules/clinic/zlibmodule.c.h, Modules/clinic/_bz2module.c.h, 
+// and Modules_bz2module.c files from the 3.9 branch. 
+
+// Changes compared to CPython:
+// - The BZ2Decompressor has been used as a basis for IgzipDecompressor. Functionality is almost
+//   the same. IgzipDecompressor does have a more elaborate __init__ to set settings. It also implements
+//   decompress_buf more akin to how decompression is implemented in isal_zlib_impl.h
+// - The argparsing code was adopted to support the functions from igzip_lib module.
+// - Constants were added that are particular to igzip_lib.
+
+
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "structmember.h"         // PyMemberDef

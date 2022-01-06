@@ -1,10 +1,14 @@
-//  "Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022 Python Software Foundation;
-// All Rights Reserved"
-// This code comes from github.com/python/cpython. The file Python/getargs.c was used.
-// _PyTuple_CAST was copied from Include/pytupleobject.h
-// This code was included to ensure that fast parsing was also enabled on python 3.7. 
-// The Python software foundation license version 2 applies.
+//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+// Python Software Foundation; All Rights Reserved
+
+// This file comes from CPython which is distributed under the
+// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
+// This code comes from github.com/python/cpython. The file Python/getargs.c
+// was used. _PyTuple_CAST was copied from Include/pytupleobject.h
+// This code was included to ensure that fast parsing was also enabled on
+// python 3.7.
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
