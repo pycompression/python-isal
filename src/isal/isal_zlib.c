@@ -614,6 +614,7 @@ static PyMethodDef Decomp_methods[] =
 static PyType_Slot Comptype_slots[] = {
     {Py_tp_dealloc, Comp_dealloc},
     {Py_tp_methods, comp_methods},
+    {Py_tp_doc, "Object returned by isal_zlib.compressobj."},
     {0, 0},
 };
 
@@ -648,6 +649,7 @@ static PyType_Slot Decomptype_slots[] = {
     {Py_tp_dealloc, Decomp_dealloc},
     {Py_tp_methods, Decomp_methods},
     {Py_tp_members, Decomp_members},
+    {Py_tp_doc, "Object returned by isal_zlib.compressobj."},
     {0, 0},
 };
 
