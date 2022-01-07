@@ -219,6 +219,12 @@ newcompobject(PyTypeObject *type)
 {
     compobject *self;
     self = PyObject_New(compobject, type);
+    #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 7
+    // Apparently the type refcount is not increased automatically with 
+    // PyObject_New on 3.7
+    # pragma message: Include python 3.7 type ref fix.
+    Py_INCREF(type);
+    #endif
     if (self == NULL)
         return NULL;
     self->is_initialised = 0;
@@ -364,6 +370,11 @@ newdecompobject(PyTypeObject *type)
 {
     decompobject *self;
     self = PyObject_New(decompobject, type);
+    #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 7
+    // Apparently the type refcount is not increased automatically with 
+    // PyObject_New on 3.7
+    Py_INCREF(type);
+    #endif
     if (self == NULL)
         return NULL;
     self->eof = 0;
