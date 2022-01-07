@@ -712,7 +712,7 @@ static PyTypeObject IgzipDecompressor_Type = {
     0,                                  /* tp_dictoffset */
     igzip_lib_IgzipDecompressor___init__,      /* tp_init */
     0,                                  /* tp_alloc */
-    PyType_GenericNew,                  /* tp_new */
+    0,                                  /* tp_new */
 };
 
 static PyMethodDef IgzipLibMethods[] = {
