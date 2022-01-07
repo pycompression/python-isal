@@ -173,7 +173,6 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
@@ -186,7 +185,7 @@ setup(
         "Operating System :: MacOS",
         "Operating System :: Microsoft :: Windows",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.7",  # We use METH_FASTCALL
     ext_modules=[
         Extension("isal.isal_zlib", ["src/isal/isal_zlib.c"]),
         Extension("isal.igzip_lib", ["src/isal/igzip_lib.c"]),
