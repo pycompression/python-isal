@@ -29,9 +29,7 @@ Z_SYNC_FLUSH: int
 Z_FULL_FLUSH: int
 Z_FINISH: int
 
-class IsalError(OSError): ...
-
-error: IsalError
+error: Exception
 
 def adler32(data, value: int = 1) -> int: ...
 def crc32(data, value: int = 0) -> int: ...
