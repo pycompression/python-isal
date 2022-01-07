@@ -31,7 +31,7 @@ MEM_LEVEL_SMALL: int
 MEM_LEVEL_MEDIUM: int
 MEM_LEVEL_LARGE: int
 MEM_LEVEL_EXTRA_LARGE: int
-IsalError: OSError
+IsalError: Exception
 
 def compress(data, level: int = ISAL_DEFAULT_COMPRESSION,
              flag: int = COMP_DEFLATE,
