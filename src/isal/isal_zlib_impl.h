@@ -222,7 +222,7 @@ newcompobject(PyTypeObject *type)
     #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 7
     // Apparently the type refcount is not increased automatically with 
     // PyObject_New on 3.7
-    # pragma message: Include python 3.7 type ref fix.
+    # pragma message("Include python 3.7 type ref fix.")
     Py_INCREF(type);
     #endif
     if (self == NULL)

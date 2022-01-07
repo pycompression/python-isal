@@ -660,8 +660,6 @@ PyDoc_STRVAR(IgzipDecompressor_needs_input_doc,
 PyDoc_STRVAR(IgzipDecompressor_crc_doc,
 "The checksum that is saved if DECOMP_ZLIB* or DECOMP_GZIP* flags are used.");
 
-#define offsetof(TYPE, MEMBER) __builtin_offsetof (TYPE, MEMBER)
-
 static PyMemberDef IgzipDecompressor_members[] = {
     {"eof", T_BOOL, offsetof(IgzipDecompressor, eof),
      READONLY, IgzipDecompressor_eof__doc__},

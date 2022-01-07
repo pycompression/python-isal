@@ -13,7 +13,7 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 
-#pragma message "Including code from CPython getargs.c to enable faster arg parsing on python 3.7"
+#pragma message("Including code from CPython getargs.c to enable faster arg parsing on python 3.7")
 #define IS_END_OF_FORMAT(c) (c == '\0' || c == ';' || c == ':')
 
 #define FLAG_COMPAT 1
