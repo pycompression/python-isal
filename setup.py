@@ -164,7 +164,7 @@ setup(
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    package_data={'isal': ['*.pxd', '*.pyx', '*.pyi', 'py.typed', '*.c', '*.h',
+    package_data={'isal': ['*.pyi', 'py.typed', '*.c', '*.h',
                            # Include isa-l LICENSE and other relevant files
                            # with the binary distribution.
                            'isa-l/LICENSE', 'isa-l/README.md',
