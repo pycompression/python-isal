@@ -139,7 +139,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
         obuflen = max_length;
         if (obuflen > DEF_MAX_INITIAL_BUF_SIZE){
             // Safeguard against memory overflow.
-            obuflen == DEF_MAX_INITIAL_BUF_SIZE;
+            obuflen = DEF_MAX_INITIAL_BUF_SIZE;
         }
     }
 
