@@ -121,12 +121,27 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
        compare against max_length and PyBytes_GET_SIZE we declare it as
        signed */
     PyObject * RetVal = NULL;
-    Py_ssize_t obuflen = DEF_BUF_SIZE;
+    Py_ssize_t hard_limit;
+    
+    Py_ssize_t obuflen;
+    
     int err;
 
-    if (obuflen > max_length)
+    if (max_length < 0) {
+        hard_limit = PY_SSIZE_T_MAX;
+        obuflen = DEF_BUF_SIZE;
+    } else {
+        // Assume that decompressor is used in file decompression with a fixed
+        // block size of max_length. In that case we will reach max_length almost
+        // always (except at the end of the file). So it makes sense to allocate
+        // max_length.
+        hard_limit = max_length;
         obuflen = max_length;
-
+        if (obuflen > DEF_MAX_INITIAL_BUF_SIZE){
+            // Safeguard against memory overflow.
+            obuflen == DEF_MAX_INITIAL_BUF_SIZE;
+        }
+    }
 
     do {
         arrange_input_buffer(&(self->state.avail_in), &(self->avail_in_real));
@@ -136,7 +151,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
                                                         &(self->state.next_out),
                                                         &RetVal,
                                                         obuflen,
-                                                        max_length);
+                                                        hard_limit);
             if (obuflen == -1){
                 PyErr_SetString(PyExc_MemoryError, 
                                 "Unsufficient memory for buffer allocation");
@@ -176,12 +191,6 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
     char input_buffer_in_use;
     PyObject *result;
 
-    Py_ssize_t hard_limit;
-    if (max_length < 0) {
-        hard_limit = PY_SSIZE_T_MAX;
-    } else {
-        hard_limit = max_length;
-    }
     /* Prepend unconsumed input if necessary */
     if (self->state.next_in != NULL) {
         size_t avail_now, avail_total;
@@ -227,7 +236,7 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
         input_buffer_in_use = 0;
     }
 
-    result = decompress_buf(self, hard_limit);
+    result = decompress_buf(self, max_length);
     if(result == NULL) {
         self->state.next_in = NULL;
         return NULL;
