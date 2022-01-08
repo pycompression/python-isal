@@ -29,11 +29,11 @@ that PyPy is no longer supported.
 + isal_zlib.compressobj and isal_zlib.decompressobj are now about six times
   faster.
 + igzip.decompress has 30% less overhead when called.
-+ ISA-L library version variables are now available on windows as well.
-+ ``isal_zlib`` functions now raise ``isal_zlib.error`` on error. 
++ ``isal_zlib`` functions now raise ``isal_zlib.error`` on error.
   ``isal_zlib.IsalError`` has been removed.
-+ The base class for ``isal_zlib.error`` and ``igzip_lib.IsalError`` is now 
++ The base class for ``isal_zlib.error`` and ``igzip_lib.IsalError`` is now
   ``Exception`` instead of ``OSError``.
++ ISA-L library version variables are now available on windows as well.
 + Wheels are now always build with nasm for the x86 architecture. Previously
   yasm was used for Linux and MacOS due to build issues that have since been
   fixed upstream.
