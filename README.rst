@@ -119,10 +119,6 @@ Differences with zlib and gzip modules
   ``isal_zlib`` supports memory levels smallest, small, medium, large and
   largest. These have been mapped to levels 1, 2-3, 4-6, 7-8 and 9. So
   ``isal_zlib`` can be used with zlib compatible memory levels.
-+ ``isal_zlib`` methods have a ``data`` argument which is positional only. In
-  isal_zlib this is not enforced and it can also called as keyword argument.
-  This is due to implementing ``isal_zlib`` in cython and maintaining backwards
-  compatibility with python 3.6.
 + ``igzip.open`` returns a class ``IGzipFile`` instead of ``GzipFile``. Since
   the compression levels are not compatible, a difference in naming was chosen
   to reflect this. ``igzip.GzipFile`` does exist as an alias of
