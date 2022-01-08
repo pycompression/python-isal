@@ -127,7 +127,9 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
     
     int err;
 
-    if (max_length < 0) {
+    // In Python 3.10 sometimes sys.maxsize is passed by default. In those cases
+    // we do want to use DEF_BUF_SIZE as start buffer.
+    if ((max_length < 0) || max_length == PY_SSIZE_T_MAX) {
         hard_limit = PY_SSIZE_T_MAX;
         obuflen = DEF_BUF_SIZE;
     } else {
