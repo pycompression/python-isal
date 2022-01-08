@@ -177,7 +177,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
-        "Programming Language :: Cython",
+        "Programming Language :: C",
         "Development Status :: 5 - Production/Stable",
         "Topic :: System :: Archiving :: Compression",
         "License :: OSI Approved :: Python Software Foundation License",
