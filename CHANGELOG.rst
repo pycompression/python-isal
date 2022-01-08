@@ -9,6 +9,30 @@ Changelog
 
 version 1.0.0-dev
 ------------------
+Python-isal has been rewritten as a C-extension (first implementation was in
+Cython). This has made the library faster in many key areas. It does mean
+that PyPy is no longer supported.
+
++ Since the module now mostly contains code copied from CPython and then
+  modified to work with ISA-L the license has been changed to the
+  Python Software Foundation License version 2.
++ Python versions lower than 3.7 are no longer supported. Python 3.6 is out
+  of support since December 2021.
++ PyPy is no longer supported. PyPy+python-isal was slower than CPython + zlib
+  for decompressing gzip files. PyPy should not be used for workloads that
+  require heavy zlib-compatible compression/decompression. As such it was
+  deemed unnecessary to continue supporting PyPy.
++ Cython is no longer required as a build dependency.
++ a fast function calling method ``METH_FASTCALL`` is now used to call the
+  functions. This method is only  supported by Python 3.7 and higher. This has
+  reduced the overhead for all function calls from python-isal.
++ isal_zlib.compressobj and isal_zlib.decompressobj are now about six times
+  faster.
++ igzip.decompress has 30% less overhead when called.
++ ``isal_zlib`` functions now raise ``isal_zlib.error`` on error.
+  ``isal_zlib.IsalError`` has been removed.
++ The base class for ``isal_zlib.error`` and ``igzip_lib.IsalError`` is now
+  ``Exception`` instead of ``OSError``.
 + ISA-L library version variables are now available on windows as well.
 + Wheels are now always build with nasm for the x86 architecture. Previously
   yasm was used for Linux and MacOS due to build issues that have since been
@@ -21,8 +45,6 @@ version 1.0.0-dev
 + Support and tests for Python 3.10 were added.
 + Due to a change in the deployment process wheels should work for older
   versions of pip.
-+ Added a ``igzip_lib.decompressobj`` function to initiate an IgzipDecompressor
-  class.
 + Added a ``crc`` property to the IgzipDecompressor class. Depending on the
   decompression flag chosen, this will update with an adler32 or crc32
   checksum.

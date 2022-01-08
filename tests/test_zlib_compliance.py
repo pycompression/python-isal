@@ -1,3 +1,10 @@
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
 """Test script for the isal_zlib module.
 
 Adapted from test_zlib.py in CPython's lib/test directory.
@@ -8,7 +15,6 @@ Changes made:
 - Change all instances of zlib with isal_zlib
 - Isal_zlib raises a ValueError when an incompatible compression level is used.
   Test is changed accordingly.
-
 
 """
 import binascii
@@ -24,8 +30,6 @@ from test.support import _1G, _4G, bigmemtest  # type: ignore
 
 import isal
 from isal import isal_zlib
-
-import pytest
 
 requires_Compress_copy = unittest.skipUnless(
     hasattr(isal_zlib.compressobj(), "copy"),
@@ -191,9 +195,6 @@ class CompressTestCase(BaseCompressTestCase, unittest.TestCase):
         x = isal_zlib.compress(HAMLET_SCENE)
         self.assertEqual(isal_zlib.decompress(x), HAMLET_SCENE)
 
-    # zlib works with a positional-only data statement.
-    # TODO: Figure out how this works in Cython
-    @pytest.mark.xfail
     def test_keywords(self):
         x = isal_zlib.compress(HAMLET_SCENE, level=3)
         self.assertEqual(isal_zlib.decompress(x), HAMLET_SCENE)
@@ -276,7 +277,6 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
             self.assertIsInstance(dco.unconsumed_tail, bytes)
             self.assertIsInstance(dco.unused_data, bytes)
 
-    @pytest.mark.xfail  # Positional arguments not yet implemented
     def test_keywords(self):
         level = 2
         method = isal_zlib.DEFLATED

@@ -99,6 +99,12 @@ API Documentation: isal_zlib
 .. automodule:: isal.isal_zlib
    :members:
 
+   .. autoclass:: Compress 
+      :members:
+
+   .. autoclass:: Decompress 
+      :members: 
+
 ========================
 API-documentation: igzip
 ========================
@@ -115,7 +121,10 @@ API Documentation: igzip_lib
 ============================
 
 .. automodule:: isal.igzip_lib
-   :members:
+   :members: compress, decompress, 
+   
+   .. autoclass:: IgzipDecompressor
+      :members:
 
 ==========================
 python -m isal.igzip usage
