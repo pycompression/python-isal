@@ -249,12 +249,6 @@ class _IGzipReader(gzip._GzipReader):
         self._new_member = True
         self._last_mtime = None
 
-    def _add_read_data(self, data):
-        # Use faster isal crc32 calculation and update the stream size in place
-        # compared to CPython gzip
-        self._crc = isal_zlib.crc32(data, self._crc)
-        self._stream_size += len(data)
-
     def read(self, size=-1):
         if size < 0:
             return self.readall()
@@ -302,7 +296,8 @@ class _IGzipReader(gzip._GzipReader):
                 raise EOFError("Compressed file ended before the "
                                "end-of-stream marker was reached")
 
-        self._add_read_data(uncompress)
+        self._crc = isal_zlib.crc32(uncompress, self._crc)
+        self._stream_size += len(uncompress)
         self._pos += len(uncompress)
         return uncompress
 
