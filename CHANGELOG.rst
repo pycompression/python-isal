@@ -33,6 +33,10 @@ that PyPy is no longer supported.
   ``isal_zlib.IsalError`` has been removed.
 + The base class for ``isal_zlib.error`` and ``igzip_lib.IsalError`` is now
   ``Exception`` instead of ``OSError``.
++ GzipReader now uses larger input and output buffers (128k) by default and
+  IgzipDecompressor.decompress has been updated to allocate ``maxsize`` buffers
+  when these are of reasonable size, instead of growing the buffer to maxsize
+  on every call. This has improved gzip decompression speeds by 7%.
 + ISA-L library version variables are now available on windows as well.
 + Wheels are now always build with nasm for the x86 architecture. Previously
   yasm was used for Linux and MacOS due to build issues that have since been
