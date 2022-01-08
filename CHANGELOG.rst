@@ -13,6 +13,9 @@ Python-isal has been rewritten as a C-extension (first implementation was in
 Cython). This has made the library faster in many key areas. It does mean
 that PyPy is no longer supported.
 
++ Since the module now mostly contains code copied from CPython and then
+  modified to work with ISA-L the license has been changed to the
+  Python Software Foundation License version 2.
 + Python versions lower than 3.7 are no longer supported. Python 3.6 is out
   of support since December 2021.
 + PyPy is no longer supported. PyPy+python-isal was slower than CPython + zlib
