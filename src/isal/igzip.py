@@ -49,7 +49,9 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
 #: The amount of data that is read in at once when decompressing a file.
 #: Increasing this value may increase performance.
-READ_BUFFER_SIZE = io.DEFAULT_BUFFER_SIZE
+#: 128K is also the size used by pigz and cat to read files from the
+# filesystem.
+READ_BUFFER_SIZE = 128 * 1024
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
@@ -451,7 +453,7 @@ def _argument_parser():
     # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
     # ~6% faster.
     parser.add_argument("-b", "--buffer-size",
-                        default=128 * 1024, type=int,
+                        default=READ_BUFFER_SIZE, type=int,
                         help=argparse.SUPPRESS)
     return parser
 
