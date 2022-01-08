@@ -49,7 +49,9 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
 #: The amount of data that is read in at once when decompressing a file.
 #: Increasing this value may increase performance.
-READ_BUFFER_SIZE = io.DEFAULT_BUFFER_SIZE
+#: 128K is also the size used by pigz and cat to read files from the
+# filesystem.
+READ_BUFFER_SIZE = 128 * 1024
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 
@@ -164,7 +166,7 @@ class IGzipFile(gzip.GzipFile):
                                                   0)
         if self.mode == gzip.READ:
             raw = _IGzipReader(self.fileobj)
-            self._buffer = io.BufferedReader(raw)
+            self._buffer = io.BufferedReader(raw, buffer_size=READ_BUFFER_SIZE)
 
     def __repr__(self):
         s = repr(self.fileobj)
@@ -247,12 +249,6 @@ class _IGzipReader(gzip._GzipReader):
         self._new_member = True
         self._last_mtime = None
 
-    def _add_read_data(self, data):
-        # Use faster isal crc32 calculation and update the stream size in place
-        # compared to CPython gzip
-        self._crc = isal_zlib.crc32(data, self._crc)
-        self._stream_size += len(data)
-
     def read(self, size=-1):
         if size < 0:
             return self.readall()
@@ -300,7 +296,8 @@ class _IGzipReader(gzip._GzipReader):
                 raise EOFError("Compressed file ended before the "
                                "end-of-stream marker was reached")
 
-        self._add_read_data(uncompress)
+        self._crc = isal_zlib.crc32(uncompress, self._crc)
+        self._stream_size += len(uncompress)
         self._pos += len(uncompress)
         return uncompress
 
@@ -451,7 +448,7 @@ def _argument_parser():
     # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
     # ~6% faster.
     parser.add_argument("-b", "--buffer-size",
-                        default=128 * 1024, type=int,
+                        default=READ_BUFFER_SIZE, type=int,
                         help=argparse.SUPPRESS)
     return parser
 
