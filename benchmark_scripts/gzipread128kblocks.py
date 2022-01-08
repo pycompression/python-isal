@@ -7,4 +7,3 @@ with igzip.open(sys.argv[1], "rb") as gzip_file:
         block = gzip_file.read(128 * 1024)
         if not block:
             break
-
