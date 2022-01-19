@@ -160,9 +160,7 @@ data_is_gzip(Py_buffer *data){
     if (data->len < 2) 
         return 0;
     uint8_t *buf = (uint8_t *)data->buf;
-    if (buf[0] == 31 && buf[1] == 139)
-        return 1;
-    return 0;
+    return (buf[0] == 31 && buf[1] == 139);
 }
 
 static PyObject *
