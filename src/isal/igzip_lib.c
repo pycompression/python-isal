@@ -340,7 +340,7 @@ static PyObject *
 igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", "level", "flag", "mem_level" "hist_bits", NULL};
+    static const char * const _keywords[] = {"", "level", "flag", "mem_level", "hist_bits", NULL};
     static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
     PyObject *argsbuf[5];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
@@ -432,7 +432,7 @@ static PyObject *
 igzip_lib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
     PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", "flag", "hist_bits" "bufsize", NULL};
+    static const char * const _keywords[] = {"", "flag", "hist_bits", "bufsize", NULL};
     static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
     PyObject *argsbuf[4];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
