@@ -118,9 +118,7 @@ def build_isa_l(compiler_command: str, compiler_options: str):
     elif SYSTEM_IS_WINDOWS:
         # The nmake file has CLFAGS_REL for all the compiler options.
         # This is added to CFLAGS with all the necessary include options.
-        # Add the include dir to resolve wheel building issues.
-        build_env["CFLAGS_REL"] = compiler_options + \
-                                  f"/I {os.path.join(ISA_L_SOURCE, 'include')}"
+        build_env["CFLAGS_REL"] = compiler_options
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
