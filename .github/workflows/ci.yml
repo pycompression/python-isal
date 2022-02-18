@@ -226,7 +226,6 @@ jobs:
           CIBW_ENVIRONMENT_WINDOWS: >-
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}\build_cache
-            CFLAGS=-g0
           CIBW_ENVIRONMENT_MACOS: >-
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}/build_cache
