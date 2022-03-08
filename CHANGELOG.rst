@@ -22,6 +22,7 @@ that PyPy is no longer supported.
   for decompressing gzip files. PyPy should not be used for workloads that
   require heavy zlib-compatible compression/decompression. As such it was
   deemed unnecessary to continue supporting PyPy.
++ A ``--no-name`` flag has been added to ``python -m isal.igzip``.
 + Cython is no longer required as a build dependency.
 + a fast function calling method ``METH_FASTCALL`` is now used to call the
   functions. This method is only  supported by Python 3.7 and higher. This has

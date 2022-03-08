@@ -222,6 +222,21 @@ def test_compress_infile_out_file_inmplicit_name_prompt_accept(
     assert err == b""
 
 
+def test_compress_infile_out_file_no_name(tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "compressed.gz"
+    sys.argv = ['', '-n', '-o', str(out_file), str(test)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    output = out_file.read_bytes()
+    assert gzip.decompress(output) == DATA
+    assert err == b''
+    assert out == b''
+    assert output[4] & gzip.FNAME == 0  # No filename set.
+    assert output[4:8] == b"\x00\x00\x00\x00"  # No timestamp set.
+
+
 def test_decompress():
     assert igzip.decompress(COMPRESSED_DATA) == DATA
 
