@@ -442,6 +442,10 @@ def _argument_parser():
                               help="write on standard output")
     output_group.add_argument("-o", "--output",
                               help="Write to this output file")
+    parser.add_argument("-n", "--no-name", action="store_true",
+                        dest="reproducible",
+                        help="do not save or restore the original name and "
+                             "timestamp")
     parser.add_argument("-f", "--force", action="store_true",
                         help="Overwrite output without prompting")
     # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K
@@ -485,10 +489,16 @@ def main():
         else:
             in_file = io.open(args.file, mode="rb")
         if out_filepath is not None:
-            out_file = open(out_filepath, "wb", compresslevel=compresslevel)
+            out_buffer = io.open(out_filepath, "wb")
         else:
-            out_file = IGzipFile(mode="wb", fileobj=sys.stdout.buffer,
-                                 compresslevel=compresslevel)
+            out_buffer = sys.stdout.buffer
+
+        if args.reproducible:
+            gzip_file_kwargs = {"mtime": 0, "filename": b""}
+        else:
+            gzip_file_kwargs = {"filename": out_filepath}
+        out_file = IGzipFile(mode="wb", fileobj=out_buffer,
+                             compresslevel=compresslevel, **gzip_file_kwargs)
     else:
         if args.file:
             in_file = open(args.file, mode="rb")
