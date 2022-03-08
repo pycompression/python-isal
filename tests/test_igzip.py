@@ -50,6 +50,18 @@ def test_write_readonly_file():
     error.match(r"write\(\) on read-only IGzipFile object")
 
 
+def test_igzip_reader_readall():
+    data = io.BytesIO(COMPRESSED_DATA)
+    test = igzip._IGzipReader(data)
+    assert test.read(-1) == DATA
+
+
+def test_igzip_reader_read_zero():
+    data = io.BytesIO(COMPRESSED_DATA)
+    test = igzip._IGzipReader(data)
+    assert test.read(0) == b""
+
+
 @pytest.mark.parametrize("level", range(1, 10))
 def test_decompress_stdin_stdout(capsysbinary, level):
     """Test if the command line can decompress data that has been compressed
