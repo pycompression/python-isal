@@ -898,15 +898,3 @@ class TestCommandLine(unittest.TestCase):
             b'-0/--fast',
             err)
         self.assertEqual(out, b'')
-
-    @create_and_remove_directory(TEMPDIR)
-    def test_compress_no_name(self):
-        args = sys.executable, '-m', 'isal.igzip', '-n'
-        with Popen(args, stdin=PIPE, stdout=PIPE, stderr=PIPE) as proc:
-            out, err = proc.communicate(self.data)
-
-        self.assertEqual(err, b'')
-        self.assertEqual(out[:2], b"\x1f\x8b")
-        # Assert filename and mtime are not stored
-        self.assertFalse(out[4] & gzip.FNAME)
-        self.assertEqual(out[4:8], b"\x00\x00\x00\x00")
