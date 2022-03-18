@@ -99,6 +99,25 @@ installation options check the `documentation
 
 .. _differences-with-zlib-and-gzip-modules:
 
+python-isal as a dependency in your project
+-------------------------------------------
+
+Python-isal supports a limited amount of platforms for which wheels have been
+made available. To prevent your users from running into issues when installing
+your project please list a python-isal dependency as follows.
+
+``setup.cfg``::
+
+    install_requires =
+        isal; platform.python_implementation == 'CPython' and (platform.machine == "x86_64" or platform.machine == "AMD64")
+
+``setup.py``::
+
+    extras_require={
+        ":platform.python_implementation == 'CPython' and "
+        "(platform.machine == 'x86_64' or platform.machine == 'AMD64')": ['isal']
+    },
+
 Differences with zlib and gzip modules
 --------------------------------------
 
