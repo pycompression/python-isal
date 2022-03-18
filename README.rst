@@ -102,6 +102,8 @@ installation options check the `documentation
 python-isal as a dependency in your project
 -------------------------------------------
 
+.. dependency start
+
 Python-isal supports a limited amount of platforms for which wheels have been
 made available. To prevent your users from running into issues when installing
 your project please list a python-isal dependency as follows.
@@ -117,6 +119,8 @@ your project please list a python-isal dependency as follows.
         ":platform.python_implementation == 'CPython' and "
         "(platform.machine == 'x86_64' or platform.machine == 'AMD64')": ['isal']
     },
+
+.. dependency end
 
 Differences with zlib and gzip modules
 --------------------------------------

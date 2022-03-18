@@ -84,6 +84,15 @@ it is available on conda-forge.
 
 .. _differences-with-zlib-and-gzip-modules:
 
+===========================================
+python-isal as a dependency in your project
+===========================================
+
+.. include:: includes/README.rst
+   :start-after: .. dependency start
+   :end-before: .. dependency end
+
+
 ======================================
 Differences with zlib and gzip modules
 ======================================
