@@ -657,6 +657,7 @@ class TestGzip(BaseTest):
         self.assertEqual(gzip.READ, igzip.READ)
         self.assertEqual(gzip.WRITE, igzip.WRITE)
 
+
 class TestOpen(BaseTest):
     def test_binary_modes(self):
         uncompressed = data1 * 50
