@@ -14,7 +14,7 @@ on:
 
 jobs:
   lint:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -34,7 +34,7 @@ jobs:
         tox_env:
           - docs
           - twine_check
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -101,7 +101,7 @@ jobs:
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
-        distro: [ "ubuntu20.04" ]
+        distro: [ "ubuntu22.04" ]
         arch: ["aarch64"]
     steps:
       - uses: actions/checkout@v2.3.4
