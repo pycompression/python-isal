@@ -54,6 +54,7 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 READ_BUFFER_SIZE = 128 * 1024
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
+READ, WRITE = 1, 2
 
 try:
     BadGzipFile = gzip.BadGzipFile  # type: ignore
@@ -158,13 +159,13 @@ class IGzipFile(gzip.GzipFile):
                     isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION
                 ))
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
-        if self.mode == gzip.WRITE:
+        if self.mode == WRITE:
             self.compress = isal_zlib.compressobj(compresslevel,
                                                   isal_zlib.DEFLATED,
                                                   -isal_zlib.MAX_WBITS,
                                                   isal_zlib.DEF_MEM_LEVEL,
                                                   0)
-        if self.mode == gzip.READ:
+        if self.mode == READ:
             raw = _IGzipReader(self.fileobj)
             self._buffer = io.BufferedReader(raw, buffer_size=READ_BUFFER_SIZE)
 
@@ -197,7 +198,7 @@ class IGzipFile(gzip.GzipFile):
 
     def write(self, data):
         self._check_not_closed()
-        if self.mode != gzip.WRITE:
+        if self.mode != WRITE:
             import errno
             raise OSError(errno.EBADF, "write() on read-only IGzipFile object")
 

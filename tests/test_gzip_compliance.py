@@ -646,6 +646,17 @@ class TestGzip(BaseTest):
         with igzip.open(self.filename, "rb") as f:
             f._buffer.raw._fp.prepend()
 
+    def test_public_consts(self):
+        # Confirm that all of the gzip module public consts are
+        # also accessible via igzip, for drop-in compatibility.
+        self.assertEqual(gzip.FCOMMENT, igzip.FCOMMENT)
+        self.assertEqual(gzip.FEXTRA, igzip.FEXTRA)
+        self.assertEqual(gzip.FHCRC, igzip.FHCRC)
+        self.assertEqual(gzip.FNAME, igzip.FNAME)
+        self.assertEqual(gzip.FTEXT, igzip.FTEXT)
+        self.assertEqual(gzip.READ, igzip.READ)
+        self.assertEqual(gzip.WRITE, igzip.WRITE)
+
 
 class TestOpen(BaseTest):
     def test_binary_modes(self):
