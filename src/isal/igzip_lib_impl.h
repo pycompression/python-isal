@@ -20,9 +20,12 @@
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include "structmember.h"         // PyMemberDef
 
 #include <isa-l/igzip_lib.h>
 #include <stdint.h>
+
+static PyObject *IsalError;
 
 /* Initial buffer size. */
 #define DEF_BUF_SIZE (16*1024)
@@ -89,7 +92,7 @@ static int mem_level_to_bufsize(int compression_level, int mem_level,
     return 0;
 }
 
-static void isal_deflate_error(int err, PyObject *ErrorClass)
+static void isal_deflate_error(int err)
 {
     const char * msg = NULL;
     if (err == COMP_OK) return;
@@ -102,10 +105,10 @@ static void isal_deflate_error(int err, PyObject *ErrorClass)
     else if (err == ISAL_INVALID_LEVEL_BUF) msg = "Level buffer too small.";
     else msg = "Unknown Error";
 
-    PyErr_Format(ErrorClass, "Error %d %s", err, msg);
+    PyErr_Format(IsalError, "Error %d %s", err, msg);
 }
 
-static void isal_inflate_error(int err, PyObject *ErrorClass){
+static void isal_inflate_error(int err){
     const char * msg = NULL;
     if (err == ISAL_DECOMP_OK) return;
     else if (err == ISAL_END_INPUT) msg = "End of input reached";
@@ -122,7 +125,7 @@ static void isal_inflate_error(int err, PyObject *ErrorClass){
     else if (err == ISAL_INCORRECT_CHECKSUM) msg = "Incorrect checksum found";
     else msg = "Unknown error";
 
-    PyErr_Format(ErrorClass, "Error %d %s", err, msg);
+    PyErr_Format(IsalError, "Error %d %s", err, msg);
 }
 
 /**
@@ -222,7 +225,7 @@ arrange_output_buffer(uint32_t *avail_out,
 }
 
 static PyObject *
-igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
+igzip_lib_compress_impl(Py_buffer *data,
                         int level,
                         int flag,
                         int mem_level,
@@ -233,7 +236,7 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
     uint8_t *level_buf = NULL;
     uint32_t level_buf_size;
     if (mem_level_to_bufsize(level, mem_level, &level_buf_size) != 0){
-        PyErr_SetString(ErrorClass, "Invalid memory level or compression level");
+        PyErr_SetString(IsalError, "Invalid memory level or compression level");
         goto error;
     }
     level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
@@ -274,7 +277,7 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
             err = isal_deflate(&zst);
 
             if (err != COMP_OK) {
-                isal_deflate_error(err, ErrorClass);
+                isal_deflate_error(err);
                 goto error;
             }
 
@@ -295,7 +298,7 @@ igzip_lib_compress_impl(PyObject *ErrorClass, Py_buffer *data,
 }
 
 static PyObject *
-igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
+igzip_lib_decompress_impl(Py_buffer *data, int flag,
                           int hist_bits, Py_ssize_t bufsize)
 {
     PyObject *RetVal = NULL;
@@ -332,7 +335,7 @@ igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
 
             err = isal_inflate(&zst);
             if (err != ISAL_DECOMP_OK) {
-                isal_inflate_error(err, ErrorClass);
+                isal_inflate_error(err);
                 goto error;
             }
         } while (zst.avail_out == 0);
@@ -340,7 +343,7 @@ igzip_lib_decompress_impl(PyObject *ErrorClass, Py_buffer *data, int flag,
     } while (zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
     if (zst.block_state != ISAL_BLOCK_FINISH) {
-         PyErr_SetString(ErrorClass,
+         PyErr_SetString(IsalError,
                          "incomplete or truncated stream");
         goto error;
     }
