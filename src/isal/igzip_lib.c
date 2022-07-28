@@ -356,83 +356,25 @@ PyDoc_STRVAR(igzip_lib_decompress__doc__,
 "    The initial output buffer size.");
 
 #define IGZIP_LIB_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_decompress, METH_FASTCALL|METH_KEYWORDS, igzip_lib_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_decompress, METH_VARARGS|METH_KEYWORDS, igzip_lib_decompress__doc__}
 
 static PyObject *
-igzip_lib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+igzip_lib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", "flag", "hist_bits", "bufsize", NULL};
-    static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
-    PyObject *argsbuf[4];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    static const char *keywords[] = {"", "flag", "hist_bits", "bufsize", NULL};
+    char *format ="y*|iin:decompress";
     Py_buffer data = {NULL, NULL};
     int flag = DECOMP_DEFLATE;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
     Py_ssize_t bufsize = DEF_BUF_SIZE;
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 4, 0, argsbuf);
-    if (!args) {
-        goto exit;
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords, 
+            &data, &flag, &hist_bits, &bufsize)) {
+        return NULL;
     }
-    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("decompress", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_pos;
-    }
-    if (args[1]) {
-        flag = _PyLong_AsInt(args[1]);
-        if (flag == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[2]) {
-        hist_bits = _PyLong_AsInt(args[2]);
-        if (hist_bits == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[2]) {
-        flag = _PyLong_AsInt(args[2]);
-        if (flag == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    {
-        Py_ssize_t ival = -1;
-        PyObject *iobj = PyNumber_Index(args[3]);
-        if (iobj != NULL) {
-            ival = PyLong_AsSsize_t(iobj);
-            Py_DECREF(iobj);
-        }
-        if (ival == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        bufsize = ival;
-    }
-skip_optional_pos:
-    return_value = igzip_lib_decompress_impl(&data, flag, hist_bits, bufsize);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
+    PyObject * return_value = igzip_lib_decompress_impl(&data, flag, hist_bits, bufsize);
+    PyBuffer_Release(&data);
     return return_value;
 }
 
