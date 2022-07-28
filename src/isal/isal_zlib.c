@@ -868,16 +868,14 @@ PyDoc_STRVAR(isal_zlib_compressobj__doc__,
 "    containing subsequences that are likely to occur in the input data.");
 
 #define ISAL_ZLIB_COMPRESSOBJ_METHODDEF    \
-    {"compressobj", (PyCFunction)(void(*)(void))isal_zlib_compressobj, METH_FASTCALL|METH_KEYWORDS, isal_zlib_compressobj__doc__}
+    {"compressobj", (PyCFunction)(void(*)(void))isal_zlib_compressobj, METH_VARARGS|METH_KEYWORDS, isal_zlib_compressobj__doc__}
 
 static PyObject *
-isal_zlib_compressobj(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_compressobj(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"level", "method", "wbits", "memLevel", "strategy", "zdict", NULL};
-    static _PyArg_Parser _parser = {NULL, _keywords, "compressobj", 0};
-    PyObject *argsbuf[6];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 0;
+    char *keywords[] = {"level", "method", "wbits", "memLevel", "strategy", "zdict", NULL};
+    char *format = "|iiiiiy*:compressobj";
     int level = ISAL_DEFAULT_COMPRESSION;
     int method = Z_DEFLATED;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
@@ -885,74 +883,13 @@ isal_zlib_compressobj(PyObject *module, PyObject *const *args, Py_ssize_t nargs,
     int strategy = Z_DEFAULT_STRATEGY;
     Py_buffer zdict = {NULL, NULL};
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 0, 6, 0, argsbuf);
-    if (!args) {
-        goto exit;
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords,
+            &level, &method, &wbits, &memLevel, &strategy, &zdict)) {
+        return NULL;
     }
-    if (!noptargs) {
-        goto skip_optional_pos;
-    }
-    if (args[0]) {
-        level = _PyLong_AsInt(args[0]);
-        if (level == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[1]) {
-        method = _PyLong_AsInt(args[1]);
-        if (method == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[2]) {
-        wbits = _PyLong_AsInt(args[2]);
-        if (wbits == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[3]) {
-        memLevel = _PyLong_AsInt(args[3]);
-        if (memLevel == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[4]) {
-        strategy = _PyLong_AsInt(args[4]);
-        if (strategy == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (PyObject_GetBuffer(args[5], &zdict, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&zdict, 'C')) {
-        _PyArg_BadArgument("compressobj", "argument 'zdict'", "contiguous buffer", args[5]);
-        goto exit;
-    }
-skip_optional_pos:
     return_value = isal_zlib_compressobj_impl(module, level, method, wbits, memLevel, strategy, &zdict);
-
-exit:
-    /* Cleanup for zdict */
-    if (zdict.obj) {
-       PyBuffer_Release(&zdict);
-    }
-
+    PyBuffer_Release(&zdict);
     return return_value;
 }
 
