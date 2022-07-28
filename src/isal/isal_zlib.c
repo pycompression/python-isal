@@ -49,7 +49,6 @@
 
 #define DEF_MEM_LEVEL 8
 
-static PyObject *IsalError;
 static PyTypeObject IsalZlibCompType;
 static PyTypeObject IsalZlibDecompType;
 
@@ -259,7 +258,6 @@ isal_zlib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
     static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
     PyObject *argsbuf[3];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
@@ -296,7 +294,7 @@ isal_zlib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
 skip_optional_pos:
     if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) != 0)
         return NULL;
-    return_value = igzip_lib_compress_impl(ErrorClass, &data, level, 
+    return_value = igzip_lib_compress_impl(&data, level, 
                                            flag, MEM_LEVEL_DEFAULT, hist_bits);
 
 exit:
@@ -333,7 +331,6 @@ isal_zlib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, 
     static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
     PyObject *argsbuf[3];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int wbits = ISAL_DEF_MAX_HIST_BITS;
     Py_ssize_t bufsize = DEF_BUF_SIZE;
@@ -386,7 +383,7 @@ skip_optional_pos:
         else 
             flag = ISAL_ZLIB;
     }
-    return_value = igzip_lib_decompress_impl(ErrorClass, &data, flag, hist_bits, bufsize);
+    return_value = igzip_lib_decompress_impl(&data, flag, hist_bits, bufsize);
 exit:
     /* Cleanup for data */
     if (data.obj) {
@@ -468,7 +465,7 @@ set_inflate_zdict(decompobject *self)
                                zdict_buf.buf, (uint32_t)zdict_buf.len);
     PyBuffer_Release(&zdict_buf);
     if (err != ISAL_DECOMP_OK) {
-        isal_inflate_error(err, IsalError);
+        isal_inflate_error(err);
         return -1;
     }
     return 0;
@@ -649,7 +646,7 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
             err = isal_deflate(&self->zst);
 
             if (err != COMP_OK) {
-                isal_deflate_error(err, IsalError);
+                isal_deflate_error(err);
                 goto error;
             }
         } while (self->zst.avail_out == 0);
@@ -768,7 +765,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
 
             err = isal_inflate(&self->zst);
             if (err != ISAL_DECOMP_OK){
-                isal_inflate_error(err, IsalError);
+                isal_inflate_error(err);
                 goto abort;
             }
 
@@ -830,7 +827,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         err = isal_deflate(&self->zst);
 
         if (err != COMP_OK) {
-            isal_deflate_error(err, IsalError);
+            isal_deflate_error(err);
             Py_CLEAR(RetVal);
             goto error;
         }
@@ -890,7 +887,7 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
             err = isal_inflate(&self->zst);
 
             if (err != ISAL_DECOMP_OK) {
-                isal_inflate_error(err, IsalError);
+                isal_inflate_error(err);
                 goto abort;
             }
 
@@ -1336,13 +1333,17 @@ PyInit_isal_zlib(void)
     if (m == NULL)
         return NULL;
 
-    IsalError = PyErr_NewException("isal_zlib.error", NULL, NULL);
+    PyObject *igzip_lib_module = PyImport_ImportModule("isal.igzip_lib");
+    if (igzip_lib_module == NULL) {
+        return NULL;
+    }
+
+    IsalError = PyObject_GetAttrString(igzip_lib_module, "error");
     if (IsalError == NULL) {
         return NULL;
     }
+    Py_INCREF(IsalError);
     if (PyModule_AddObject(m, "error", IsalError) < 0) {
-        Py_CLEAR(IsalError);
-        Py_DECREF(m);
         return NULL;
     }
 

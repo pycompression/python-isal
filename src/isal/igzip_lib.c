@@ -21,8 +21,6 @@
 #include "python_args.h"
 #endif
 
-static PyObject *IsalError;
-
 typedef struct {
     PyObject_HEAD
     struct inflate_state state;
@@ -81,7 +79,7 @@ igzip_lib_IgzipDecompressor___init___impl(IgzipDecompressor *self,
                                     (uint32_t)zdict_buf.len);
         PyBuffer_Release(&zdict_buf);
         if (err != ISAL_DECOMP_OK) {
-            isal_inflate_error(err, IsalError);
+            isal_inflate_error(err);
             goto error;
         }        
     }
@@ -147,7 +145,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
         
             err = isal_inflate(&(self->state));
             if (err != ISAL_DECOMP_OK){
-                isal_inflate_error(err, IsalError);
+                isal_inflate_error(err);
                 goto error;
             }
         } while (self->state.avail_out == 0 && self->state.block_state != ISAL_BLOCK_FINISH);
@@ -327,7 +325,6 @@ igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
     static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
     PyObject *argsbuf[5];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int flag = COMP_DEFLATE;
@@ -381,7 +378,7 @@ igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
     }
 skip_optional_pos:
     return_value = igzip_lib_compress_impl(
-        ErrorClass, &data, level, flag, mem_level, hist_bits);
+        &data, level, flag, mem_level, hist_bits);
 
 exit:
     /* Cleanup for data */
@@ -419,7 +416,6 @@ igzip_lib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, 
     static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
     PyObject *argsbuf[4];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int flag = DECOMP_DEFLATE;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
@@ -479,7 +475,7 @@ igzip_lib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, 
         bufsize = ival;
     }
 skip_optional_pos:
-    return_value = igzip_lib_decompress_impl(ErrorClass, &data, flag, hist_bits, bufsize);
+    return_value = igzip_lib_decompress_impl(&data, flag, hist_bits, bufsize);
 
 exit:
     /* Cleanup for data */
