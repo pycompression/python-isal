@@ -481,43 +481,15 @@ static PyMemberDef IgzipDecompressor_members[] = {
 
 static PyTypeObject IgzipDecompressor_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
-    "igzip_lib.IgzipDecompressor",      /* tp_name */
-    sizeof(IgzipDecompressor),          /* tp_basicsize */
-    0,                                  /* tp_itemsize */
-    (destructor)IgzipDecompressor_dealloc,/* tp_dealloc */
-    0,                                  /* tp_vectorcall_offset */
-    0,                                  /* tp_getattr */
-    0,                                  /* tp_setattr */
-    0,                                  /* tp_as_async */
-    0,                                  /* tp_repr */
-    0,                                  /* tp_as_number */
-    0,                                  /* tp_as_sequence */
-    0,                                  /* tp_as_mapping */
-    0,                                  /* tp_hash  */
-    0,                                  /* tp_call */
-    0,                                  /* tp_str */
-    0,                                  /* tp_getattro */
-    0,                                  /* tp_setattro */
-    0,                                  /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT,                 /* tp_flags */
-    igzip_lib_IgzipDecompressor___init____doc__,  /* tp_doc */
-    0,                                  /* tp_traverse */
-    0,                                  /* tp_clear */
-    0,                                  /* tp_richcompare */
-    0,                                  /* tp_weaklistoffset */
-    0,                                  /* tp_iter */
-    0,                                  /* tp_iternext */
-    IgzipDecompressor_methods,            /* tp_methods */
-    IgzipDecompressor_members,            /* tp_members */
-    0,                                  /* tp_getset */
-    0,                                  /* tp_base */
-    0,                                  /* tp_dict */
-    0,                                  /* tp_descr_get */
-    0,                                  /* tp_descr_set */
-    0,                                  /* tp_dictoffset */
-    igzip_lib_IgzipDecompressor___init__,      /* tp_init */
-    0,                                  /* tp_alloc */
-    PyType_GenericNew,                  /* tp_new */
+    .tp_name = "igzip_lib.IgzipDecompressor",
+    .tp_basicsize = sizeof(IgzipDecompressor),
+    .tp_dealloc = (destructor)IgzipDecompressor_dealloc,
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_doc = igzip_lib_IgzipDecompressor___init____doc__,
+    .tp_methods = IgzipDecompressor_methods,
+    .tp_members =  IgzipDecompressor_members,
+    .tp_init = igzip_lib_IgzipDecompressor___init__,
+    .tp_new = PyType_GenericNew,
 };
 
 static PyMethodDef IgzipLibMethods[] = {
