@@ -315,77 +315,27 @@ PyDoc_STRVAR(igzip_lib_compress__doc__,
 "    the header and trailer are controlled by the flag parameter.");
 
 #define IGZIP_LIB_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_FASTCALL|METH_KEYWORDS, igzip_lib_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_VARARGS|METH_KEYWORDS, igzip_lib_compress__doc__}
 
 static PyObject *
-igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+igzip_lib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", "level", "flag", "mem_level", "hist_bits", NULL};
-    static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
-    PyObject *argsbuf[5];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    char *keywords[] = {"", "level", "flag", "mem_level", "hist_bits", NULL};
+    char *format ="y*|iiii:compress";
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int flag = COMP_DEFLATE;
     int mem_level = MEM_LEVEL_DEFAULT;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 5, 0, argsbuf);
-    if (!args) {
-        goto exit;
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords, 
+            &data, &level, &flag, &mem_level, &hist_bits)) {
+        return NULL;
     }
-    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("compress", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_pos;
-    }
-    if (args[1]) {
-        level = _PyLong_AsInt(args[1]);
-        if (level == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[2]) {
-        flag = _PyLong_AsInt(args[2]);
-        if (flag == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (args[3]) {
-        mem_level = _PyLong_AsInt(args[3]);
-        if (mem_level == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    hist_bits = _PyLong_AsInt(args[4]);
-    if (hist_bits == -1 && PyErr_Occurred()) {
-        goto exit;
-    }
-skip_optional_pos:
-    return_value = igzip_lib_compress_impl(
+    PyObject *return_value = igzip_lib_compress_impl(
         &data, level, flag, mem_level, hist_bits);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
+    PyBuffer_Release(&data);
     return return_value;
 }
 
