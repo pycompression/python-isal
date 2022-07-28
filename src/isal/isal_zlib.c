@@ -971,30 +971,23 @@ PyDoc_STRVAR(isal_zlib_Decompress_decompress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_DECOMPRESS_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, METH_VARARGS|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
 
 
 static PyObject *
-isal_zlib_Decompress_decompress(decompobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Decompress_decompress(decompobject *self, PyObject *args, PyObject *kwargs)
 {
-    PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", "max_length", NULL};
-    static _PyArg_Parser _parser = {"y*|n:decompress", _keywords, 0};
+    char *keywords[] = {"", "max_length", NULL};
+    char *format = "y*|n:decompress";
+   
     Py_buffer data = {NULL, NULL};
     Py_ssize_t max_length = 0;
-
-    if (!_PyArg_ParseStackAndKeywords(args, nargs, kwnames, &_parser,
-        &data, &max_length)) {
-        goto exit;
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords, &data, &max_length)) {
+        return NULL;
     }
-    return_value = isal_zlib_Decompress_decompress_impl(self, &data, max_length);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
+    PyObject *return_value = isal_zlib_Decompress_decompress_impl(self, &data, max_length);
+    PyBuffer_Release(&data);
     return return_value;
 }
 
