@@ -734,6 +734,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     } else {
         PyErr_Format(IsalError, 
                      "Unsupported flush mode: %d", mode);
+        return NULL;
     }
 
     self->zst.avail_in = 0;
@@ -1010,19 +1011,31 @@ PyDoc_STRVAR(isal_zlib_Compress_flush__doc__,
 static PyObject *
 isal_zlib_Compress_flush(compobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
 {
-    PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {"|i:flush", _keywords, 0};
-    int mode = Z_FINISH;
-
-    if (!_PyArg_ParseStackAndKeywords(args, nargs, kwnames, &_parser,
-        &mode)) {
-        goto exit;
+    Py_ssize_t mode; 
+    if (nargs == 0) {
+        mode = Z_FINISH;
     }
-    return_value = isal_zlib_Compress_flush_impl(self, mode);
-
-exit:
-    return return_value;
+    else if (nargs == 1) {
+        PyObject *mode_arg = args[0];
+        if (PyLong_Check(mode_arg)) {
+            mode = PyLong_AsSsize_t(mode_arg);
+        }
+        else {
+            mode = PyNumber_AsSsize_t(mode_arg, PyExc_OverflowError);
+        }
+        if (mode == -1 && PyErr_Occurred()) {
+            return NULL;
+        }
+    }
+    else {
+        PyErr_Format(
+            PyExc_TypeError,
+            "flush() only takes 0 or 1 positional arguments got %d", 
+            nargs
+        );
+        return NULL;
+    }
+    return isal_zlib_Compress_flush_impl(self, mode);
 }
 PyDoc_STRVAR(isal_zlib_Decompress_flush__doc__,
 "flush($self, length=zlib.DEF_BUF_SIZE, /)\n"
