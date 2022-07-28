@@ -268,12 +268,12 @@ isal_zlib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
     int hist_bits = -1;
     int flag = -1;
 
-    if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) != 0)
+    if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) != 0) {
+        PyBuffer_Release(&data);
         return NULL;
+    }
     return_value = igzip_lib_compress_impl(&data, level, 
                                            flag, MEM_LEVEL_DEFAULT, hist_bits);
-
-    PyBuffer_Release(&data);
     return return_value;
 }
 
@@ -291,63 +291,31 @@ PyDoc_STRVAR(zlib_decompress__doc__,
 "    The initial output buffer size.");
 
 #define ISAL_ZLIB_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_decompress, METH_FASTCALL|METH_KEYWORDS, zlib_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_decompress, METH_VARARGS|METH_KEYWORDS, zlib_decompress__doc__}
 
 
 static PyObject *
-isal_zlib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", "wbits", "bufsize", NULL};
-    static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
-    PyObject *argsbuf[3];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    char *keywords[] = {"", "wbits", "bufsize", NULL};
+    char *format ="y*|in:isal_zlib.decompress";
     Py_buffer data = {NULL, NULL};
     int wbits = ISAL_DEF_MAX_HIST_BITS;
     Py_ssize_t bufsize = DEF_BUF_SIZE;
+
+    if (!PyArg_ParseTupleAndKeywords(
+        args, kwargs, format, keywords, &data, &wbits, &bufsize)) {
+        return NULL;
+    }
     int hist_bits;
     int flag; 
-    int convert_result;
-
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 3, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("decompress", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_pos;
-    }
-    if (args[1]) {
-        wbits = _PyLong_AsInt(args[1]);
-        if (wbits == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    {
-        Py_ssize_t ival = -1;
-        PyObject *iobj = PyNumber_Index(args[2]);
-        if (iobj != NULL) {
-            ival = PyLong_AsSsize_t(iobj);
-            Py_DECREF(iobj);
-        }
-        if (ival == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        bufsize = ival;
-    }
-skip_optional_pos:
-    convert_result = wbits_to_flag_and_hist_bits_inflate(wbits, &hist_bits, &flag);
-    if (convert_result < 0)
+   
+    int convert_result = wbits_to_flag_and_hist_bits_inflate(wbits, &hist_bits, &flag);
+    if (convert_result < 0) {
+        PyBuffer_Release(&data);
         return NULL;
+    }
     if (convert_result > 0) {
         if (data_is_gzip(&data)) 
             flag = ISAL_GZIP;
@@ -355,12 +323,7 @@ skip_optional_pos:
             flag = ISAL_ZLIB;
     }
     return_value = igzip_lib_decompress_impl(&data, flag, hist_bits, bufsize);
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
+    PyBuffer_Release(&data);
     return return_value;
 }
 
