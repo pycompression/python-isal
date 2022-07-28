@@ -398,61 +398,26 @@ PyDoc_STRVAR(igzip_lib_IgzipDecompressor_decompress__doc__,
 "the unused_data attribute.");
 
 #define IGZIP_LIB_IGZIPDECOMPRESSOR_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_IgzipDecompressor_decompress, METH_FASTCALL|METH_KEYWORDS, igzip_lib_IgzipDecompressor_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_IgzipDecompressor_decompress, METH_VARARGS|METH_KEYWORDS, igzip_lib_IgzipDecompressor_decompress__doc__}
 
 static PyObject *
-igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *args, PyObject *kwargs)
 {
-    PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"data", "max_length", NULL};
-    static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
-    PyObject *argsbuf[2];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    char *keywords[] = {"", "max_length", NULL};
+    char *format = "y*|n:decompress";
     Py_buffer data = {NULL, NULL};
     Py_ssize_t max_length = -1;
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 2, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("decompress", "argument 'data'", "contiguous buffer", args[0]);
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_pos;
-    }
-    if (PyFloat_Check(args[1])) {
-        PyErr_SetString(PyExc_TypeError,
-                        "integer argument expected, got float" );
-        goto exit;
-    }
-    {
-        Py_ssize_t ival = -1;
-        PyObject *iobj = PyNumber_Index(args[1]);
-        if (iobj != NULL) {
-            ival = PyLong_AsSsize_t(iobj);
-            Py_DECREF(iobj);
-        }
-        if (ival == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        max_length = ival;
-    }
-skip_optional_pos:
-    return_value = igzip_lib_IgzipDecompressor_decompress_impl(self, &data, max_length);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords, &data, &max_length)) {
+        return NULL;
     }
 
+    PyObject *return_value = igzip_lib_IgzipDecompressor_decompress_impl(self, &data, max_length);
+    PyBuffer_Release(&data);
     return return_value;
 }
+
 PyDoc_STRVAR(igzip_lib_IgzipDecompressor___init____doc__,
 "IgzipDecompressor(flag=0, hist_bits=15, zdict=b\'\')\n"
 "--\n"
