@@ -1035,24 +1035,36 @@ PyDoc_STRVAR(isal_zlib_Decompress_flush__doc__,
 
 
 #define ISAL_ZLIB_DECOMPRESS_FLUSH_METHODDEF    \
-    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Decompress_flush__doc__}
+    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, METH_FASTCALL, isal_zlib_Decompress_flush__doc__}
 
 static PyObject *
-isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t nargs)
 {
-    PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {"|n:flush", _keywords, 0};
-    Py_ssize_t length = DEF_BUF_SIZE;
-
-    if (!_PyArg_ParseStackAndKeywords(args, nargs, kwnames, &_parser,
-        &length)) {
-        goto exit;
+    Py_ssize_t length; 
+    if (nargs == 0) {
+        length = DEF_BUF_SIZE;
     }
-    return_value = isal_zlib_Decompress_flush_impl(self, length);
-
-exit:
-    return return_value;
+    else if (nargs == 1) {
+        PyObject *length_arg = args[0];
+        if (PyLong_Check(length_arg)) {
+            length = PyLong_AsSsize_t(length_arg);
+        }
+        else {
+            length = PyNumber_AsSsize_t(length_arg, PyExc_OverflowError);
+        }
+        if (length == -1 && PyErr_Occurred()) {
+            return NULL;
+        }
+    }
+    else {
+        PyErr_Format(
+            PyExc_TypeError,
+            "flush() only takes 0 or 1 positional arguments got %d", 
+            nargs
+        );
+        return NULL;
+    }
+    return isal_zlib_Decompress_flush_impl(self, length);
 }
 
 
