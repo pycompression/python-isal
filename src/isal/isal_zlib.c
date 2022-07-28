@@ -22,14 +22,10 @@
 //   isal_zlib.compress(data, wbits=31).
 
 
-#define PY_SSIZE_T_CLEAN
-#include <Python.h>
-
 #include "igzip_lib_impl.h"
 
 #include <isa-l/crc.h>
 
-#include "structmember.h"  
 #ifndef _PyArg_CheckPositional
 #include "python_args.h"
 #endif

@@ -16,9 +16,6 @@
 // - Constants were added that are particular to igzip_lib.
 
 
-#define PY_SSIZE_T_CLEAN
-#include <Python.h>
-#include "structmember.h"         // PyMemberDef
 #include "igzip_lib_impl.h"
 #ifndef _PyArg_UnpackKeywords
 #include "python_args.h"
