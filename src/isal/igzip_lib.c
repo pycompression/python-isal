@@ -437,57 +437,17 @@ static int
 igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *kwargs)
 {
     int return_value = -1;
-    static const char * const _keywords[] = {"flag", "hist_bits", "zdict", NULL};
-    static _PyArg_Parser _parser = {NULL, _keywords, "IgzipDecompressor", 0};
-    PyObject *argsbuf[3];
-    PyObject * const *fastargs;
-    Py_ssize_t nargs = PyTuple_GET_SIZE(args);
-    Py_ssize_t noptargs = nargs + (kwargs ? PyDict_GET_SIZE(kwargs) : 0) - 0;
+    char *keywords[] = {"flag", "hist_bits", "zdict", NULL};
+    char *format = "|iiO:IgzipDecompressor";
     int flag = ISAL_DEFLATE;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
     PyObject *zdict = NULL;
 
-    fastargs = _PyArg_UnpackKeywords(_PyTuple_CAST(args)->ob_item, nargs, kwargs, NULL, &_parser, 0, 3, 0, argsbuf);
-    if (!fastargs) {
-        goto exit;
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords, &flag, &hist_bits, &zdict)) {
+        return NULL;
     }
-    if (!noptargs) {
-        goto skip_optional_pos;
-    }
-    if (fastargs[0]) {
-        if (PyFloat_Check(fastargs[0])) {
-            PyErr_SetString(PyExc_TypeError,
-                            "integer argument expected, got float" );
-            goto exit;
-        }
-        flag = _PyLong_AsInt(fastargs[0]);
-        if (flag == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    if (fastargs[1]) {
-        if (PyFloat_Check(fastargs[1])) {
-            PyErr_SetString(PyExc_TypeError,
-                            "integer argument expected, got float" );
-            goto exit;
-        }
-        hist_bits = _PyLong_AsInt(fastargs[1]);
-        if (hist_bits == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    zdict = fastargs[2];
-skip_optional_pos:
-    return_value = igzip_lib_IgzipDecompressor___init___impl((IgzipDecompressor *)self, flag, hist_bits, zdict);
-
-exit:
-    return return_value;
+    return igzip_lib_IgzipDecompressor___init___impl((IgzipDecompressor *)self, flag, hist_bits, zdict);
 }
 
 static PyMethodDef IgzipDecompressor_methods[] = {
