@@ -248,61 +248,32 @@ PyDoc_STRVAR(zlib_compress__doc__,
 "    The window buffer size and container format.");
 
 #define ISAL_ZLIB_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))isal_zlib_compress, METH_FASTCALL|METH_KEYWORDS, zlib_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))isal_zlib_compress, METH_VARARGS|METH_KEYWORDS, zlib_compress__doc__}
 
 static PyObject *
-isal_zlib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", "level", "wbits", NULL};
-    static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
-    PyObject *argsbuf[3];
-    Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
+    char *keywords[] = {"", "level", "wbits", NULL};
+    char *format ="y*|ii:isal_zlib.compress";
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
+
+    if (!PyArg_ParseTupleAndKeywords(
+        args, kwargs, format, keywords, &data, &level, &wbits)) {
+        return NULL;
+    }
+
     int hist_bits = -1;
     int flag = -1;
 
-    args = _PyArg_UnpackKeywords(args, nargs, NULL, kwnames, &_parser, 1, 3, 0, argsbuf);
-    if (!args) {
-        goto exit;
-    }
-    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
-    }
-    if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("compress", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
-    }
-    if (!noptargs) {
-        goto skip_optional_pos;
-    }
-    if (args[1]) {
-        level = _PyLong_AsInt(args[1]);
-        if (level == -1 && PyErr_Occurred()) {
-            goto exit;
-        }
-        if (!--noptargs) {
-            goto skip_optional_pos;
-        }
-    }
-    wbits = _PyLong_AsInt(args[2]);
-    if (wbits == -1 && PyErr_Occurred()) {
-        goto exit;
-    }
-skip_optional_pos:
     if (wbits_to_flag_and_hist_bits_deflate(wbits, &hist_bits, &flag) != 0)
         return NULL;
     return_value = igzip_lib_compress_impl(&data, level, 
                                            flag, MEM_LEVEL_DEFAULT, hist_bits);
 
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
+    PyBuffer_Release(&data);
     return return_value;
 }
 
