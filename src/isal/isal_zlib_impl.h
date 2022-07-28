@@ -49,23 +49,9 @@
 
 #define DEF_MEM_LEVEL 8
 
-typedef struct {
-    PyTypeObject *Comptype;
-    PyTypeObject *Decomptype;
-    PyObject *IsalError;
-} _isal_zlibstate;
-
-static inline _isal_zlibstate*
-get_isal_zlib_state(PyObject *module)
-{
-    void *state = PyModule_GetState(module);
-    assert(state != NULL);
-    return (_isal_zlibstate *)state;
-}
-
-static PyModuleDef isal_zlib_module;
-#define _isal_zlibstate_global ((_isal_zlibstate *)PyModule_GetState(PyState_FindModule(&isal_zlib_module)))
-
+static PyObject *IsalError;
+static PyTypeObject IsalZlibCompType;
+static PyTypeObject IsalZlibDecompType;
 
 static PyObject *
 isal_zlib_adler32_impl(PyObject *module, Py_buffer *data, uint32_t value)
@@ -98,7 +84,7 @@ wbits_to_flag_and_hist_bits_deflate(int wbits, int *hist_bits, int *flag)
         *flag = IGZIP_DEFLATE;
     }
     else {
-        PyErr_Format(_isal_zlibstate_global->IsalError, "Invalid wbits value: %d", wbits);
+        PyErr_Format(IsalError, "Invalid wbits value: %d", wbits);
         return -1;
     }
     return 0;
@@ -128,7 +114,7 @@ wbits_to_flag_and_hist_bits_inflate(int wbits, int *hist_bits, int *flag)
         return 1;
     }
     else {
-        PyErr_Format(_isal_zlibstate_global->IsalError, "Invalid wbits value: %d", wbits);
+        PyErr_Format(IsalError, "Invalid wbits value: %d", wbits);
         return -1;
     }
     return 0;
@@ -206,23 +192,15 @@ Comp_dealloc(compobject *self)
 {
     if (self->is_initialised && self->level_buf != NULL)
         PyMem_Free(self->level_buf);
-    PyObject *type = (PyObject *)Py_TYPE(self);
     Py_XDECREF(self->zdict);
-    PyObject_Del(self);
-    Py_DECREF(type);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static compobject *
-newcompobject(PyTypeObject *type)
+newcompobject()
 {
     compobject *self;
-    self = PyObject_New(compobject, type);
-    #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 7
-    // Apparently the type refcount is not increased automatically with 
-    // PyObject_New on 3.7
-    # pragma message("Include python 3.7 type ref fix.")
-    Py_INCREF(type);
-    #endif
+    self = PyObject_New(compobject, &IsalZlibCompType);
     if (self == NULL)
         return NULL;
     self->is_initialised = 0;
@@ -276,7 +254,7 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
         goto error;
     }   
 
-    self = newcompobject(_isal_zlibstate_global->Comptype);
+    self = newcompobject();
     if (self == NULL)
         goto error;
     self->level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
@@ -330,12 +308,10 @@ typedef struct
 static void
 Decomp_dealloc(decompobject *self)
 {
-    PyObject *type = (PyObject *)Py_TYPE(self);
     Py_XDECREF(self->unused_data);
     Py_XDECREF(self->unconsumed_tail);
     Py_XDECREF(self->zdict);
-    PyObject_Del(self);
-    Py_DECREF(type);
+    Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
 static int
@@ -357,22 +333,17 @@ set_inflate_zdict(decompobject *self)
                                zdict_buf.buf, (uint32_t)zdict_buf.len);
     PyBuffer_Release(&zdict_buf);
     if (err != ISAL_DECOMP_OK) {
-        isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+        isal_inflate_error(err, IsalError);
         return -1;
     }
     return 0;
 }
 
 static decompobject *
-newdecompobject(PyTypeObject *type)
+newdecompobject()
 {
     decompobject *self;
-    self = PyObject_New(decompobject, type);
-    #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 7
-    // Apparently the type refcount is not increased automatically with 
-    // PyObject_New on 3.7
-    Py_INCREF(type);
-    #endif
+    self = PyObject_New(decompobject, &IsalZlibDecompType);
     if (self == NULL)
         return NULL;
     self->eof = 0;
@@ -404,7 +375,7 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
                         "zdict argument must support the buffer protocol");
         return NULL;
     }
-    self = newdecompobject(_isal_zlibstate_global->Decomptype);
+    self = newdecompobject();
     if (self == NULL)
         return NULL;
 
@@ -458,7 +429,7 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
             err = isal_deflate(&self->zst);
 
             if (err != COMP_OK) {
-                isal_deflate_error(err, _isal_zlibstate_global->IsalError);
+                isal_deflate_error(err, IsalError);
                 goto error;
             }
         } while (self->zst.avail_out == 0);
@@ -577,7 +548,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
 
             err = isal_inflate(&self->zst);
             if (err != ISAL_DECOMP_OK){
-                isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+                isal_inflate_error(err, IsalError);
                 goto abort;
             }
 
@@ -622,7 +593,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     } else if (mode == Z_SYNC_FLUSH) {
         self->zst.flush = SYNC_FLUSH;
     } else {
-        PyErr_Format(_isal_zlibstate_global->IsalError, 
+        PyErr_Format(IsalError, 
                      "Unsupported flush mode: %d", mode);
     }
 
@@ -639,7 +610,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         err = isal_deflate(&self->zst);
 
         if (err != COMP_OK) {
-            isal_deflate_error(err, _isal_zlibstate_global->IsalError);
+            isal_deflate_error(err, IsalError);
             Py_CLEAR(RetVal);
             goto error;
         }
@@ -699,7 +670,7 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
             err = isal_inflate(&self->zst);
 
             if (err != ISAL_DECOMP_OK) {
-                isal_inflate_error(err, _isal_zlibstate_global->IsalError);
+                isal_inflate_error(err, IsalError);
                 goto abort;
             }
 

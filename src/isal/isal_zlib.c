@@ -143,7 +143,7 @@ isal_zlib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
     static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
     PyObject *argsbuf[3];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = get_isal_zlib_state(module)->IsalError;
+    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
@@ -212,7 +212,7 @@ isal_zlib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, 
     static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
     PyObject *argsbuf[3];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = get_isal_zlib_state(module)->IsalError;
+    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int wbits = ISAL_DEF_MAX_HIST_BITS;
     Py_ssize_t bufsize = DEF_BUF_SIZE;
@@ -611,19 +611,13 @@ static PyMethodDef Decomp_methods[] =
     {NULL, NULL}
 };
 
-static PyType_Slot Comptype_slots[] = {
-    {Py_tp_dealloc, Comp_dealloc},
-    {Py_tp_methods, comp_methods},
-    {Py_tp_doc, "Object returned by isal_zlib.compressobj."},
-    {0, 0},
-};
-
-static PyType_Spec Comptype_spec = {
-    "isal_zlib.Compress",
-    sizeof(compobject),
-    0,
-    Py_TPFLAGS_DEFAULT,
-    Comptype_slots
+static PyTypeObject IsalZlibCompType = {
+    .tp_name = "isal_zlib.Compress", 
+    .tp_doc = "Object returned by isal_zlib.compressobj",
+    .tp_basicsize = sizeof(compobject),
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_dealloc = (destructor)Comp_dealloc,
+    .tp_methods = comp_methods,
 };
 
 #define COMP_OFF(x) offsetof(decompobject, x)
@@ -645,22 +639,15 @@ static PyMemberDef Decomp_members[] = {
     {NULL},
 };
 
-static PyType_Slot Decomptype_slots[] = {
-    {Py_tp_dealloc, Decomp_dealloc},
-    {Py_tp_methods, Decomp_methods},
-    {Py_tp_members, Decomp_members},
-    {Py_tp_doc, "Object returned by isal_zlib.compressobj."},
-    {0, 0},
+static PyTypeObject IsalZlibDecompType = {
+    .tp_name = "isal_zlib.Decompress",
+    .tp_doc = "Object returned by isal_zlib.compressobj.",
+    .tp_basicsize = sizeof(decompobject),
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_dealloc = (destructor)Decomp_dealloc,
+    .tp_methods = Decomp_methods,
+    .tp_members = Decomp_members,
 };
-
-static PyType_Spec Decomptype_spec = {
-    "isal_zlib.Decompress",
-    sizeof(decompobject),
-    0,
-    Py_TPFLAGS_DEFAULT,
-    Decomptype_slots
-};
-
 
 PyDoc_STRVAR(isal_zlib_module_documentation,
 "The functions in this module allow compression and decompression using the\n"
@@ -678,82 +665,48 @@ PyDoc_STRVAR(isal_zlib_module_documentation,
 "Compressor objects support compress() and flush() methods; decompressor\n"
 "objects support decompress() and flush().");
 
-static int
-isal_zlib_clear(PyObject *m)
-{
-    _isal_zlibstate *state = get_isal_zlib_state(m);
-    Py_CLEAR(state->Comptype);
-    Py_CLEAR(state->Decomptype);
-    Py_CLEAR(state->IsalError);
-    return 0;
-}
-
-static int
-isal_zlib_traverse(PyObject *m, visitproc visit, void *arg)
-{
-    _isal_zlibstate *state = get_isal_zlib_state(m);
-    Py_VISIT(state->Comptype);
-    Py_VISIT(state->Decomptype);
-    Py_VISIT(state->IsalError);
-    return 0;
-}
-
-static void
-isal_zlib_free(void *m)
-{
-    isal_zlib_clear((PyObject *)m);
-}
-
 static struct PyModuleDef isal_zlib_module = {
     PyModuleDef_HEAD_INIT,
     "isal_zlib",   /* name of module */
     isal_zlib_module_documentation, /* module documentation, may be NULL */
-    sizeof(isal_zlib_state),
+    0,
     IsalZlibMethods,
-    NULL,
-    isal_zlib_traverse,
-    isal_zlib_clear,
-    isal_zlib_free,
 };
 
 PyMODINIT_FUNC
 PyInit_isal_zlib(void)
 {
     PyObject *m;
-    PyObject *IsalError;
 
     m = PyModule_Create(&isal_zlib_module);
     if (m == NULL)
         return NULL;
 
     IsalError = PyErr_NewException("isal_zlib.error", NULL, NULL);
-    Py_XINCREF(IsalError);
+    if (IsalError == NULL) {
+        return NULL;
+    }
     if (PyModule_AddObject(m, "error", IsalError) < 0) {
-        Py_XDECREF(IsalError);
         Py_CLEAR(IsalError);
         Py_DECREF(m);
         return NULL;
     }
-    get_isal_zlib_state(m)->IsalError = IsalError;
 
-    PyTypeObject *Comptype = (PyTypeObject *)PyType_FromSpec(&Comptype_spec);
-    if (Comptype == NULL)
+    PyTypeObject *Comptype = (PyTypeObject *)&IsalZlibCompType;
+    if (PyType_Ready(Comptype) != 0) { 
         return NULL;
-    get_isal_zlib_state(m)->Comptype = Comptype;
+    }
 
-    PyTypeObject *Decomptype = (PyTypeObject *)PyType_FromSpec(&Decomptype_spec);
-    if (Decomptype == NULL)
-        return NULL;
-    get_isal_zlib_state(m)->Decomptype = Decomptype;
-
-    if (PyType_Ready(Comptype) != 0)
-        return NULL;
     Py_INCREF(Comptype);
     if (PyModule_AddObject(m, "Compress",  (PyObject *)Comptype) < 0) {
         return NULL;
     }
-    if (PyType_Ready(Decomptype) != 0)
+
+    PyTypeObject *Decomptype = (PyTypeObject *)&IsalZlibDecompType;
+    if (PyType_Ready(Decomptype) != 0) {
         return NULL;
+    }
+
     Py_INCREF(Decomptype);
     if (PyModule_AddObject(m, "Decompress",  (PyObject *)Decomptype) < 0) {
         return NULL;
@@ -789,6 +742,5 @@ PyInit_isal_zlib(void)
     PyModule_AddIntMacro(m, Z_BLOCK);
     PyModule_AddIntMacro(m, Z_TREES);
 
-    PyState_AddModule(m, &isal_zlib_module);
     return m;
 }
