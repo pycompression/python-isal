@@ -21,21 +21,7 @@
 #include "python_args.h"
 #endif
 
-typedef struct {
-    PyTypeObject *Decomptype;
-    PyObject *IsalError;
-} _igzip_lib_state;
-
-static inline _igzip_lib_state*
-get_igzip_lib_state(PyObject *module)
-{
-    void *state = PyModule_GetState(module);
-    assert(state != NULL);
-    return (_igzip_lib_state*)state;
-}
-static PyModuleDef igzip_lib_module;
-#define _igzip_lib_state_global ((_igzip_lib_state *)PyModule_GetState(PyState_FindModule(&igzip_lib_module)))
-
+static PyObject *IsalError;
 
 typedef struct {
     PyObject_HEAD
@@ -95,7 +81,7 @@ igzip_lib_IgzipDecompressor___init___impl(IgzipDecompressor *self,
                                     (uint32_t)zdict_buf.len);
         PyBuffer_Release(&zdict_buf);
         if (err != ISAL_DECOMP_OK) {
-            isal_inflate_error(err, _igzip_lib_state_global->IsalError);
+            isal_inflate_error(err, IsalError);
             goto error;
         }        
     }
@@ -161,7 +147,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
         
             err = isal_inflate(&(self->state));
             if (err != ISAL_DECOMP_OK){
-                isal_inflate_error(err, _igzip_lib_state_global->IsalError);
+                isal_inflate_error(err, IsalError);
                 goto error;
             }
         } while (self->state.avail_out == 0 && self->state.block_state != ISAL_BLOCK_FINISH);
@@ -341,7 +327,7 @@ igzip_lib_compress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, Py
     static _PyArg_Parser _parser = {NULL, _keywords, "compress", 0};
     PyObject *argsbuf[5];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = get_igzip_lib_state(module)->IsalError;
+    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int flag = COMP_DEFLATE;
@@ -433,7 +419,7 @@ igzip_lib_decompress(PyObject *module, PyObject *const *args, Py_ssize_t nargs, 
     static _PyArg_Parser _parser = {NULL, _keywords, "decompress", 0};
     PyObject *argsbuf[4];
     Py_ssize_t noptargs = nargs + (kwnames ? PyTuple_GET_SIZE(kwnames) : 0) - 1;
-    PyObject *ErrorClass = get_igzip_lib_state(module)->IsalError;
+    PyObject *ErrorClass = IsalError;
     Py_buffer data = {NULL, NULL};
     int flag = DECOMP_DEFLATE;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
@@ -776,7 +762,7 @@ static struct PyModuleDef igzip_lib_module = {
     PyModuleDef_HEAD_INIT,
     "igzip_lib",   /* name of module */
     igizp_lib_module_documentation, /* module documentation, may be NULL */
-    sizeof(_igzip_lib_state),
+    0,
     IgzipLibMethods
 };
 
@@ -785,21 +771,23 @@ PyMODINIT_FUNC
 PyInit_igzip_lib(void)
 {
     PyObject *m;
-    PyObject *IsalError;
 
     m = PyModule_Create(&igzip_lib_module);
     if (m == NULL)
         return NULL;
 
     IsalError = PyErr_NewException("igzip_lib.IsalError", NULL, NULL);
-    Py_XINCREF(IsalError);
-    if (PyModule_AddObject(m, "error", IsalError) < 0) {
-        Py_XDECREF(IsalError);
-        Py_CLEAR(IsalError);
-        Py_DECREF(m);
+    if (IsalError == NULL) {
         return NULL;
     }
-    get_igzip_lib_state(m)->IsalError = IsalError;
+    Py_INCREF(IsalError);
+    if (PyModule_AddObject(m, "error", IsalError) < 0) {
+        return NULL;
+    }
+    Py_INCREF(IsalError);
+    if (PyModule_AddObject(m, "IsalError", IsalError) < 0) {
+        return NULL;
+    }
 
     if (PyType_Ready(&IgzipDecompressor_Type) != 0)
         return NULL;
