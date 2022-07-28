@@ -241,7 +241,6 @@ PyDoc_STRVAR(zlib_compress__doc__,
 static PyObject *
 isal_zlib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    PyObject *return_value = NULL;
     char *keywords[] = {"", "level", "wbits", NULL};
     char *format ="y*|ii:isal_zlib.compress";
     Py_buffer data = {NULL, NULL};
@@ -260,8 +259,9 @@ isal_zlib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
         PyBuffer_Release(&data);
         return NULL;
     }
-    return_value = igzip_lib_compress_impl(&data, level, 
-                                           flag, MEM_LEVEL_DEFAULT, hist_bits);
+    PyObject *return_value = igzip_lib_compress_impl(
+        &data, level, flag, MEM_LEVEL_DEFAULT, hist_bits);
+    PyBuffer_Release(&data);
     return return_value;
 }
 
