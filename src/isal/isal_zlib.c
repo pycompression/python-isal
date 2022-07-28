@@ -911,7 +911,6 @@ PyDoc_STRVAR(isal_zlib_decompressobj__doc__,
 static PyObject *
 isal_zlib_decompressobj(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    PyObject *return_value = NULL;
     char *keywords[] = {"wbits", "zdict", NULL};
     char *format = "|iO:decompressobj";
     int wbits = ISAL_DEF_MAX_HIST_BITS;
