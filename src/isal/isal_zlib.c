@@ -939,29 +939,18 @@ PyDoc_STRVAR(isal_zlib_Compress_compress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_COMPRESS_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, METH_O, isal_zlib_Compress_compress__doc__}
 
 
 static PyObject *
-isal_zlib_Compress_compress(compobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Compress_compress(compobject *self, PyObject *data)
 {
-    PyObject *return_value = NULL;
-    static const char * const _keywords[] = {"", NULL};
-    static _PyArg_Parser _parser = {"y*:compress", _keywords, 0};
-    Py_buffer data = {NULL, NULL};
-
-    if (!_PyArg_ParseStackAndKeywords(args, nargs, kwnames, &_parser,
-        &data)) {
-        goto exit;
+    Py_buffer data_buf;
+    if (PyObject_GetBuffer(data, &data_buf, PyBUF_SIMPLE) < 0) {
+        return NULL;
     }
-    return_value =isal_zlib_Compress_compress_impl(self, &data);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
-
+    PyObject *return_value = isal_zlib_Compress_compress_impl(self, &data_buf);
+    PyBuffer_Release(&data_buf);
     return return_value;
 }
 
