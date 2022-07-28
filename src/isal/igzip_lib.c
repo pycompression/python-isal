@@ -17,9 +17,6 @@
 
 
 #include "igzip_lib_impl.h"
-#ifndef _PyArg_UnpackKeywords
-#include "python_args.h"
-#endif
 
 typedef struct {
     PyObject_HEAD

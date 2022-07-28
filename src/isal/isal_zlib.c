@@ -26,10 +26,6 @@
 
 #include <isa-l/crc.h>
 
-#ifndef _PyArg_CheckPositional
-#include "python_args.h"
-#endif
-
 #define Z_DEFAULT_STRATEGY    0
 #define Z_FILTERED            1
 #define Z_HUFFMAN_ONLY        2
