@@ -156,32 +156,31 @@ isal_zlib_adler32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
     Py_buffer data = {NULL, NULL};
     uint32_t value = 1;
 
-    if (!_PyArg_CheckPositional("adler32", nargs, 1, 2)) {
-        goto exit;
+    if (nargs < 1 || nargs > 2) {
+        PyErr_Format(
+            PyExc_TypeError, 
+            "adler32 takes exactly 1 or 2 arguments, got %d", 
+            nargs);
+        return NULL;
     }
     if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) != 0) {
-        goto exit;
+        return NULL;
     }
     if (!PyBuffer_IsContiguous(&data, 'C')) {
-        _PyArg_BadArgument("adler32", "argument 1", "contiguous buffer", args[0]);
-        goto exit;
+        PyErr_SetString(PyExc_ValueError, "data is not a contiguous buffer");
+        PyBuffer_Release(&data);
+        return NULL;
     }
-    if (nargs < 2) {
-        goto skip_optional;
+    if (nargs > 1) {
+        value = (uint32_t)PyLong_AsUnsignedLongMask(args[1]);
+        if (value == (uint32_t)-1 && PyErr_Occurred()) {
+            PyBuffer_Release(&data);
+            return NULL;
+        }
     }
-    value = (uint32_t)PyLong_AsUnsignedLongMask(args[1]);
-    if (value == (uint32_t)-1 && PyErr_Occurred()) {
-        goto exit;
-    }
-skip_optional:
     value = isal_adler32(value, data.buf, (uint64_t)data.len);
     return_value = PyLong_FromUnsignedLong(value & 0xffffffffU);
-
-exit:
-    /* Cleanup for data */
-    if (data.obj) {
-       PyBuffer_Release(&data);
-    }
+    PyBuffer_Release(&data);
     return return_value;
 }
 
