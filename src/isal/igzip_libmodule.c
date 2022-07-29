@@ -234,18 +234,6 @@ error:
     return NULL;
 }
 
-static PyObject *
-igzip_lib_IgzipDecompressor_decompress_impl(IgzipDecompressor *self, Py_buffer *data,
-                                             Py_ssize_t max_length)
-{
-    PyObject *result = NULL;
-    if (self->eof)
-        PyErr_SetString(PyExc_EOFError, "End of stream already reached");
-    else
-        result = decompress(self, data->buf, data->len, max_length);
-    return result;
-}
-
 PyDoc_STRVAR(igzip_lib_compress__doc__,
 "compress($module, data, /, level=ISAL_DEFAULT_COMPRESSION, flag=COMP_DEFLATE,\n"
 "         mem_level=MEM_LEVEL_DEFAULT, hist_bits=MAX_HIST_BITS)\n"
@@ -365,10 +353,13 @@ igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *args, 
             args, kwargs, format, keywords, &data, &max_length)) {
         return NULL;
     }
-
-    PyObject *return_value = igzip_lib_IgzipDecompressor_decompress_impl(self, &data, max_length);
+    PyObject *result = NULL;
+    if (self->eof)
+        PyErr_SetString(PyExc_EOFError, "End of stream already reached");
+    else
+        result = decompress(self, data.buf, data.len, max_length);
     PyBuffer_Release(&data);
-    return return_value;
+    return result;
 }
 
 PyDoc_STRVAR(igzip_lib_IgzipDecompressor___init____doc__,
