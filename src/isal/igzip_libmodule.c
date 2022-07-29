@@ -376,7 +376,7 @@ igzip_lib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 }
 
 PyDoc_STRVAR(igzip_lib_IgzipDecompressor_decompress__doc__,
-"decompress($self, /, data, max_length=-1)\n"
+"decompress($self, data, /, max_length=-1)\n"
 "--\n"
 "\n"
 "Decompress *data*, returning uncompressed data as bytes.\n"
