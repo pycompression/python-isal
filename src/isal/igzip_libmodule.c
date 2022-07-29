@@ -16,7 +16,7 @@
 // - Constants were added that are particular to igzip_lib.
 
 
-#include "igzip_lib_impl.h"
+#include "isal_shared.h"
 
 typedef struct {
     PyObject_HEAD

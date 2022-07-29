@@ -22,7 +22,7 @@
 //   isal_zlib.compress(data, wbits=31).
 
 
-#include "igzip_lib_impl.h"
+#include "isal_shared.h"
 
 #include <isa-l/crc.h>
 
