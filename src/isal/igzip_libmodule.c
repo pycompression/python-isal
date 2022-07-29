@@ -358,7 +358,7 @@ PyDoc_STRVAR(igzip_lib_decompress__doc__,
 static PyObject *
 igzip_lib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    static const char *keywords[] = {"", "flag", "hist_bits", "bufsize", NULL};
+    char *keywords[] = {"", "flag", "hist_bits", "bufsize", NULL};
     char *format ="y*|iin:decompress";
     Py_buffer data = {NULL, NULL};
     int flag = DECOMP_DEFLATE;
@@ -433,7 +433,6 @@ PyDoc_STRVAR(igzip_lib_IgzipDecompressor___init____doc__,
 static int
 igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    int return_value = -1;
     char *keywords[] = {"flag", "hist_bits", "zdict", NULL};
     char *format = "|iiO:IgzipDecompressor";
     int flag = ISAL_DEFLATE;
@@ -442,7 +441,7 @@ igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *k
 
     if (!PyArg_ParseTupleAndKeywords(
             args, kwargs, format, keywords, &flag, &hist_bits, &zdict)) {
-        return NULL;
+        return -1;
     }
     return igzip_lib_IgzipDecompressor___init___impl((IgzipDecompressor *)self, flag, hist_bits, zdict);
 }
