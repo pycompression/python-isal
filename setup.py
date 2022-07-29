@@ -187,8 +187,8 @@ setup(
     ],
     python_requires=">=3.7",  # We use METH_FASTCALL
     ext_modules=[
-        Extension("isal.isal_zlib", ["src/isal/isal_zlib.c"]),
-        Extension("isal.igzip_lib", ["src/isal/igzip_lib.c"]),
-        Extension("isal._isal", ["src/isal/_isal.c"])
+        Extension("isal.isal_zlib", ["src/isal/isal_zlibmodule.c"]),
+        Extension("isal.igzip_lib", ["src/isal/igzip_libmodule.c"]),
+        Extension("isal._isal", ["src/isal/_isalmodule.c"])
     ]
 )
