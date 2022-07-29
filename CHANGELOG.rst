@@ -26,9 +26,6 @@ that PyPy is no longer supported.
   positional-only arguments.
 + A ``--no-name`` flag has been added to ``python -m isal.igzip``.
 + Cython is no longer required as a build dependency.
-+ a fast function calling method ``METH_FASTCALL`` is now used to call the
-  functions. This method is only  supported by Python 3.7 and higher. This has
-  reduced the overhead for all function calls from python-isal.
 + isal_zlib.compressobj and isal_zlib.decompressobj are now about six times
   faster.
 + igzip.decompress has 30% less overhead when called.
