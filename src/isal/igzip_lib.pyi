@@ -33,11 +33,13 @@ MEM_LEVEL_LARGE: int
 MEM_LEVEL_EXTRA_LARGE: int
 IsalError: Exception
 
-def compress(data, level: int = ISAL_DEFAULT_COMPRESSION,
+def compress(__data,
+             level: int = ISAL_DEFAULT_COMPRESSION,
              flag: int = COMP_DEFLATE,
              mem_level: int = MEM_LEVEL_DEFAULT,
              hist_bits: int = MAX_HIST_BITS) -> bytes: ...
-def decompress(data, flag: int = DECOMP_DEFLATE,
+def decompress(__data,
+               flag: int = DECOMP_DEFLATE,
                hist_bits: int = MAX_HIST_BITS,
                bufsize: int = DEF_BUF_SIZE) -> bytes: ...
 
@@ -52,4 +54,4 @@ class IgzipDecompressor:
                  hist_bits: int = MAX_HIST_BITS,
                  zdict = None) -> None: ...
 
-    def decompress(self, data, max_length = -1) -> bytes: ...
+    def decompress(self, __data, max_length = -1) -> bytes: ...

@@ -22,6 +22,8 @@ that PyPy is no longer supported.
   for decompressing gzip files. PyPy should not be used for workloads that
   require heavy zlib-compatible compression/decompression. As such it was
   deemed unnecessary to continue supporting PyPy.
++ Stub files with type information have now been updated to correctly display
+  positional-only arguments.
 + A ``--no-name`` flag has been added to ``python -m isal.igzip``.
 + Cython is no longer required as a build dependency.
 + a fast function calling method ``METH_FASTCALL`` is now used to call the
