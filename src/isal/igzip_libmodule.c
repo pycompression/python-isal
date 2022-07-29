@@ -44,50 +44,6 @@ IgzipDecompressor_dealloc(IgzipDecompressor *self)
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
-static int
-igzip_lib_IgzipDecompressor___init___impl(IgzipDecompressor *self,
-                                           int flag,
-                                           int hist_bits,
-                                           PyObject *zdict)
-{
-    int err;
-    self->needs_input = 1;
-    self->avail_in_real = 0;
-    self->input_buffer = NULL;
-    self->input_buffer_size = 0;
-    self->zdict = zdict;
-    Py_XSETREF(self->unused_data, PyBytes_FromStringAndSize(NULL, 0));
-    if (self->unused_data == NULL)
-        goto error;
-    isal_inflate_init(&(self->state));
-    self->state.hist_bits = hist_bits;
-    self->state.crc_flag = flag;
-    if (self->zdict != NULL){
-        Py_buffer zdict_buf;
-        if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
-            goto error;
-        }
-        if ((size_t)zdict_buf.len > UINT32_MAX) {
-            PyErr_SetString(PyExc_OverflowError,
-                           "zdict length does not fit in an unsigned 32-bits int");
-            PyBuffer_Release(&zdict_buf);
-        }
-        err = isal_inflate_set_dict(&(self->state), zdict_buf.buf, 
-                                    (uint32_t)zdict_buf.len);
-        PyBuffer_Release(&zdict_buf);
-        if (err != ISAL_DECOMP_OK) {
-            isal_inflate_error(err);
-            goto error;
-        }        
-    }
-    return 0;
-
-error:
-    Py_CLEAR(self->unused_data);
-    Py_CLEAR(self->zdict);
-    return -1;
-}
-
 /* Decompress data of length d->bzs_avail_in_real in d->state.next_in.  The output
    buffer is allocated dynamically and returned.  At most max_length bytes are
    returned, so some of the input may not be consumed. d->state.next_in and
@@ -430,8 +386,10 @@ PyDoc_STRVAR(igzip_lib_IgzipDecompressor___init____doc__,
 "\n"
 "For one-shot decompression, use the decompress() function instead.");
 
-static int
-igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *kwargs)
+static PyObject *
+igzip_lib_IgzipDecompressor__new__(PyTypeObject *type, 
+                                   PyObject *args, 
+                                   PyObject *kwargs)
 {
     char *keywords[] = {"flag", "hist_bits", "zdict", NULL};
     char *format = "|iiO:IgzipDecompressor";
@@ -441,9 +399,47 @@ igzip_lib_IgzipDecompressor___init__(PyObject *self, PyObject *args, PyObject *k
 
     if (!PyArg_ParseTupleAndKeywords(
             args, kwargs, format, keywords, &flag, &hist_bits, &zdict)) {
-        return -1;
+        return NULL;
     }
-    return igzip_lib_IgzipDecompressor___init___impl((IgzipDecompressor *)self, flag, hist_bits, zdict);
+    IgzipDecompressor *self = PyObject_New(IgzipDecompressor, type); 
+    int err;
+    self->eof = 0;
+    self->needs_input = 1;
+    self->avail_in_real = 0;
+    self->input_buffer = NULL;
+    self->input_buffer_size = 0;
+    self->zdict = zdict;
+    self->unused_data = PyBytes_FromStringAndSize(NULL, 0);
+    if (self->unused_data == NULL) {
+        Py_CLEAR(self);
+        return NULL;
+    }
+    isal_inflate_init(&(self->state));
+    self->state.hist_bits = hist_bits;
+    self->state.crc_flag = flag;
+    if (self->zdict != NULL){
+        Py_buffer zdict_buf;
+        if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
+                Py_CLEAR(self);
+                return -1;;
+        }
+        if ((size_t)zdict_buf.len > UINT32_MAX) {
+            PyErr_SetString(PyExc_OverflowError,
+                           "zdict length does not fit in an unsigned 32-bits int");
+            PyBuffer_Release(&zdict_buf);
+            Py_CLEAR(self);
+            return NULL;
+        }
+        err = isal_inflate_set_dict(&(self->state), zdict_buf.buf, 
+                                    (uint32_t)zdict_buf.len);
+        PyBuffer_Release(&zdict_buf);
+        if (err != ISAL_DECOMP_OK) {
+            isal_inflate_error(err);
+            Py_CLEAR(self);
+            return NULL;
+        }        
+    }
+    return (PyObject *)self;
 }
 
 static PyMethodDef IgzipDecompressor_methods[] = {
@@ -484,8 +480,7 @@ static PyTypeObject IgzipDecompressor_Type = {
     .tp_doc = igzip_lib_IgzipDecompressor___init____doc__,
     .tp_methods = IgzipDecompressor_methods,
     .tp_members =  IgzipDecompressor_members,
-    .tp_init = igzip_lib_IgzipDecompressor___init__,
-    .tp_new = PyType_GenericNew,
+    .tp_new = igzip_lib_IgzipDecompressor__new__,
 };
 
 static PyMethodDef IgzipLibMethods[] = {
