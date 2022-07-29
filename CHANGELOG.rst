@@ -29,9 +29,10 @@ that PyPy is no longer supported.
 + isal_zlib.compressobj and isal_zlib.decompressobj are now about six times
   faster.
 + igzip.decompress has 30% less overhead when called.
-+ ``isal_zlib`` functions now raise ``isal_zlib.error`` on error.
-+ The base class for ``isal_zlib.error`` and ``igzip_lib.IsalError`` is now
-  ``Exception`` instead of ``OSError``.
++ Error structure has been simplified. There is only ``IsalError`` which has
+  ``Exception`` as baseclass instead of ``OSError``. ``isal_zlib.IsalError``,
+  ``igzip_lib.IsalError``, ``isal_zlib.error`` and ``igzip_lib.error`` are
+  all aliases of the same error class.
 + GzipReader now uses larger input and output buffers (128k) by default and
   IgzipDecompressor.decompress has been updated to allocate ``maxsize`` buffers
   when these are of reasonable size, instead of growing the buffer to maxsize
