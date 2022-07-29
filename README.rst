@@ -18,8 +18,8 @@
   :target: https://github.com/conda-forge/python-isal-feedstock
   :alt:
 
-.. image:: https://travis-ci.com/pycompression/python-isal.svg?branch=develop
-  :target: https://travis-ci.com/github/pycompression/python-isal
+.. image:: https://github.com/pycompression/python-isal//actions/workflows/ci.yml/badge.svg
+  :target: https://github.com/pycompression/python-isal/actions
   :alt:
 
 .. image:: https://codecov.io/gh/pycompression/python-isal/branch/develop/graph/badge.svg
