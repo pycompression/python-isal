@@ -217,14 +217,14 @@ jobs:
             PYTHON_ISAL_BUILD_CACHE=True
             # This is in the docker container. So probably a '/tmp' will be available
             PYTHON_ISAL_BUILD_CACHE_FILE=/tmp/build_cache
-            CFLAGS=-g0
+            FLAGS="-g0 -DNDEBUG"
           CIBW_ENVIRONMENT_WINDOWS: >-
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}\build_cache
           CIBW_ENVIRONMENT_MACOS: >-
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}/build_cache
-            CFLAGS=-g0
+            CFLAGS="-g0 -DNDEBUG"
       - name: Build sdist
         if: ${{runner.os == 'Linux' && matrix.cibw_archs_linux == 'x86_64'}}
         run: |
