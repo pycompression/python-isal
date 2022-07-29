@@ -412,7 +412,7 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
         Py_buffer zdict_buf;
         if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
                 Py_CLEAR(self);
-                return -1;;
+                return NULL;
         }
         if ((size_t)zdict_buf.len > UINT32_MAX) {
             PyErr_SetString(PyExc_OverflowError,
