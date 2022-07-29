@@ -16,8 +16,6 @@ that PyPy is no longer supported.
 + Since the module now mostly contains code copied from CPython and then
   modified to work with ISA-L the license has been changed to the
   Python Software Foundation License version 2.
-+ Python versions lower than 3.7 are no longer supported. Python 3.6 is out
-  of support since December 2021.
 + PyPy is no longer supported. PyPy+python-isal was slower than CPython + zlib
   for decompressing gzip files. PyPy should not be used for workloads that
   require heavy zlib-compatible compression/decompression. As such it was
