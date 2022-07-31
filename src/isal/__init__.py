@@ -5,13 +5,19 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-from . import _isal
+from typing import Optional
 
-ISAL_MAJOR_VERSION: int = _isal.ISAL_MAJOR_VERSION
-ISAL_MINOR_VERSION: int = _isal.ISAL_MINOR_VERSION
-ISAL_PATCH_VERSION: int = _isal.ISAL_PATCH_VERSION
-ISAL_VERSION: str = _isal.ISAL_VERSION
-
+try:
+    from . import _isal
+    ISAL_MAJOR_VERSION: Optional[int] = _isal.ISAL_MAJOR_VERSION
+    ISAL_MINOR_VERSION: Optional[int] = _isal.ISAL_MINOR_VERSION
+    ISAL_PATCH_VERSION: Optional[int] = _isal.ISAL_PATCH_VERSION
+    ISAL_VERSION: Optional[str] = _isal.ISAL_VERSION
+except ImportError:
+    ISAL_MAJOR_VERSION = None
+    ISAL_MINOR_VERSION = None
+    ISAL_PATCH_VERSION = None
+    ISAL_VERSION = None
 
 __all__ = [
     "ISAL_MAJOR_VERSION",
