@@ -24,7 +24,13 @@ that PyPy is no longer supported.
   deemed unnecessary to continue supporting PyPy.
 + Stub files with type information have now been updated to correctly display
   positional-only arguments.
++ Expose ``READ`` and ``WRITE`` constants on the ``igzip`` module. These are
+  also present in Python's stdlib ``gzip`` module and exposing them allows for
+  better drop-in capability of ``igzip``. Thanks to @alexander-beedie in
+  https://github.com/pycompression/python-isal/pull/115.
 + A ``--no-name`` flag has been added to ``python -m isal.igzip``.
++ Reduced wheel size by not including debug symbols in the binary. Thanks to
+  @marcelm in https://github.com/pycompression/python-isal/pull/108.
 + Cython is no longer required as a build dependency.
 + isal_zlib.compressobj and isal_zlib.decompressobj are now about six times
   faster.
