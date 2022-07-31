@@ -347,7 +347,7 @@ def headers():
     flag = FHCRC.to_bytes(1, "little")
     header = common_hdr_start + flag + common_hdr_end
     crc = zlib.crc32(header) & 0xFFFF
-    yield(header + crc.to_bytes(2, "little"))
+    yield header + crc.to_bytes(2, "little")
     flag_bits = FTEXT | FEXTRA | FNAME | FCOMMENT | FHCRC
     flag = flag_bits.to_bytes(1, "little")
     header = (common_hdr_start + flag + common_hdr_end +
