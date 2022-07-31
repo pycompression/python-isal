@@ -155,7 +155,7 @@ jobs:
       - lint
       - package-checks
       - test-static
-#      - test-dynamic
+      - test-dynamic
       - test-arch
     strategy:
       matrix:
@@ -215,9 +215,8 @@ jobs:
             {project}/tests/test_igzip_lib.py
           CIBW_ENVIRONMENT_LINUX: >-
             PYTHON_ISAL_BUILD_CACHE=True
-            # This is in the docker container. So probably a '/tmp' will be available
             PYTHON_ISAL_BUILD_CACHE_FILE=/tmp/build_cache
-            FLAGS="-g0 -DNDEBUG"
+            CFLAGS="-g0 -DNDEBUG"
           CIBW_ENVIRONMENT_WINDOWS: >-
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}\build_cache
