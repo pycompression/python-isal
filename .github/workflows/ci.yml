@@ -155,7 +155,7 @@ jobs:
       - lint
       - package-checks
       - test-static
-#      - test-dynamic
+      - test-dynamic
       - test-arch
     strategy:
       matrix:
