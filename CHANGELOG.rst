@@ -37,14 +37,15 @@ that PyPy is no longer supported.
   IgzipDecompressor.decompress has been updated to allocate ``maxsize`` buffers
   when these are of reasonable size, instead of growing the buffer to maxsize
   on every call. This has improved gzip decompression speeds by 7%.
-+ ISA-L library version variables are now available on windows as well.
-+ Wheels are now always build with nasm for the x86 architecture. Previously
-  yasm was used for Linux and MacOS due to build issues that have since been
-  fixed upstream.
-+ Updated statically included ISA-L to version 2.31.0. This fixes the bug
-  mentioned below in python-isal as well.
-+ Fixed a bug upstream in ISA-L were zlib headers would be created with an
-  incorrect wbits value.
++ Patch statically linked included library (ISA-L 2.30.0) to fix the following:
+
+  + ISA-L library version variables are now available on windows as well,
+    for the statically linked version available on PyPI.
+  + Wheels are now always build with nasm for the x86 architecture.
+    Previously yasm was used for Linux and MacOS due to build issues.
+  + Fixed a bug upstream in ISA-L were zlib headers would be created with an
+    incorrect wbits value.
+
 + Python-isal shows up in Python profiler reports.
 + Support and tests for Python 3.10 were added.
 + Due to a change in the deployment process wheels should work for older
