@@ -11,7 +11,7 @@
   :alt:
 
 .. image:: https://img.shields.io/pypi/l/isal.svg
-  :target: https://github.com/LUMC/isal/blob/main/LICENSE
+  :target: https://github.com/pycompression/python-isal/blob/main/LICENSE
   :alt:
 
 .. image:: https://img.shields.io/conda/pn/conda-forge/python-isal.svg
