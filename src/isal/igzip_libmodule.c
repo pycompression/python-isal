@@ -5,16 +5,17 @@
 // This file is part of python-isal which is distributed under the 
 // PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file was modified from Cpython Modules/clinic/zlibmodule.c.h, Modules/clinic/_bz2module.c.h, 
-// and Modules_bz2module.c files from the 3.9 branch. 
+// This file was modified from Cpython Modules/bz2module.c file from the 3.9
+// branch.
 
 // Changes compared to CPython:
-// - The BZ2Decompressor has been used as a basis for IgzipDecompressor. Functionality is almost
-//   the same. IgzipDecompressor does have a more elaborate __init__ to set settings. It also implements
-//   decompress_buf more akin to how decompression is implemented in isal_zlib_impl.h
-// - The argparsing code was adopted to support the functions from igzip_lib module.
+// - The BZ2Decompressor has been used as a basis for IgzipDecompressor.
+//   Functionality is almost the same. IgzipDecompressor does have a more
+//   elaborate __init__ to set settings. It also implements decompress_buf more
+//   akin to how decompression is implemented in isal_shared.h
 // - Constants were added that are particular to igzip_lib.
-
+// - Argument parsers were written using th CPython API rather than argument
+//   clinic.
 
 #include "isal_shared.h"
 

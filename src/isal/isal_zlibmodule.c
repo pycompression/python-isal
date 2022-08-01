@@ -5,8 +5,7 @@
 // This file is part of python-isal which is distributed under the 
 // PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file was modified from Cpython's Modules/clinic/zlibmodule.c.h and
-// Modules/zlibmodule.c files.
+// This file was modified from Cpython's Modules/zlibmodule.c file.
 // Changes compared to CPython:
 // - All zlib naming changed to isal_zlib
 // - Including a few constants that are more specific to the ISA-L library
@@ -20,6 +19,8 @@
 // - zlib.compress also has a 'wbits' argument. This change was included in
 //   Python 3.11. It allows for faster gzip compression by using
 //   isal_zlib.compress(data, wbits=31).
+// - Argument parsers were written using th CPython API rather than argument
+//   clinic.
 
 
 #include "isal_shared.h"
