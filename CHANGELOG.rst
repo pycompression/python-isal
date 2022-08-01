@@ -7,7 +7,7 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 1.0.0-dev
+version 1.0.0
 ------------------
 Python-isal has been rewritten as a C-extension (first implementation was in
 Cython). This has made the library faster in many key areas. It does mean
