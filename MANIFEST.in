@@ -1,1 +1,2 @@
 graft src/isal/isa-l
+include src/isal/*.h

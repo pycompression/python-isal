@@ -7,6 +7,61 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.0.0
+------------------
+Python-isal has been rewritten as a C-extension (first implementation was in
+Cython). This has made the library faster in many key areas. It does mean
+that PyPy is no longer supported.
+
++ Since the module now mostly contains code copied from CPython and then
+  modified to work with ISA-L the license has been changed to the
+  Python Software Foundation License version 2.
++ Python versions lower than 3.7 are no longer supported. Python 3.6 is out
+  of support since December 2021.
++ PyPy is no longer supported. PyPy+python-isal was slower than CPython + zlib
+  for decompressing gzip files. PyPy should not be used for workloads that
+  require heavy zlib-compatible compression/decompression. As such it was
+  deemed unnecessary to continue supporting PyPy.
++ Stub files with type information have now been updated to correctly display
+  positional-only arguments.
++ Expose ``READ`` and ``WRITE`` constants on the ``igzip`` module. These are
+  also present in Python's stdlib ``gzip`` module and exposing them allows for
+  better drop-in capability of ``igzip``. Thanks to @alexander-beedie in
+  https://github.com/pycompression/python-isal/pull/115.
++ A ``--no-name`` flag has been added to ``python -m isal.igzip``.
++ Reduced wheel size by not including debug symbols in the binary. Thanks to
+  @marcelm in https://github.com/pycompression/python-isal/pull/108.
++ Cython is no longer required as a build dependency.
++ isal_zlib.compressobj and isal_zlib.decompressobj are now about six times
+  faster.
++ igzip.decompress has 30% less overhead when called.
++ Error structure has been simplified. There is only ``IsalError`` which has
+  ``Exception`` as baseclass instead of ``OSError``. ``isal_zlib.IsalError``,
+  ``igzip_lib.IsalError``, ``isal_zlib.error`` and ``igzip_lib.error`` are
+  all aliases of the same error class.
++ GzipReader now uses larger input and output buffers (128k) by default and
+  IgzipDecompressor.decompress has been updated to allocate ``maxsize`` buffers
+  when these are of reasonable size, instead of growing the buffer to maxsize
+  on every call. This has improved gzip decompression speeds by 7%.
++ Patch statically linked included library (ISA-L 2.30.0) to fix the following:
+
+  + ISA-L library version variables are now available on windows as well,
+    for the statically linked version available on PyPI.
+  + Wheels are now always build with nasm for the x86 architecture.
+    Previously yasm was used for Linux and MacOS due to build issues.
+  + Fixed a bug upstream in ISA-L were zlib headers would be created with an
+    incorrect wbits value.
+
++ Python-isal shows up in Python profiler reports.
++ Support and tests for Python 3.10 were added.
++ Due to a change in the deployment process wheels should work for older
+  versions of pip.
++ Added a ``crc`` property to the IgzipDecompressor class. Depending on the
+  decompression flag chosen, this will update with an adler32 or crc32
+  checksum.
++ All the decompression NO_HDR flags on igzip_lib were
+  incorrectly documented. This is now fixed.
+
 version 0.11.1
 ------------------
 + Fixed an issue which occurred rarely that caused IgzipDecompressor's

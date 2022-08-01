@@ -1,25 +1,17 @@
-# Copyright (c) 2020 Leiden University Medical Center
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
+# This file does not include original code from CPython. It is used to ensure
+# that compression and decompression between CPython's zlib and isal_zlib
+# is compatible.
 
 import gzip
 import itertools
+import os
 import zlib
 from pathlib import Path
 
@@ -42,6 +34,8 @@ SEEDS = [-INT_OVERFLOW, -3, -1, 0, 1, INT_OVERFLOW] + [
 
 # Wbits for ZLIB compression, GZIP compression, and RAW compressed streams
 WBITS_RANGE = list(range(9, 16)) + list(range(25, 32)) + list(range(-15, -8))
+
+DYNAMICALLY_LINKED = os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None
 
 
 @pytest.mark.parametrize(["data_size", "value"],
@@ -99,18 +93,15 @@ def test_decompress_isal_zlib(data_size, level):
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
                          itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))
+@pytest.mark.xfail(condition=DYNAMICALLY_LINKED,
+                   reason="Dynamically linked version may not have patch.")
 def test_compress_compressobj(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
     compressobj = isal_zlib.compressobj(level=level,
                                         wbits=wbits,
                                         memLevel=memLevel)
     compressed = compressobj.compress(data) + compressobj.flush()
-    if wbits in range(8, 16):
-        # TODO: Apparently the wbits level is not correctly implemented in
-        # ISA-L for the zlib stuff.
-        decompressed = zlib.decompress(compressed, wbits=15)
-    else:
-        decompressed = zlib.decompress(compressed, wbits=wbits)
+    decompressed = zlib.decompress(compressed, wbits=wbits)
     assert data == decompressed
 
 

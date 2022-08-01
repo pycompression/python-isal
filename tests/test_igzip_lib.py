@@ -1,22 +1,13 @@
-# Copyright (c) 2020 Leiden University Medical Center
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
+# TestIgzipDecompressor was modified from TestBZ2Decompress from Cpython's
+# Lib/test/test_bz2.py.
+
 import gzip
 import itertools
 import os
@@ -53,8 +44,10 @@ FLAGS = [
     Flag(COMP_DEFLATE, DECOMP_DEFLATE),
     Flag(COMP_ZLIB, DECOMP_ZLIB),
     Flag(COMP_GZIP, DECOMP_GZIP),
-    Flag(COMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR),
-    Flag(COMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR),
+    # DECOMP_GZIP_NO_HDR and DECOMP_ZLIB_NO_HDR do not read headers
+    # and trailers
+    Flag(COMP_DEFLATE, DECOMP_ZLIB_NO_HDR),
+    Flag(COMP_DEFLATE, DECOMP_GZIP_NO_HDR),
     Flag(COMP_ZLIB_NO_HDR, DECOMP_ZLIB_NO_HDR_VER),
     Flag(COMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER),
 ]
@@ -252,3 +245,28 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
     igzd.decompress(raw_deflate_incomplete_trailer)
     if igzd.eof:
         assert igzd.unused_data == true_unused_data
+
+
+@pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
+                         itertools.product([26], FLAGS,
+                                           [128 * 1024 - 3, 874, 81923, 9111]))
+def test_decompression_flags(unused_size, flag_pair, data_size):
+    comp_flag, decomp_flag = flag_pair
+    unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
+    data = RAW_DATA[:data_size]
+    compressed = igzip_lib.compress(data, flag=comp_flag)
+    decompressor = igzip_lib.IgzipDecompressor(flag=decomp_flag)
+    result = decompressor.decompress(compressed + unused_data)
+    assert result == data
+
+    # CRC should be present on the ZLIB and GZIP type flags.
+    if decomp_flag in {DECOMP_ZLIB, DECOMP_ZLIB_NO_HDR,
+                       DECOMP_ZLIB_NO_HDR_VER}:
+        assert decompressor.crc == zlib.adler32(data)
+    elif decomp_flag in {DECOMP_GZIP, DECOMP_GZIP_NO_HDR,
+                         DECOMP_GZIP_NO_HDR_VER}:
+        assert decompressor.crc == zlib.crc32(data)
+    else:
+        assert decompressor.crc == 0
+
+    assert decompressor.unused_data == unused_data

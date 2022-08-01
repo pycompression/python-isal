@@ -1,22 +1,29 @@
-# Copyright (c) 2020 Leiden University Medical Center
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
+# This file uses code from CPython's Lib/gzip.py
+# Changes compared to CPython:
+# - Subclassed GzipFile to IGzipFile. Methods that included calls to zlib have
+#   been overwritten with the same methods, but now calling to isal_zlib.
+# - _GzipReader uses a igzip_lib.IgzipDecompressor. This Decompressor is
+#   derived from the BZ2Decompressor as such it does not produce an unconsumed
+#   tail but keeps the read data internally. This prevents unnecessary copying
+#   of data. To accomodate this, the read method has been rewritten.
+# - _GzipReader._add_read_data uses isal_zlib.crc32 instead of zlib.crc32.
+# - Gzip.compress does not use a GzipFile to compress in memory, but creates a
+#   simple header using _create_simple_gzip_header and compresses the data with
+#   igzip_lib.compress using the DECOMP_GZIP_NO_HDR flag. This change was
+#   ported to Python 3.11, using zlib.compress(wbits=-15) in that instance.
+# - Gzip.decompress creates an isal_zlib.decompressobj and decompresses the
+#   data that way instead of using GzipFile. This change was ported to
+#   Python 3.11.
+# - The main() function's gzip utility has now support for a -c flag for easier
+#   use.
+
 
 """Similar to the stdlib gzip module. But using the Intel Storage Accelaration
 Library to speed up its methods."""
@@ -28,7 +35,7 @@ import os
 import struct
 import sys
 import time
-from typing import List, Optional, SupportsInt
+from typing import Optional, SupportsInt
 import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
@@ -42,14 +49,17 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
 #: The amount of data that is read in at once when decompressing a file.
 #: Increasing this value may increase performance.
-READ_BUFFER_SIZE = io.DEFAULT_BUFFER_SIZE
+#: 128K is also the size used by pigz and cat to read files from the
+# filesystem.
+READ_BUFFER_SIZE = 128 * 1024
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
+READ, WRITE = 1, 2
 
 try:
     BadGzipFile = gzip.BadGzipFile  # type: ignore
 except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
-    BadGzipFile = OSError
+    BadGzipFile = OSError  # type: ignore
 
 
 # The open method was copied from the CPython source with minor adjustments.
@@ -149,15 +159,15 @@ class IGzipFile(gzip.GzipFile):
                     isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION
                 ))
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
-        if self.mode == gzip.WRITE:
+        if self.mode == WRITE:
             self.compress = isal_zlib.compressobj(compresslevel,
                                                   isal_zlib.DEFLATED,
                                                   -isal_zlib.MAX_WBITS,
                                                   isal_zlib.DEF_MEM_LEVEL,
                                                   0)
-        if self.mode == gzip.READ:
+        if self.mode == READ:
             raw = _IGzipReader(self.fileobj)
-            self._buffer = io.BufferedReader(raw)
+            self._buffer = io.BufferedReader(raw, buffer_size=READ_BUFFER_SIZE)
 
     def __repr__(self):
         s = repr(self.fileobj)
@@ -188,7 +198,7 @@ class IGzipFile(gzip.GzipFile):
 
     def write(self, data):
         self._check_not_closed()
-        if self.mode != gzip.WRITE:
+        if self.mode != WRITE:
             import errno
             raise OSError(errno.EBADF, "write() on read-only IGzipFile object")
 
@@ -240,12 +250,6 @@ class _IGzipReader(gzip._GzipReader):
         self._new_member = True
         self._last_mtime = None
 
-    def _add_read_data(self, data):
-        # Use faster isal crc32 calculation and update the stream size in place
-        # compared to CPython gzip
-        self._crc = isal_zlib.crc32(data, self._crc)
-        self._stream_size += len(data)
-
     def read(self, size=-1):
         if size < 0:
             return self.readall()
@@ -293,7 +297,8 @@ class _IGzipReader(gzip._GzipReader):
                 raise EOFError("Compressed file ended before the "
                                "end-of-stream marker was reached")
 
-        self._add_read_data(uncompress)
+        self._crc = isal_zlib.crc32(uncompress, self._crc)
+        self._stream_size += len(uncompress)
         self._pos += len(uncompress)
         return uncompress
 
@@ -349,11 +354,13 @@ def _gzip_header_end(data: bytes) -> int:
         raise BadGzipFile(f"Not a gzipped file ({repr(data[:2])})")
     if method != 8:
         raise BadGzipFile("Unknown compression method")
+    if not flags:  # Likely when data compressed in memory
+        return 10
     pos = 10
     if flags & FEXTRA:
         if len(data) < pos + 2:
             raise eof_error
-        xlen = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        xlen, = struct.unpack("<H", data[pos: pos+2])
         pos += 2 + xlen
     if flags & FNAME:
         pos = data.find(b"\x00", pos) + 1
@@ -367,12 +374,12 @@ def _gzip_header_end(data: bytes) -> int:
     if flags & FHCRC:
         if len(data) < pos + 2:
             raise eof_error
-        header_crc = int.from_bytes(data[pos: pos + 2], "little", signed=False)
+        header_crc, = struct.unpack("<H", data[pos: pos+2])
         # CRC is stored as a 16-bit integer by taking last bits of crc32.
         crc = isal_zlib.crc32(data[:pos]) & 0xFFFF
         if header_crc != crc:
-            raise BadGzipFile(f"Corrupted header. Checksums do not "
-                              f"match: {crc} != {header_crc}")
+            raise BadGzipFile(f"Corrupted gzip header. Checksums do not "
+                              f"match: {crc:04x} != {header_crc:04x}")
         pos += 2
     return pos
 
@@ -381,26 +388,25 @@ def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
     """
-    all_blocks: List[bytes] = []
+    decompressed_members = []
     while True:
-        if data == b"":
-            break
+        if not data:  # Empty data returns empty bytestring
+            return b"".join(decompressed_members)
         header_end = _gzip_header_end(data)
-        do = isal_zlib.decompressobj(-15)
-        block = do.decompress(data[header_end:]) + do.flush()
+        # Use a zlib raw deflate compressor
+        do = isal_zlib.decompressobj(wbits=-isal_zlib.MAX_WBITS)
+        # Read all the data except the header
+        decompressed = do.decompress(data[header_end:])
         if not do.eof or len(do.unused_data) < 8:
             raise EOFError("Compressed file ended before the end-of-stream "
                            "marker was reached")
-        checksum, length = struct.unpack("<II", do.unused_data[:8])
-        crc = isal_zlib.crc32(block)
-        if crc != checksum:
+        crc, length = struct.unpack("<II", do.unused_data[:8])
+        if crc != isal_zlib.crc32(decompressed):
             raise BadGzipFile("CRC check failed")
-        if length != len(block):
+        if length != (len(decompressed) & 0xffffffff):
             raise BadGzipFile("Incorrect length of data produced")
-        all_blocks.append(block)
-        # Remove all padding null bytes and start next block.
+        decompressed_members.append(decompressed)
         data = do.unused_data[8:].lstrip(b"\x00")
-    return b"".join(all_blocks)
 
 
 def _argument_parser():
@@ -437,13 +443,17 @@ def _argument_parser():
                               help="write on standard output")
     output_group.add_argument("-o", "--output",
                               help="Write to this output file")
+    parser.add_argument("-n", "--no-name", action="store_true",
+                        dest="reproducible",
+                        help="do not save or restore the original name and "
+                             "timestamp")
     parser.add_argument("-f", "--force", action="store_true",
                         help="Overwrite output without prompting")
     # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K
     # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
     # ~6% faster.
     parser.add_argument("-b", "--buffer-size",
-                        default=128 * 1024, type=int,
+                        default=READ_BUFFER_SIZE, type=int,
                         help=argparse.SUPPRESS)
     return parser
 
@@ -480,10 +490,16 @@ def main():
         else:
             in_file = io.open(args.file, mode="rb")
         if out_filepath is not None:
-            out_file = open(out_filepath, "wb", compresslevel=compresslevel)
+            out_buffer = io.open(out_filepath, "wb")
         else:
-            out_file = IGzipFile(mode="wb", fileobj=sys.stdout.buffer,
-                                 compresslevel=compresslevel)
+            out_buffer = sys.stdout.buffer
+
+        if args.reproducible:
+            gzip_file_kwargs = {"mtime": 0, "filename": b""}
+        else:
+            gzip_file_kwargs = {"filename": out_filepath}
+        out_file = IGzipFile(mode="wb", fileobj=out_buffer,
+                             compresslevel=compresslevel, **gzip_file_kwargs)
     else:
         if args.file:
             in_file = open(args.file, mode="rb")

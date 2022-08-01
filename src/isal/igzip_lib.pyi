@@ -1,22 +1,9 @@
-# Copyright (c) 2020 Leiden University Medical Center
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the 
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
 ISAL_BEST_SPEED: int
 ISAL_BEST_COMPRESSION: int
@@ -44,13 +31,17 @@ MEM_LEVEL_SMALL: int
 MEM_LEVEL_MEDIUM: int
 MEM_LEVEL_LARGE: int
 MEM_LEVEL_EXTRA_LARGE: int
-IsalError: OSError
 
-def compress(data, level: int = ISAL_DEFAULT_COMPRESSION,
+IsalError: Exception
+error: Exception
+
+def compress(__data,
+             level: int = ISAL_DEFAULT_COMPRESSION,
              flag: int = COMP_DEFLATE,
              mem_level: int = MEM_LEVEL_DEFAULT,
              hist_bits: int = MAX_HIST_BITS) -> bytes: ...
-def decompress(data, flag: int = DECOMP_DEFLATE,
+def decompress(__data,
+               flag: int = DECOMP_DEFLATE,
                hist_bits: int = MAX_HIST_BITS,
                bufsize: int = DEF_BUF_SIZE) -> bytes: ...
 
@@ -58,5 +49,11 @@ class IgzipDecompressor:
     unused_data: bytes
     needs_input: bool
     eof: bool
+    crc: int
 
-    def decompress(self, data, max_length = -1) -> bytes: ...
+    def __init__(self,
+                 flag: int = DECOMP_DEFLATE,
+                 hist_bits: int = MAX_HIST_BITS,
+                 zdict = None): ...
+
+    def decompress(self, __data, max_length = -1) -> bytes: ...

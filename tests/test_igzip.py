@@ -1,22 +1,9 @@
-# Copyright (c) 2020 Leiden University Medical Center
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-# SOFTWARE.
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
 """Tests for igzip that are not tested with the gzip_compliance tests taken
  from CPython. Uses pytest which is easier to work with. Meant to complement
@@ -27,6 +14,7 @@ import io
 import os
 import re
 import shutil
+import struct
 import sys
 import tempfile
 import zlib
@@ -60,6 +48,28 @@ def test_write_readonly_file():
         with pytest.raises(OSError) as error:
             test.write(b"bla")
     error.match(r"write\(\) on read-only IGzipFile object")
+
+
+def test_igzip_reader_readall():
+    data = io.BytesIO(COMPRESSED_DATA)
+    test = igzip._IGzipReader(data)
+    assert test.read(-1) == DATA
+
+
+def test_igzip_reader_read_zero():
+    data = io.BytesIO(COMPRESSED_DATA)
+    test = igzip._IGzipReader(data)
+    assert test.read(0) == b""
+
+
+def test_igzipfile_read_truncated():
+    # Chop of trailer (8 bytes) and part of DEFLATE stream
+    data = io.BytesIO(COMPRESSED_DATA[:-10])
+    test = igzip.GzipFile(fileobj=data, mode="rb")
+    with pytest.raises(EOFError) as error:
+        test.read()
+    error.match("Compressed file ended before the end-of-stream marker was "
+                "reached")
 
 
 @pytest.mark.parametrize("level", range(1, 10))
@@ -234,6 +244,21 @@ def test_compress_infile_out_file_inmplicit_name_prompt_accept(
     assert err == b""
 
 
+def test_compress_infile_out_file_no_name(tmp_path, capsysbinary):
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    out_file = tmp_path / "compressed.gz"
+    sys.argv = ['', '-n', '-o', str(out_file), str(test)]
+    igzip.main()
+    out, err = capsysbinary.readouterr()
+    output = out_file.read_bytes()
+    assert gzip.decompress(output) == DATA
+    assert err == b''
+    assert out == b''
+    assert output[4] & gzip.FNAME == 0  # No filename set.
+    assert output[4:8] == b"\x00\x00\x00\x00"  # No timestamp set.
+
+
 def test_decompress():
     assert igzip.decompress(COMPRESSED_DATA) == DATA
 
@@ -322,7 +347,7 @@ def headers():
     flag = FHCRC.to_bytes(1, "little")
     header = common_hdr_start + flag + common_hdr_end
     crc = zlib.crc32(header) & 0xFFFF
-    yield(header + crc.to_bytes(2, "little"))
+    yield header + crc.to_bytes(2, "little")
     flag_bits = FTEXT | FEXTRA | FNAME | FCOMMENT | FHCRC
     flag = flag_bits.to_bytes(1, "little")
     header = (common_hdr_start + flag + common_hdr_end +
@@ -343,19 +368,23 @@ def test_header_too_short():
 
 
 def test_header_corrupt():
-    header = b"\x1f\x8b\x08\x02\x00\x00\x00\x00\x00\xff"
+    header = (b"\x1f\x8b\x08\x1f\x00\x00\x00\x00\x00\xff"  # All flags set
+              b"\x05\x00"  # Xlen = 5
+              b"extra"
+              b"name\x00"
+              b"comment\x00")
     # Create corrupt checksum by using wrong seed.
     crc = zlib.crc32(header, 50) & 0xFFFF
     true_crc = zlib.crc32(header) & 0xFFFF
-    header += crc.to_bytes(2, "little")
+    header += struct.pack("<H", crc)
 
     data = isal_zlib.compress(b"", wbits=-15)
     trailer = b"\x00" * 8
     compressed = header + data + trailer
     with pytest.raises(igzip.BadGzipFile) as error:
         igzip.decompress(compressed)
-    error.match(f"Corrupted header. "
-                f"Checksums do not match: {true_crc} != {crc}")
+    error.match(f"Corrupted gzip header. "
+                f"Checksums do not match: {true_crc:04x} != {crc:04x}")
 
 
 TRUNCATED_HEADERS = [

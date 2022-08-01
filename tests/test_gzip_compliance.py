@@ -1,3 +1,10 @@
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
 """Test script for the igzip module.
 
 Adapted from test_gzip.py in CPython's lib/test directory.
@@ -565,13 +572,15 @@ class TestGzip(BaseTest):
 
     def test_decompress_limited(self):
         """Decompressed data buffering should be limited"""
-        bomb = igzip.compress(b'\0' * int(2e6), compresslevel=3)
-        self.assertLess(len(bomb), io.DEFAULT_BUFFER_SIZE)
+        bomb_size = int(2e6)
+        self.assertLess(igzip.READ_BUFFER_SIZE, bomb_size)
+        bomb = gzip.compress(b'\0' * bomb_size, compresslevel=9)
+        self.assertLess(len(bomb), igzip.READ_BUFFER_SIZE)
 
         bomb = io.BytesIO(bomb)
         decomp = igzip.GzipFile(fileobj=bomb)
         self.assertEqual(decomp.read(1), b'\0')
-        max_decomp = 1 + io.DEFAULT_BUFFER_SIZE
+        max_decomp = 1 + igzip.READ_BUFFER_SIZE
         self.assertLessEqual(decomp._buffer.raw.tell(), max_decomp,
                              "Excessive amount of data was decompressed")
 
@@ -636,6 +645,17 @@ class TestGzip(BaseTest):
             f.write(data1)
         with igzip.open(self.filename, "rb") as f:
             f._buffer.raw._fp.prepend()
+
+    def test_public_consts(self):
+        # Confirm that all of the gzip module public consts are
+        # also accessible via igzip, for drop-in compatibility.
+        self.assertEqual(gzip.FCOMMENT, igzip.FCOMMENT)
+        self.assertEqual(gzip.FEXTRA, igzip.FEXTRA)
+        self.assertEqual(gzip.FHCRC, igzip.FHCRC)
+        self.assertEqual(gzip.FNAME, igzip.FNAME)
+        self.assertEqual(gzip.FTEXT, igzip.FTEXT)
+        self.assertEqual(gzip.READ, igzip.READ)
+        self.assertEqual(gzip.WRITE, igzip.WRITE)
 
 
 class TestOpen(BaseTest):

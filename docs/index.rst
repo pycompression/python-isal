@@ -84,6 +84,15 @@ it is available on conda-forge.
 
 .. _differences-with-zlib-and-gzip-modules:
 
+===========================================
+python-isal as a dependency in your project
+===========================================
+
+.. include:: includes/README.rst
+   :start-after: .. dependency start
+   :end-before: .. dependency end
+
+
 ======================================
 Differences with zlib and gzip modules
 ======================================
@@ -98,6 +107,12 @@ API Documentation: isal_zlib
 
 .. automodule:: isal.isal_zlib
    :members:
+
+   .. autoclass:: Compress 
+      :members:
+
+   .. autoclass:: Decompress 
+      :members: 
 
 ========================
 API-documentation: igzip
@@ -115,7 +130,10 @@ API Documentation: igzip_lib
 ============================
 
 .. automodule:: isal.igzip_lib
-   :members:
+   :members: compress, decompress, 
+   
+   .. autoclass:: IgzipDecompressor
+      :members:
 
 ==========================
 python -m isal.igzip usage
