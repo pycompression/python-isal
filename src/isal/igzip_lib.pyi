@@ -31,7 +31,9 @@ MEM_LEVEL_SMALL: int
 MEM_LEVEL_MEDIUM: int
 MEM_LEVEL_LARGE: int
 MEM_LEVEL_EXTRA_LARGE: int
+
 IsalError: Exception
+error: Exception
 
 def compress(__data,
              level: int = ISAL_DEFAULT_COMPRESSION,

@@ -30,6 +30,7 @@ Z_FULL_FLUSH: int
 Z_FINISH: int
 
 error: Exception
+IsalError: Exception
 
 def adler32(__data, __value: int = 1) -> int: ...
 def crc32(__data, __value: int = 0) -> int: ...
