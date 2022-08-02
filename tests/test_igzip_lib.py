@@ -12,6 +12,7 @@ import gzip
 import itertools
 import os
 import pickle
+import sys
 import zlib
 from typing import NamedTuple
 
@@ -119,6 +120,9 @@ class TestIgzipDecompressor():
             compressed = None
             decompressed = None
 
+    @pytest.mark.skipif(sys.implementation.name == "pypy",
+                        reason="Pickling is not a requirement, and certainly "
+                               "not a blocker for PyPy.")
     def testPickle(self):
         for proto in range(pickle.HIGHEST_PROTOCOL + 1):
             with pytest.raises(TypeError):

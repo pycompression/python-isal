@@ -662,6 +662,11 @@ class CompressObjectTestCase(BaseCompressTestCase, unittest.TestCase):
         dco.decompress(data, 1)
         self.assertEqual(dco.flush(size), input[1:])
 
+    # Skip this test for pypy. This is an extreme fringe use case. There are
+    # constants provided for the mode parameter, so it seems very unlikely
+    # custom ints will be used.
+    @unittest.skipIf(sys.implementation.name == "pypy",
+                     "PyPy does not handle __index__ properly")
     def test_flush_custom_length(self):
         input = HAMLET_SCENE * 10
         data = isal_zlib.compress(input, 1)
