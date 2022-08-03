@@ -7,21 +7,20 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.0.1
+------------------
++ Fixed failing tests and wheel builds for PyPy.
+
 version 1.0.0
 ------------------
 Python-isal has been rewritten as a C-extension (first implementation was in
-Cython). This has made the library faster in many key areas. It does mean
-that PyPy is no longer supported.
+Cython). This has made the library faster in many key areas.
 
 + Since the module now mostly contains code copied from CPython and then
   modified to work with ISA-L the license has been changed to the
   Python Software Foundation License version 2.
 + Python versions lower than 3.7 are no longer supported. Python 3.6 is out
   of support since December 2021.
-+ PyPy is no longer supported. PyPy+python-isal was slower than CPython + zlib
-  for decompressing gzip files. PyPy should not be used for workloads that
-  require heavy zlib-compatible compression/decompression. As such it was
-  deemed unnecessary to continue supporting PyPy.
 + Stub files with type information have now been updated to correctly display
   positional-only arguments.
 + Expose ``READ`` and ``WRITE`` constants on the ``igzip`` module. These are
