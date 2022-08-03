@@ -210,7 +210,7 @@ jobs:
       - name: Build wheels
         run: cibuildwheel --output-dir dist
         env:
-          CIBW_SKIP: "*-win32 *-manylinux_i686 *pp3*"  # Skip 32 bit and pypy
+          CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
           CIBW_BEFORE_ALL_LINUX: ${{ matrix.cibw_before_all_linux }}
           # Fully test the build wheels again.
