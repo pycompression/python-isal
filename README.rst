@@ -11,7 +11,7 @@
   :alt:
 
 .. image:: https://img.shields.io/pypi/l/isal.svg
-  :target: https://github.com/LUMC/isal/blob/main/LICENSE
+  :target: https://github.com/pycompression/python-isal/blob/main/LICENSE
   :alt:
 
 .. image:: https://img.shields.io/conda/pn/conda-forge/python-isal.svg
@@ -111,13 +111,12 @@ your project please list a python-isal dependency as follows.
 ``setup.cfg``::
 
     install_requires =
-        isal; platform.python_implementation == 'CPython' and (platform.machine == "x86_64" or platform.machine == "AMD64")
+        isal; platform.machine == "x86_64" or platform.machine == "AMD64"
 
 ``setup.py``::
 
     extras_require={
-        ":platform.python_implementation == 'CPython' and "
-        "(platform.machine == 'x86_64' or platform.machine == 'AMD64')": ['isal']
+        ":platform.machine == 'x86_64' or platform.machine == 'AMD64'": ['isal']
     },
 
 .. dependency end

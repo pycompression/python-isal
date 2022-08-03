@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import tempfile
 import zlib
@@ -28,6 +29,21 @@ import pytest
 DATA = b'This is a simple test with igzip'
 COMPRESSED_DATA = gzip.compress(DATA)
 TEST_FILE = str((Path(__file__).parent / "data" / "test.fastq.gz"))
+PYPY = sys.implementation.name == "pypy"
+
+
+def run_isal_igzip(*args, stdin=None):
+    """Calling isal.igzip externally seems to solve some issues on PyPy where
+    files would not be written properly when igzip.main() was called. This is
+     probably due to some out of order execution that PyPy tries to pull.
+     Running the process externally is detrimental to the coverage report,
+     so this is only done for PyPy."""
+    process = subprocess.Popen(["python", "-m", "isal.igzip", *args],
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE,
+                               stdin=subprocess.PIPE)
+
+    return process.communicate(stdin)
 
 
 def test_wrong_compresslevel_igzipfile():
@@ -112,10 +128,13 @@ def test_decompress_infile_outfile(tmp_path, capsysbinary):
 def test_compress_infile_outfile(tmp_path, capsysbinary):
     test_file = tmp_path / "test"
     test_file.write_bytes(DATA)
-    sys.argv = ['', str(test_file)]
-    igzip.main()
+    if PYPY:
+        out, err = run_isal_igzip(str(test_file))
+    else:
+        sys.argv = ['', str(test_file)]
+        igzip.main()
+        out, err = capsysbinary.readouterr()
     out_file = test_file.with_suffix(".gz")
-    out, err = capsysbinary.readouterr()
     assert err == b''
     assert out == b''
     assert out_file.exists()
@@ -176,9 +195,13 @@ def test_compress_infile_out_file(tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
-    sys.argv = ['', '-o', str(out_file), str(test)]
-    igzip.main()
-    out, err = capsysbinary.readouterr()
+    args = ['-o', str(out_file), str(test)]
+    if PYPY:
+        out, err = run_isal_igzip(*args)
+    else:
+        sys.argv = ['', *args]
+        igzip.main()
+        out, err = capsysbinary.readouterr()
     assert gzip.decompress(out_file.read_bytes()) == DATA
     assert err == b''
     assert out == b''
@@ -189,9 +212,13 @@ def test_compress_infile_out_file_force(tmp_path, capsysbinary):
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
     out_file.touch()
-    sys.argv = ['', '-f', '-o', str(out_file), str(test)]
-    igzip.main()
-    out, err = capsysbinary.readouterr()
+    args = ['-f', '-o', str(out_file), str(test)]
+    if PYPY:
+        out, err = run_isal_igzip(*args)
+    else:
+        sys.argv = ['', *args]
+        igzip.main()
+        out, err = capsysbinary.readouterr()
     assert gzip.decompress(out_file.read_bytes()) == DATA
     assert err == b''
     assert out == b''
@@ -234,23 +261,30 @@ def test_compress_infile_out_file_inmplicit_name_prompt_accept(
     test.write_bytes(DATA)
     out_file = tmp_path / "test.gz"
     out_file.touch()
-    sys.argv = ['', str(test)]
-    mock_stdin = io.BytesIO(b"y")
-    sys.stdin = io.TextIOWrapper(mock_stdin)
-    igzip.main()
-    out, err = capsysbinary.readouterr()
-    assert gzip.decompress(out_file.read_bytes()) == DATA
+    if PYPY:
+        out, err = run_isal_igzip(str(test), stdin=b"y\n")
+    else:
+        sys.argv = ['', str(test)]
+        mock_stdin = io.BytesIO(b"y")
+        sys.stdin = io.TextIOWrapper(mock_stdin)
+        igzip.main()
+        out, err = capsysbinary.readouterr()
     assert b"already exists; do you wish to overwrite" in out
     assert err == b""
+    assert gzip.decompress(out_file.read_bytes()) == DATA
 
 
 def test_compress_infile_out_file_no_name(tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
-    sys.argv = ['', '-n', '-o', str(out_file), str(test)]
-    igzip.main()
-    out, err = capsysbinary.readouterr()
+    args = ['-n', '-o', str(out_file), str(test)]
+    if PYPY:
+        out, err = run_isal_igzip(*args)
+    else:
+        sys.argv = ['', '-n', '-o', str(out_file), str(test)]
+        igzip.main()
+        out, err = capsysbinary.readouterr()
     output = out_file.read_bytes()
     assert gzip.decompress(output) == DATA
     assert err == b''
