@@ -133,6 +133,10 @@ jobs:
     strategy:
       matrix:
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
+        python_version: [ "python" ]
+        include:
+          - os: "ubuntu-latest"
+            python_version: "pypy"
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -142,7 +146,7 @@ jobs:
         with:
           channels: conda-forge,defaults
       - name: Install requirements (universal)
-        run: conda install isa-l python tox
+        run: conda install isa-l ${{ matrix.python_version}} tox
       - name: Set MSVC developer prompt
         uses: ilammy/msvc-dev-cmd@v1.6.0
         if: runner.os == 'Windows'
