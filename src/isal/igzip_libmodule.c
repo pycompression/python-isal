@@ -580,8 +580,9 @@ PyInit_igzip_lib(void)
         return NULL;
     }
 
-    if (PyType_Ready(&IgzipDecompressor_Type) != 0)
+    if (PyType_Ready(&IgzipDecompressor_Type) != 0) {
         return NULL;
+    }
     Py_INCREF(&IgzipDecompressor_Type);
     if (PyModule_AddObject(m, "IgzipDecompressor",  (PyObject *)&IgzipDecompressor_Type) < 0) {
         return NULL;
