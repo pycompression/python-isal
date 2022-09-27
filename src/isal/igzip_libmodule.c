@@ -262,8 +262,8 @@ PyDoc_STRVAR(igzip_lib_compress__doc__,
 static PyObject *
 igzip_lib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"", "level", "flag", "mem_level", "hist_bits", NULL};
-    char *format ="y*|iiii:compress";
+    static char *keywords[] = {"", "level", "flag", "mem_level", "hist_bits", NULL};
+    static char *format ="y*|iiii:compress";
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int flag = COMP_DEFLATE;
@@ -303,8 +303,8 @@ PyDoc_STRVAR(igzip_lib_decompress__doc__,
 static PyObject *
 igzip_lib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"", "flag", "hist_bits", "bufsize", NULL};
-    char *format ="y*|iin:decompress";
+    static char *keywords[] = {"", "flag", "hist_bits", "bufsize", NULL};
+    static char *format ="y*|iin:decompress";
     Py_buffer data = {NULL, NULL};
     int flag = DECOMP_DEFLATE;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
@@ -315,7 +315,7 @@ igzip_lib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
             &data, &flag, &hist_bits, &bufsize)) {
         return NULL;
     }
-    PyObject * return_value = igzip_lib_decompress_impl(&data, flag, hist_bits, bufsize);
+    PyObject *return_value = igzip_lib_decompress_impl(&data, flag, hist_bits, bufsize);
     PyBuffer_Release(&data);
     return return_value;
 }
@@ -345,8 +345,8 @@ PyDoc_STRVAR(igzip_lib_IgzipDecompressor_decompress__doc__,
 static PyObject *
 igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"", "max_length", NULL};
-    char *format = "y*|n:decompress";
+    static char *keywords[] = {"", "max_length", NULL};
+    static char *format = "y*|n:decompress";
     Py_buffer data = {NULL, NULL};
     Py_ssize_t max_length = -1;
 
@@ -383,8 +383,8 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
                                    PyObject *args, 
                                    PyObject *kwargs)
 {
-    char *keywords[] = {"flag", "hist_bits", "zdict", NULL};
-    char *format = "|iiO:IgzipDecompressor";
+    static char *keywords[] = {"flag", "hist_bits", "zdict", NULL};
+    static char *format = "|iiO:IgzipDecompressor";
     int flag = ISAL_DEFLATE;
     int hist_bits = ISAL_DEF_MAX_HIST_BITS;
     PyObject *zdict = NULL;
