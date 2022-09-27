@@ -142,7 +142,8 @@ PyDoc_STRVAR(isal_zlib_adler32__doc__,
 "The returned checksum is an integer.");
 
 #define ISAL_ZLIB_ADLER32_METHODDEF    \
-    {"adler32", (PyCFunction)(void(*)(void))isal_zlib_adler32, METH_FASTCALL, isal_zlib_adler32__doc__}
+    {"adler32", (PyCFunction)(void(*)(void))isal_zlib_adler32, METH_FASTCALL, \
+     isal_zlib_adler32__doc__}
 
 static PyObject *
 isal_zlib_adler32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
@@ -186,7 +187,8 @@ PyDoc_STRVAR(zlib_crc32__doc__,
 "The returned checksum is an integer.");
 
 #define ISAL_ZLIB_CRC32_METHODDEF    \
-    {"crc32", (PyCFunction)(void(*)(void))isal_zlib_crc32, METH_FASTCALL, zlib_crc32__doc__}
+    {"crc32", (PyCFunction)(void(*)(void))isal_zlib_crc32, METH_FASTCALL, \
+     zlib_crc32__doc__}
 
 static PyObject *
 isal_zlib_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
@@ -231,7 +233,8 @@ PyDoc_STRVAR(zlib_compress__doc__,
 "    The window buffer size and container format.");
 
 #define ISAL_ZLIB_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))isal_zlib_compress, METH_VARARGS|METH_KEYWORDS, zlib_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))isal_zlib_compress, \
+     METH_VARARGS|METH_KEYWORDS, zlib_compress__doc__}
 
 static PyObject *
 isal_zlib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
@@ -274,7 +277,8 @@ PyDoc_STRVAR(zlib_decompress__doc__,
 "    The initial output buffer size.");
 
 #define ISAL_ZLIB_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_decompress, METH_VARARGS|METH_KEYWORDS, zlib_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_decompress, \
+     METH_VARARGS|METH_KEYWORDS, zlib_decompress__doc__}
 
 
 static PyObject *
@@ -1172,8 +1176,9 @@ PyInit_isal_zlib(void)
     PyObject *m;
 
     m = PyModule_Create(&isal_zlib_module);
-    if (m == NULL)
+    if (m == NULL) {
         return NULL;
+    }
 
     PyObject *igzip_lib_module = PyImport_ImportModule("isal.igzip_lib");
     if (igzip_lib_module == NULL) {
