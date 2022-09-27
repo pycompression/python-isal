@@ -322,6 +322,7 @@ typedef struct
     uint8_t *level_buf;
     PyObject *zdict;
     int is_initialised;
+    // isal_zstream should be at the bottom as it contains buffers inside the struct.
     struct isal_zstream zst;
 } compobject;
 
@@ -357,6 +358,7 @@ typedef struct
     int is_initialised;
     int method_set;
     char eof;
+    // inflate_state should be at the bottom as it contains buffers inside the struct.
     struct inflate_state zst;
 } decompobject;
 
