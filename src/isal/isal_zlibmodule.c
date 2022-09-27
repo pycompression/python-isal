@@ -236,8 +236,8 @@ PyDoc_STRVAR(zlib_compress__doc__,
 static PyObject *
 isal_zlib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"", "level", "wbits", NULL};
-    char *format ="y*|ii:isal_zlib.compress";
+    static char *keywords[] = {"", "level", "wbits", NULL};
+    static char *format ="y*|ii:isal_zlib.compress";
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
@@ -281,8 +281,8 @@ static PyObject *
 isal_zlib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    char *keywords[] = {"", "wbits", "bufsize", NULL};
-    char *format ="y*|in:isal_zlib.decompress";
+    static char *keywords[] = {"", "wbits", "bufsize", NULL};
+    static char *format ="y*|in:isal_zlib.decompress";
     Py_buffer data = {NULL, NULL};
     int wbits = ISAL_DEF_MAX_HIST_BITS;
     Py_ssize_t bufsize = DEF_BUF_SIZE;
@@ -870,8 +870,8 @@ static PyObject *
 isal_zlib_compressobj(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    char *keywords[] = {"level", "method", "wbits", "memLevel", "strategy", "zdict", NULL};
-    char *format = "|iiiiiy*:compressobj";
+    static char *keywords[] = {"level", "method", "wbits", "memLevel", "strategy", "zdict", NULL};
+    static char *format = "|iiiiiy*:compressobj";
     int level = ISAL_DEFAULT_COMPRESSION;
     int method = Z_DEFLATED;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
@@ -907,8 +907,8 @@ PyDoc_STRVAR(isal_zlib_decompressobj__doc__,
 static PyObject *
 isal_zlib_decompressobj(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"wbits", "zdict", NULL};
-    char *format = "|iO:decompressobj";
+    static char *keywords[] = {"wbits", "zdict", NULL};
+    static char *format = "|iO:decompressobj";
     int wbits = ISAL_DEF_MAX_HIST_BITS;
     PyObject *zdict = NULL;
 
@@ -973,8 +973,8 @@ PyDoc_STRVAR(isal_zlib_Decompress_decompress__doc__,
 static PyObject *
 isal_zlib_Decompress_decompress(decompobject *self, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"", "max_length", NULL};
-    char *format = "y*|n:decompress";
+    static char *keywords[] = {"", "max_length", NULL};
+    static char *format = "y*|n:decompress";
    
     Py_buffer data = {NULL, NULL};
     Py_ssize_t max_length = 0;
