@@ -115,7 +115,7 @@ static const int ZLIB_MEM_LEVEL_TO_ISAL[10] = {
 };
 
 
-static int zlib_mem_level_to_isal(int mem_level) {
+static inline int zlib_mem_level_to_isal(int mem_level) {
     if (mem_level < 1 || mem_level > 9) {
         PyErr_Format(PyExc_ValueError, 
         "Invalid mem level: %d. Mem level should be between 1 and 9");
