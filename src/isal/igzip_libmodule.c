@@ -1,21 +1,23 @@
-//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
-// Python Software Foundation; All Rights Reserved
+/* 
+Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+Python Software Foundation; All Rights Reserved
 
-// This file is part of python-isal which is distributed under the 
-// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+This file is part of python-isal which is distributed under the 
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file was modified from Cpython Modules/bz2module.c file from the 3.9
-// branch.
+This file was modified from Cpython Modules/bz2module.c file from the 3.9
+branch.
 
-// Changes compared to CPython:
-// - The BZ2Decompressor has been used as a basis for IgzipDecompressor.
-//   Functionality is almost the same. IgzipDecompressor does have a more
-//   elaborate __init__ to set settings. It also implements decompress_buf more
-//   akin to how decompression is implemented in isal_shared.h
-// - Constants were added that are particular to igzip_lib.
-// - Argument parsers were written using th CPython API rather than argument
-//   clinic.
+Changes compared to CPython:
+- The BZ2Decompressor has been used as a basis for IgzipDecompressor.
+  Functionality is almost the same. IgzipDecompressor does have a more
+  elaborate __init__ to set settings. It also implements decompress_buf more
+  akin to how decompression is implemented in isal_shared.h
+- Constants were added that are particular to igzip_lib.
+- Argument parsers were written using th CPython API rather than argument
+  clinic.
+*/
 
 #include "isal_shared.h"
 
@@ -62,16 +64,16 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
     
     int err;
 
-    // In Python 3.10 sometimes sys.maxsize is passed by default. In those cases
-    // we do want to use DEF_BUF_SIZE as start buffer.
+    /* In Python 3.10 sometimes sys.maxsize is passed by default. In those cases
+       we do want to use DEF_BUF_SIZE as start buffer. */
     if ((max_length < 0) || max_length == PY_SSIZE_T_MAX) {
         hard_limit = PY_SSIZE_T_MAX;
         obuflen = DEF_BUF_SIZE;
     } else {
-        // Assume that decompressor is used in file decompression with a fixed
-        // block size of max_length. In that case we will reach max_length almost
-        // always (except at the end of the file). So it makes sense to allocate
-        // max_length.
+        /* Assume that decompressor is used in file decompression with a fixed
+           block size of max_length. In that case we will reach max_length almost
+           always (except at the end of the file). So it makes sense to allocate
+           max_length. */
         hard_limit = max_length;
         obuflen = max_length;
         if (obuflen > DEF_MAX_INITIAL_BUF_SIZE){

@@ -1,27 +1,28 @@
-//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
-// Python Software Foundation; All Rights Reserved
+/*
+Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+Python Software Foundation; All Rights Reserved
 
-// This file is part of python-isal which is distributed under the 
-// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+This file is part of python-isal which is distributed under the 
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file was modified from Cpython's Modules/zlibmodule.c file.
-// Changes compared to CPython:
-// - All zlib naming changed to isal_zlib
-// - Including a few constants that are more specific to the ISA-L library
-//   (ISAL_DEFAULT_COMPRESSION etc).
-// - Zlib to ISA-L conversion functions were included.
-// - All compression and checksum functions from zlib replaced with ISA-L
-//   compatible functions.
-// - No locks in Compress and Decompress objects. These were deemed unnecessary
-//   as the ISA-L functions do not allocate memory, unlike the zlib
-//   counterparts.
-// - zlib.compress also has a 'wbits' argument. This change was included in
-//   Python 3.11. It allows for faster gzip compression by using
-//   isal_zlib.compress(data, wbits=31).
-// - Argument parsers were written using th CPython API rather than argument
-//   clinic.
-
+This file was modified from Cpython's Modules/zlibmodule.c file.
+Changes compared to CPython:
+- All zlib naming changed to isal_zlib
+- Including a few constants that are more specific to the ISA-L library
+  (ISAL_DEFAULT_COMPRESSION etc).
+- Zlib to ISA-L conversion functions were included.
+- All compression and checksum functions from zlib replaced with ISA-L
+  compatible functions.
+- No locks in Compress and Decompress objects. These were deemed unnecessary
+  as the ISA-L functions do not allocate memory, unlike the zlib
+  counterparts.
+- zlib.compress also has a 'wbits' argument. This change was included in
+  Python 3.11. It allows for faster gzip compression by using
+  isal_zlib.compress(data, wbits=31).
+- Argument parsers were written using th CPython API rather than argument
+  clinic.
+*/
 
 #include "isal_shared.h"
 
@@ -1241,7 +1242,6 @@ PyInit_isal_zlib(void)
     PyModule_AddIntConstant(m, "DEFLATED", Z_DEFLATED);
     PyModule_AddIntMacro(m, DEF_MEM_LEVEL);
     PyModule_AddIntMacro(m, DEF_BUF_SIZE);
-    // compression levels
     // No compression is not supported by ISA-L. Throw an error if chosen.
     // PyModule_AddIntMacro(m, Z_NO_COMPRESSION);
     PyModule_AddIntConstant(m, "Z_BEST_SPEED", ISAL_DEF_MIN_LEVEL);

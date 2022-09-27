@@ -1,23 +1,24 @@
-//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
-// Python Software Foundation; All Rights Reserved
+/* 
+Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+Python Software Foundation; All Rights Reserved
 
-// This file is part of python-isal which is distributed under the 
-// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+This file is part of python-isal which is distributed under the 
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file was modified from Cpython Modules/zlibmodule.c file from the 3.9
-// branch. This is because the BlocksBuffer used in Python 3.10 and higher is
-// not available in python 3.7-3.9 which this project supports.
+This file was modified from Cpython Modules/zlibmodule.c file from the 3.9
+branch. This is because the BlocksBuffer used in Python 3.10 and higher is
+not available in python 3.7-3.9 which this project supports.
 
-// Changes compared to CPython:
-// - igzip_lib.compress and igzip_lib.decompress are equivalent to
-//   zlib.compress and zlib.decompress except that these use a 'flag' and
-//   'hist_bits' argument to set compression headers and trailers and window
-//   size respectively. The igzip_lib functions also offer more control by
-//   allowing to set no header, but include the trailer.
-// - This file also includes some utility functions to set parameters on ISA-L
-//   structs.
-
+Changes compared to CPython:
+- igzip_lib.compress and igzip_lib.decompress are equivalent to
+  zlib.compress and zlib.decompress except that these use a 'flag' and
+  'hist_bits' argument to set compression headers and trailers and window
+  size respectively. The igzip_lib functions also offer more control by
+  allowing to set no header, but include the trailer.
+- This file also includes some utility functions to set parameters on ISA-L
+  structs.
+*/
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "structmember.h"         // PyMemberDef
