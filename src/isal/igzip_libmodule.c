@@ -347,7 +347,7 @@ PyDoc_STRVAR(igzip_lib_IgzipDecompressor_decompress__doc__,
 "the unused_data attribute.");
 
 #define IGZIP_LIB_IGZIPDECOMPRESSOR_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_IgzipDecompressor_decompress, \ 
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_IgzipDecompressor_decompress, \
      METH_VARARGS|METH_KEYWORDS, igzip_lib_IgzipDecompressor_decompress__doc__}
 
 static PyObject *
