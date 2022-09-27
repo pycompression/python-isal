@@ -39,8 +39,7 @@ typedef struct {
 static void
 IgzipDecompressor_dealloc(IgzipDecompressor *self)
 {
-    if(self->input_buffer != NULL)
-        PyMem_Free(self->input_buffer);
+    PyMem_Free(self->input_buffer);
     Py_CLEAR(self->unused_data);
     Py_CLEAR(self->zdict);
     Py_TYPE(self)->tp_free((PyObject *)self);
