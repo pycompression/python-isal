@@ -313,10 +313,10 @@ isal_zlib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 typedef struct
 {
     PyObject_HEAD
-    struct isal_zstream zst;
-    int is_initialised;
-    uint8_t * level_buf;
+    uint8_t *level_buf;
     PyObject *zdict;
+    int is_initialised;
+    struct isal_zstream zst;
 } compobject;
 
 static void
@@ -345,13 +345,13 @@ newcompobject()
 typedef struct
 {
     PyObject_HEAD
-    struct inflate_state zst;
     PyObject *unused_data;
     PyObject *unconsumed_tail;
-    char eof;
+    PyObject *zdict;
     int is_initialised;
     int method_set;
-    PyObject *zdict;
+    char eof;
+    struct inflate_state zst;
 } decompobject;
 
 static void
