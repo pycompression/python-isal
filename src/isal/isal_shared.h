@@ -82,7 +82,7 @@ static const uint32_t LEVEL_BUF_SIZES[24] = {
     ISAL_DEF_LVL3_EXTRA_LARGE
 };
 
-static int mem_level_to_bufsize(int compression_level, int mem_level,
+static inline int mem_level_to_bufsize(int compression_level, int mem_level,
                                 uint32_t * bufsize)
 {
     if (compression_level < 0 || compression_level > 3 || mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
@@ -135,7 +135,7 @@ static void isal_inflate_error(int err){
  * @param state An inflate_state
  * @return size_t 
  */
-static size_t bitbuffer_size(struct inflate_state *state){
+static inline size_t bitbuffer_size(struct inflate_state *state){
     return state->read_in_length / 8;
 }
 
@@ -162,7 +162,7 @@ static int bitbuffer_copy(struct inflate_state *state, char *to, size_t n){
     return 0;
 }
 
-static void
+static inline void
 arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
 {
     *avail_in = (uint32_t)Py_MIN((size_t)*remains, UINT32_MAX);
@@ -208,7 +208,7 @@ arrange_output_buffer_with_maximum(uint32_t *avail_out,
     return length;
 }
 
-static Py_ssize_t
+static inline Py_ssize_t
 arrange_output_buffer(uint32_t *avail_out,
                       uint8_t **next_out,
                       PyObject **buffer,
