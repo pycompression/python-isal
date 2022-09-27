@@ -27,17 +27,18 @@ PyInit__isal(void)
     PyObject *m;
 
     m = PyModule_Create(&_isal_module);
-    if (m == NULL)
+    if (m == NULL) {
         return NULL;
-
+    }
     PyModule_AddIntMacro(m, ISAL_MAJOR_VERSION);
     PyModule_AddIntMacro(m, ISAL_MINOR_VERSION);
     PyModule_AddIntMacro(m, ISAL_PATCH_VERSION);
 
     PyObject *isal_version = PyUnicode_FromFormat(
         "%d.%d.%d", ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, ISAL_PATCH_VERSION);  
-    if (isal_version == NULL)
+    if (isal_version == NULL) {
         return NULL;
+    }
     PyModule_AddObject(m, "ISAL_VERSION", isal_version);
     return m;
 }
