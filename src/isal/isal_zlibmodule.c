@@ -109,7 +109,8 @@ static const int ZLIB_MEM_LEVEL_TO_ISAL[10] = {
     MEM_LEVEL_MEDIUM, // 4-6 -> MEDIUM
     MEM_LEVEL_MEDIUM, 
     MEM_LEVEL_MEDIUM,
-    MEM_LEVEL_LARGE, // 7-8 LARGE. The zlib module default = 8. Large is the ISA-L default value.
+    // 7-8 LARGE. The zlib module default = 8. Large is the ISA-L default value.
+    MEM_LEVEL_LARGE, 
     MEM_LEVEL_LARGE,
     MEM_LEVEL_EXTRA_LARGE, // 9 -> EXTRA_LARGE. 
 };
@@ -435,7 +436,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     if (strategy != Z_DEFAULT_STRATEGY){
         err = PyErr_WarnEx(
             PyExc_UserWarning, 
-            "Only one strategy is supported when using isal_zlib. Using the default strategy.",
+            "Only one strategy is supported when using isal_zlib. Using the "
+            "default strategy.",
             1);
         if (err == -1)
             // Warning was turned into an exception.
@@ -456,7 +458,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     if (mem_level_to_bufsize(
         level, isal_mem_level, &level_buf_size) == -1) {
         PyErr_Format(PyExc_ValueError, 
-                     "Invalid compression level: %d. Compression level should be between 0 and 3", 
+                     "Invalid compression level: %d. Compression level should "
+                     "be between 0 and 3", 
                      level);
         goto error;
     }   
@@ -690,7 +693,8 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
                 goto abort;
             }
 
-        } while (self->zst.avail_out == 0 && self->zst.block_state != ISAL_BLOCK_FINISH);
+        } while (self->zst.avail_out == 0 && 
+                 self->zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
@@ -802,7 +806,8 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 
         do {
             length = arrange_output_buffer(&(self->zst.avail_out),
-                                           &(self->zst.next_out), &RetVal, length);
+                                           &(self->zst.next_out), 
+                                           &RetVal, length);
             if (length < 0)
                 goto abort;
 
@@ -813,7 +818,8 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
                 goto abort;
             }
 
-        } while (self->zst.avail_out == 0 && self->zst.block_state != ISAL_BLOCK_FINISH);
+        } while (self->zst.avail_out == 0 && 
+                 self->zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
@@ -868,13 +874,15 @@ PyDoc_STRVAR(isal_zlib_compressobj__doc__,
 "    containing subsequences that are likely to occur in the input data.");
 
 #define ISAL_ZLIB_COMPRESSOBJ_METHODDEF    \
-    {"compressobj", (PyCFunction)(void(*)(void))isal_zlib_compressobj, METH_VARARGS|METH_KEYWORDS, isal_zlib_compressobj__doc__}
+    {"compressobj", (PyCFunction)(void(*)(void))isal_zlib_compressobj, \
+     METH_VARARGS|METH_KEYWORDS, isal_zlib_compressobj__doc__}
 
 static PyObject *
 isal_zlib_compressobj(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    static char *keywords[] = {"level", "method", "wbits", "memLevel", "strategy", "zdict", NULL};
+    static char *keywords[] = {"level", "method", "wbits", "memLevel", 
+                               "strategy", "zdict", NULL};
     static char *format = "|iiiiiy*:compressobj";
     int level = ISAL_DEFAULT_COMPRESSION;
     int method = Z_DEFLATED;
@@ -888,7 +896,8 @@ isal_zlib_compressobj(PyObject *module, PyObject *args, PyObject *kwargs)
             &level, &method, &wbits, &memLevel, &strategy, &zdict)) {
         return NULL;
     }
-    return_value = isal_zlib_compressobj_impl(module, level, method, wbits, memLevel, strategy, &zdict);
+    return_value = isal_zlib_compressobj_impl(module, level, method, wbits, 
+                                              memLevel, strategy, &zdict);
     PyBuffer_Release(&zdict);
     return return_value;
 }
@@ -906,7 +915,8 @@ PyDoc_STRVAR(isal_zlib_decompressobj__doc__,
 "    dictionary as used by the compressor that produced the input data.");
 
 #define ISAL_ZLIB_DECOMPRESSOBJ_METHODDEF    \
-    {"decompressobj", (PyCFunction)(void(*)(void))isal_zlib_decompressobj, METH_VARARGS|METH_KEYWORDS, isal_zlib_decompressobj__doc__}
+    {"decompressobj", (PyCFunction)(void(*)(void))isal_zlib_decompressobj, \
+     METH_VARARGS|METH_KEYWORDS, isal_zlib_decompressobj__doc__}
 
 static PyObject *
 isal_zlib_decompressobj(PyObject *module, PyObject *args, PyObject *kwargs)
@@ -938,7 +948,8 @@ PyDoc_STRVAR(isal_zlib_Compress_compress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_COMPRESS_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, METH_O, isal_zlib_Compress_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, \
+     METH_O, isal_zlib_Compress_compress__doc__}
 
 
 static PyObject *
@@ -971,7 +982,8 @@ PyDoc_STRVAR(isal_zlib_Decompress_decompress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_DECOMPRESS_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, METH_VARARGS|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, \
+     METH_VARARGS|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
 
 
 static PyObject *
@@ -986,7 +998,8 @@ isal_zlib_Decompress_decompress(decompobject *self, PyObject *args, PyObject *kw
             args, kwargs, format, keywords, &data, &max_length)) {
         return NULL;
     }
-    PyObject *return_value = isal_zlib_Decompress_decompress_impl(self, &data, max_length);
+    PyObject *return_value = isal_zlib_Decompress_decompress_impl(self, &data, 
+                                                                  max_length);
     PyBuffer_Release(&data);
     return return_value;
 }
@@ -1004,11 +1017,15 @@ PyDoc_STRVAR(isal_zlib_Compress_flush__doc__,
 "    can still be compressed.");
 
 #define ISAL_ZLIB_COMPRESS_FLUSH_METHODDEF    \
-    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Compress_flush, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_flush__doc__}
+    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Compress_flush, \
+     METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_flush__doc__}
 
 
 static PyObject *
-isal_zlib_Compress_flush(compobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Compress_flush(compobject *self, 
+                         PyObject *const *args, 
+                         Py_ssize_t nargs, 
+                         PyObject *kwnames)
 {
     Py_ssize_t mode; 
     if (nargs == 0) {
@@ -1047,7 +1064,8 @@ PyDoc_STRVAR(isal_zlib_Decompress_flush__doc__,
 
 
 #define ISAL_ZLIB_DECOMPRESS_FLUSH_METHODDEF    \
-    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, METH_FASTCALL, isal_zlib_Decompress_flush__doc__}
+    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, \
+     METH_FASTCALL, isal_zlib_Decompress_flush__doc__}
 
 static PyObject *
 isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t nargs)

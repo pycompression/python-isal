@@ -5,8 +5,9 @@
 // This file is part of python-isal which is distributed under the 
 // PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file is not originally from the CPython distribution. But it does contain mostly example code
-// from the Python docs. Also dual licensing just for this one file seemed silly.
+// This file is not originally from the CPython distribution. But it does 
+// contain mostly example code from the Python docs. Also dual licensing just 
+// for this one file seemed silly.
 
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>

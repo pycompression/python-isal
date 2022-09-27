@@ -102,8 +102,10 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
                 isal_inflate_error(err);
                 goto error;
             }
-        } while (self->state.avail_out == 0 && self->state.block_state != ISAL_BLOCK_FINISH);
-    } while(self->avail_in_real != 0 && self->state.block_state != ISAL_BLOCK_FINISH);
+        } while (self->state.avail_out == 0 && 
+                 self->state.block_state != ISAL_BLOCK_FINISH);
+    } while(self->avail_in_real != 0 && 
+            self->state.block_state != ISAL_BLOCK_FINISH);
 
     if (self->state.block_state == ISAL_BLOCK_FINISH)
         self->eof = 1;
@@ -189,7 +191,8 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
                 goto error;
             char * new_data_ptr = PyBytes_AS_STRING(new_data);
             bitbuffer_copy(&(self->state), new_data_ptr, bytes_in_bitbuffer);
-            memcpy(new_data_ptr + bytes_in_bitbuffer, self->state.next_in, self->avail_in_real);
+            memcpy(new_data_ptr + bytes_in_bitbuffer, self->state.next_in, 
+                   self->avail_in_real);
             Py_XSETREF(self->unused_data, new_data);
         }
     }
@@ -257,7 +260,8 @@ PyDoc_STRVAR(igzip_lib_compress__doc__,
 "    the header and trailer are controlled by the flag parameter.");
 
 #define IGZIP_LIB_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, METH_VARARGS|METH_KEYWORDS, igzip_lib_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))igzip_lib_compress, \
+     METH_VARARGS|METH_KEYWORDS, igzip_lib_compress__doc__}
 
 static PyObject *
 igzip_lib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
@@ -298,7 +302,8 @@ PyDoc_STRVAR(igzip_lib_decompress__doc__,
 "    The initial output buffer size.");
 
 #define IGZIP_LIB_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_decompress, METH_VARARGS|METH_KEYWORDS, igzip_lib_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_decompress, \
+     METH_VARARGS|METH_KEYWORDS, igzip_lib_decompress__doc__}
 
 static PyObject *
 igzip_lib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
@@ -340,10 +345,13 @@ PyDoc_STRVAR(igzip_lib_IgzipDecompressor_decompress__doc__,
 "the unused_data attribute.");
 
 #define IGZIP_LIB_IGZIPDECOMPRESSOR_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_IgzipDecompressor_decompress, METH_VARARGS|METH_KEYWORDS, igzip_lib_IgzipDecompressor_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))igzip_lib_IgzipDecompressor_decompress, \ 
+     METH_VARARGS|METH_KEYWORDS, igzip_lib_IgzipDecompressor_decompress__doc__}
 
 static PyObject *
-igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, PyObject *args, PyObject *kwargs)
+igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self, 
+                                       PyObject *args, 
+                                       PyObject *kwargs)
 {
     static char *keywords[] = {"", "max_length", NULL};
     static char *format = "y*|n:decompress";
@@ -458,8 +466,9 @@ static PyMemberDef IgzipDecompressor_members[] = {
      READONLY, IgzipDecompressor_unused_data__doc__},
     {"needs_input", T_BOOL, offsetof(IgzipDecompressor, needs_input), READONLY,
      IgzipDecompressor_needs_input_doc},
-    {"crc", T_UINT, offsetof(IgzipDecompressor, state) + offsetof(struct inflate_state, crc), READONLY,
-     IgzipDecompressor_crc_doc},
+    {"crc", T_UINT, 
+     offsetof(IgzipDecompressor, state) + offsetof(struct inflate_state, crc), 
+     READONLY, IgzipDecompressor_crc_doc},
     {NULL}
 };
 
@@ -584,7 +593,8 @@ PyInit_igzip_lib(void)
         return NULL;
     }
     Py_INCREF(&IgzipDecompressor_Type);
-    if (PyModule_AddObject(m, "IgzipDecompressor",  (PyObject *)&IgzipDecompressor_Type) < 0) {
+    if (PyModule_AddObject(m, "IgzipDecompressor",  
+                           (PyObject *)&IgzipDecompressor_Type) < 0) {
         return NULL;
     }
 

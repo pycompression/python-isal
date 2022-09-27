@@ -85,7 +85,8 @@ static const uint32_t LEVEL_BUF_SIZES[24] = {
 static inline int mem_level_to_bufsize(int compression_level, int mem_level,
                                 uint32_t * bufsize)
 {
-    if (compression_level < 0 || compression_level > 3 || mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
+    if (compression_level < 0 || compression_level > 3 || 
+        mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
         *bufsize = 0; return -1;
     }
     *bufsize = LEVEL_BUF_SIZES[compression_level * 6 + mem_level];
@@ -121,7 +122,8 @@ static void isal_inflate_error(int err){
     else if (err == ISAL_INVALID_SYMBOL) msg = "Invalid deflate symbol found";
     else if (err == ISAL_INVALID_LOOKBACK) msg = "Invalid lookback distance found";
     else if (err == ISAL_INVALID_WRAPPER) msg = "Invalid gzip/zlib wrapper found";
-    else if (err == ISAL_UNSUPPORTED_METHOD) msg = "Gzip/zlib wrapper specifies unsupported compress method";
+    else if (err == ISAL_UNSUPPORTED_METHOD) msg = "Gzip/zlib wrapper specifies" 
+                                                   "unsupported compress method";
     else if (err == ISAL_INCORRECT_CHECKSUM) msg = "Incorrect checksum found";
     else msg = "Unknown error";
 
@@ -268,7 +270,8 @@ igzip_lib_compress_impl(Py_buffer *data,
         else zst.flush = NO_FLUSH;
 
         do {
-            obuflen = arrange_output_buffer(&(zst.avail_out), &(zst.next_out), &RetVal, obuflen);
+            obuflen = arrange_output_buffer(&(zst.avail_out), &(zst.next_out), 
+                                            &RetVal, obuflen);
             if (obuflen < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                         "Unsufficient memory for buffer allocation");
