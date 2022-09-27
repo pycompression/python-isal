@@ -21,18 +21,19 @@
 
 typedef struct {
     PyObject_HEAD
-    struct inflate_state state;
-    char eof;           /* T_BOOL expects a char */
     PyObject *unused_data;
     PyObject *zdict;
-    char needs_input;
     uint8_t *input_buffer;
     Py_ssize_t input_buffer_size;
-
     /* inflate_state>avail_in is only 32 bit, so we store the true length
        separately. Conversion and looping is encapsulated in
        decompress_buf() */
     Py_ssize_t avail_in_real;
+    char eof;           /* T_BOOL expects a char */
+    char needs_input;
+    /* Struct inflate state contains a massive buffer at the end. Put it at
+       the end of the IgzipDecompressor so members can be accessed easily. */
+    struct inflate_state state;
 } IgzipDecompressor;
 
 static void
