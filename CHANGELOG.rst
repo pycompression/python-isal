@@ -9,6 +9,7 @@ Changelog
 
 version 1.1.0-dev
 -----------------
++ Added tests and support for Python 3.11.
 + Small performance-oriented refactorings: argument parsing formats and
   keywords are now static, some very small functions are now declared inline
   and struct ordering was changed.
