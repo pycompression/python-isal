@@ -97,37 +97,76 @@ static inline int mem_level_to_bufsize(int compression_level, int mem_level,
 static void isal_deflate_error(int err)
 {
     const char * msg = NULL;
-    if (err == COMP_OK) return;
-    else if (err == INVALID_FLUSH) msg = "Invalid flush type";
-    else if (err == INVALID_PARAM) msg = "Invalid parameter";
-    else if (err == STATELESS_OVERFLOW) msg = "Not enough room in output buffer";
-    else if (err == ISAL_INVALID_OPERATION) msg = "Invalid operation";
-    else if (err == ISAL_INVALID_STATE) msg = "Invalid state";
-    else if (err == ISAL_INVALID_LEVEL) msg = "Invalid compression level.";
-    else if (err == ISAL_INVALID_LEVEL_BUF) msg = "Level buffer too small.";
-    else msg = "Unknown Error";
-
+    switch (err) {
+        case COMP_OK: return;
+        case INVALID_FLUSH:
+            msg = "Invalid flush type";
+            break;
+        case INVALID_PARAM:
+            msg = "Invalid parameter";
+            break;
+        case STATELESS_OVERFLOW:
+            msg = "Not enough room in output buffer";
+            break;
+        case ISAL_INVALID_OPERATION:
+            msg = "Invalid operation";
+            break;
+        case ISAL_INVALID_STATE:
+            msg = "Invalid state";
+            break;
+        case ISAL_INVALID_LEVEL:
+            msg = "Invalid compression level.";
+            break;
+        case ISAL_INVALID_LEVEL_BUF:
+            msg = "Level buffer too small.";
+            break;
+        default:
+            msg = "Unknown Error";
+    }
     PyErr_Format(IsalError, "Error %d %s", err, msg);
 }
 
 static void isal_inflate_error(int err){
     const char * msg = NULL;
-    if (err == ISAL_DECOMP_OK) return;
-    else if (err == ISAL_END_INPUT) msg = "End of input reached";
-    else if (err == ISAL_OUT_OVERFLOW) msg = "End of output reached";
-    else if (err == ISAL_NAME_OVERFLOW) msg = "End of gzip name buffer reached";
-    else if (err == ISAL_COMMENT_OVERFLOW) msg = "End of gzip comment buffer reached";
-    else if (err == ISAL_EXTRA_OVERFLOW) msg = "End of extra buffer reached";
-    else if (err == ISAL_NEED_DICT) msg = "Dictionary needed to continue";
-    else if (err == ISAL_INVALID_BLOCK) msg = "Invalid deflate block found";
-    else if (err == ISAL_INVALID_SYMBOL) msg = "Invalid deflate symbol found";
-    else if (err == ISAL_INVALID_LOOKBACK) msg = "Invalid lookback distance found";
-    else if (err == ISAL_INVALID_WRAPPER) msg = "Invalid gzip/zlib wrapper found";
-    else if (err == ISAL_UNSUPPORTED_METHOD) msg = "Gzip/zlib wrapper specifies" 
-                                                   "unsupported compress method";
-    else if (err == ISAL_INCORRECT_CHECKSUM) msg = "Incorrect checksum found";
-    else msg = "Unknown error";
-
+    switch (err){
+        case ISAL_DECOMP_OK:
+            return;
+        case ISAL_END_INPUT:
+            msg = "End of input reached";
+            break;
+        case ISAL_NAME_OVERFLOW:
+            msg = "End of gzip name buffer reached";
+            break; 
+        case ISAL_COMMENT_OVERFLOW:
+            msg = "End of gzip comment buffer reached";
+            break;
+        case ISAL_EXTRA_OVERFLOW:
+            msg = "End of extra buffer reached";
+            break;
+        case ISAL_NEED_DICT:
+            msg = "Dictionary needed to continue";
+            break;
+        case ISAL_INVALID_BLOCK:
+            msg = "Invalid deflate block found";
+            break;
+        case ISAL_INVALID_SYMBOL:
+            msg = "Invalid deflate symbol found";
+            break;
+        case ISAL_INVALID_LOOKBACK:
+            msg = "Invalid lookback distance found";
+            break;
+        case ISAL_INVALID_WRAPPER:
+            msg = "Invalid gzip/zlib wrapper found";
+            break;
+        case ISAL_UNSUPPORTED_METHOD:
+            msg = "Gzip/zlib wrapper specifies unsupported compress method";
+            break; 
+        case ISAL_INCORRECT_CHECKSUM:
+            msg = "Incorrect checksum found";
+            break; 
+        default:
+            msg = "Unknown error";
+    }
     PyErr_Format(IsalError, "Error %d %s", err, msg);
 }
 
