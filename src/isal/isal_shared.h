@@ -1,23 +1,24 @@
-//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
-// Python Software Foundation; All Rights Reserved
+/* 
+Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+Python Software Foundation; All Rights Reserved
 
-// This file is part of python-isal which is distributed under the 
-// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+This file is part of python-isal which is distributed under the 
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file was modified from Cpython Modules/zlibmodule.c file from the 3.9
-// branch. This is because the BlocksBuffer used in Python 3.10 and higher is
-// not available in python 3.7-3.9 which this project supports.
+This file was modified from Cpython Modules/zlibmodule.c file from the 3.9
+branch. This is because the BlocksBuffer used in Python 3.10 and higher is
+not available in python 3.7-3.9 which this project supports.
 
-// Changes compared to CPython:
-// - igzip_lib.compress and igzip_lib.decompress are equivalent to
-//   zlib.compress and zlib.decompress except that these use a 'flag' and
-//   'hist_bits' argument to set compression headers and trailers and window
-//   size respectively. The igzip_lib functions also offer more control by
-//   allowing to set no header, but include the trailer.
-// - This file also includes some utility functions to set parameters on ISA-L
-//   structs.
-
+Changes compared to CPython:
+- igzip_lib.compress and igzip_lib.decompress are equivalent to
+  zlib.compress and zlib.decompress except that these use a 'flag' and
+  'hist_bits' argument to set compression headers and trailers and window
+  size respectively. The igzip_lib functions also offer more control by
+  allowing to set no header, but include the trailer.
+- This file also includes some utility functions to set parameters on ISA-L
+  structs.
+*/
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
 #include "structmember.h"         // PyMemberDef
@@ -82,10 +83,11 @@ static const uint32_t LEVEL_BUF_SIZES[24] = {
     ISAL_DEF_LVL3_EXTRA_LARGE
 };
 
-static int mem_level_to_bufsize(int compression_level, int mem_level,
-                                uint32_t * bufsize)
+static inline int mem_level_to_bufsize(int compression_level, int mem_level,
+                                uint32_t *bufsize)
 {
-    if (compression_level < 0 || compression_level > 3 || mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
+    if (compression_level < 0 || compression_level > 3 || 
+        mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
         *bufsize = 0; return -1;
     }
     *bufsize = LEVEL_BUF_SIZES[compression_level * 6 + mem_level];
@@ -94,37 +96,77 @@ static int mem_level_to_bufsize(int compression_level, int mem_level,
 
 static void isal_deflate_error(int err)
 {
-    const char * msg = NULL;
-    if (err == COMP_OK) return;
-    else if (err == INVALID_FLUSH) msg = "Invalid flush type";
-    else if (err == INVALID_PARAM) msg = "Invalid parameter";
-    else if (err == STATELESS_OVERFLOW) msg = "Not enough room in output buffer";
-    else if (err == ISAL_INVALID_OPERATION) msg = "Invalid operation";
-    else if (err == ISAL_INVALID_STATE) msg = "Invalid state";
-    else if (err == ISAL_INVALID_LEVEL) msg = "Invalid compression level.";
-    else if (err == ISAL_INVALID_LEVEL_BUF) msg = "Level buffer too small.";
-    else msg = "Unknown Error";
-
+    const char *msg = NULL;
+    switch (err) {
+        case COMP_OK: return;
+        case INVALID_FLUSH:
+            msg = "Invalid flush type";
+            break;
+        case INVALID_PARAM:
+            msg = "Invalid parameter";
+            break;
+        case STATELESS_OVERFLOW:
+            msg = "Not enough room in output buffer";
+            break;
+        case ISAL_INVALID_OPERATION:
+            msg = "Invalid operation";
+            break;
+        case ISAL_INVALID_STATE:
+            msg = "Invalid state";
+            break;
+        case ISAL_INVALID_LEVEL:
+            msg = "Invalid compression level.";
+            break;
+        case ISAL_INVALID_LEVEL_BUF:
+            msg = "Level buffer too small.";
+            break;
+        default:
+            msg = "Unknown Error";
+    }
     PyErr_Format(IsalError, "Error %d %s", err, msg);
 }
 
 static void isal_inflate_error(int err){
-    const char * msg = NULL;
-    if (err == ISAL_DECOMP_OK) return;
-    else if (err == ISAL_END_INPUT) msg = "End of input reached";
-    else if (err == ISAL_OUT_OVERFLOW) msg = "End of output reached";
-    else if (err == ISAL_NAME_OVERFLOW) msg = "End of gzip name buffer reached";
-    else if (err == ISAL_COMMENT_OVERFLOW) msg = "End of gzip comment buffer reached";
-    else if (err == ISAL_EXTRA_OVERFLOW) msg = "End of extra buffer reached";
-    else if (err == ISAL_NEED_DICT) msg = "Dictionary needed to continue";
-    else if (err == ISAL_INVALID_BLOCK) msg = "Invalid deflate block found";
-    else if (err == ISAL_INVALID_SYMBOL) msg = "Invalid deflate symbol found";
-    else if (err == ISAL_INVALID_LOOKBACK) msg = "Invalid lookback distance found";
-    else if (err == ISAL_INVALID_WRAPPER) msg = "Invalid gzip/zlib wrapper found";
-    else if (err == ISAL_UNSUPPORTED_METHOD) msg = "Gzip/zlib wrapper specifies unsupported compress method";
-    else if (err == ISAL_INCORRECT_CHECKSUM) msg = "Incorrect checksum found";
-    else msg = "Unknown error";
-
+    const char *msg = NULL;
+    switch (err){
+        case ISAL_DECOMP_OK:
+            return;
+        case ISAL_END_INPUT:
+            msg = "End of input reached";
+            break;
+        case ISAL_NAME_OVERFLOW:
+            msg = "End of gzip name buffer reached";
+            break; 
+        case ISAL_COMMENT_OVERFLOW:
+            msg = "End of gzip comment buffer reached";
+            break;
+        case ISAL_EXTRA_OVERFLOW:
+            msg = "End of extra buffer reached";
+            break;
+        case ISAL_NEED_DICT:
+            msg = "Dictionary needed to continue";
+            break;
+        case ISAL_INVALID_BLOCK:
+            msg = "Invalid deflate block found";
+            break;
+        case ISAL_INVALID_SYMBOL:
+            msg = "Invalid deflate symbol found";
+            break;
+        case ISAL_INVALID_LOOKBACK:
+            msg = "Invalid lookback distance found";
+            break;
+        case ISAL_INVALID_WRAPPER:
+            msg = "Invalid gzip/zlib wrapper found";
+            break;
+        case ISAL_UNSUPPORTED_METHOD:
+            msg = "Gzip/zlib wrapper specifies unsupported compress method";
+            break; 
+        case ISAL_INCORRECT_CHECKSUM:
+            msg = "Incorrect checksum found";
+            break; 
+        default:
+            msg = "Unknown error";
+    }
     PyErr_Format(IsalError, "Error %d %s", err, msg);
 }
 
@@ -135,7 +177,7 @@ static void isal_inflate_error(int err){
  * @param state An inflate_state
  * @return size_t 
  */
-static size_t bitbuffer_size(struct inflate_state *state){
+static inline size_t bitbuffer_size(struct inflate_state *state){
     return state->read_in_length / 8;
 }
 
@@ -157,12 +199,12 @@ static int bitbuffer_copy(struct inflate_state *state, char *to, size_t n){
     int remainder = bits_in_buffer % 8;
     // Shift the 8-byte bitbuffer read_in so that the bytes are aligned.
     uint64_t remaining_bytes = state->read_in >> remainder;
-    char * remaining_bytes_ptr = (char *)(&remaining_bytes);
-    memcpy(to, remaining_bytes_ptr, n);
+    // memcpy works because of little-endianness
+    memcpy(to, &remaining_bytes, n);
     return 0;
 }
 
-static void
+static inline void
 arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
 {
     *avail_in = (uint32_t)Py_MIN((size_t)*remains, UINT32_MAX);
@@ -208,7 +250,7 @@ arrange_output_buffer_with_maximum(uint32_t *avail_out,
     return length;
 }
 
-static Py_ssize_t
+static inline Py_ssize_t
 arrange_output_buffer(uint32_t *avail_out,
                       uint8_t **next_out,
                       PyObject **buffer,
@@ -268,7 +310,8 @@ igzip_lib_compress_impl(Py_buffer *data,
         else zst.flush = NO_FLUSH;
 
         do {
-            obuflen = arrange_output_buffer(&(zst.avail_out), &(zst.next_out), &RetVal, obuflen);
+            obuflen = arrange_output_buffer(&(zst.avail_out), &(zst.next_out), 
+                                            &RetVal, obuflen);
             if (obuflen < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                         "Unsufficient memory for buffer allocation");

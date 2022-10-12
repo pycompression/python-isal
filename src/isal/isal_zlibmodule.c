@@ -1,27 +1,28 @@
-//  Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-// 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
-// Python Software Foundation; All Rights Reserved
+/*
+Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+Python Software Foundation; All Rights Reserved
 
-// This file is part of python-isal which is distributed under the 
-// PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+This file is part of python-isal which is distributed under the 
+PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-// This file was modified from Cpython's Modules/zlibmodule.c file.
-// Changes compared to CPython:
-// - All zlib naming changed to isal_zlib
-// - Including a few constants that are more specific to the ISA-L library
-//   (ISAL_DEFAULT_COMPRESSION etc).
-// - Zlib to ISA-L conversion functions were included.
-// - All compression and checksum functions from zlib replaced with ISA-L
-//   compatible functions.
-// - No locks in Compress and Decompress objects. These were deemed unnecessary
-//   as the ISA-L functions do not allocate memory, unlike the zlib
-//   counterparts.
-// - zlib.compress also has a 'wbits' argument. This change was included in
-//   Python 3.11. It allows for faster gzip compression by using
-//   isal_zlib.compress(data, wbits=31).
-// - Argument parsers were written using th CPython API rather than argument
-//   clinic.
-
+This file was modified from Cpython's Modules/zlibmodule.c file.
+Changes compared to CPython:
+- All zlib naming changed to isal_zlib
+- Including a few constants that are more specific to the ISA-L library
+  (ISAL_DEFAULT_COMPRESSION etc).
+- Zlib to ISA-L conversion functions were included.
+- All compression and checksum functions from zlib replaced with ISA-L
+  compatible functions.
+- No locks in Compress and Decompress objects. These were deemed unnecessary
+  as the ISA-L functions do not allocate memory, unlike the zlib
+  counterparts.
+- zlib.compress also has a 'wbits' argument. This change was included in
+  Python 3.11. It allows for faster gzip compression by using
+  isal_zlib.compress(data, wbits=31).
+- Argument parsers were written using th CPython API rather than argument
+  clinic.
+*/
 
 #include "isal_shared.h"
 
@@ -109,26 +110,28 @@ static const int ZLIB_MEM_LEVEL_TO_ISAL[10] = {
     MEM_LEVEL_MEDIUM, // 4-6 -> MEDIUM
     MEM_LEVEL_MEDIUM, 
     MEM_LEVEL_MEDIUM,
-    MEM_LEVEL_LARGE, // 7-8 LARGE. The zlib module default = 8. Large is the ISA-L default value.
+    // 7-8 LARGE. The zlib module default = 8. Large is the ISA-L default value.
+    MEM_LEVEL_LARGE, 
     MEM_LEVEL_LARGE,
     MEM_LEVEL_EXTRA_LARGE, // 9 -> EXTRA_LARGE. 
 };
 
 
-static int zlib_mem_level_to_isal(int mem_level) {
+static inline int zlib_mem_level_to_isal(int mem_level) {
     if (mem_level < 1 || mem_level > 9) {
-        PyErr_Format(PyExc_ValueError, 
-        "Invalid mem level: %d. Mem level should be between 1 and 9");
+        PyErr_Format(
+            PyExc_ValueError, 
+            "Invalid mem level: %d. Mem level should be between 1 and 9", 
+            mem_level
+        );
         return -1;}
     return ZLIB_MEM_LEVEL_TO_ISAL[mem_level];
 }
 
-static int
+static inline int
 data_is_gzip(Py_buffer *data){
-    if (data->len < 2) 
-        return 0;
     uint8_t *buf = (uint8_t *)data->buf;
-    return (buf[0] == 31 && buf[1] == 139);
+    return (data->len > 1) && (buf[0] == 31) && (buf[1] == 139);
 }
 
 
@@ -144,7 +147,8 @@ PyDoc_STRVAR(isal_zlib_adler32__doc__,
 "The returned checksum is an integer.");
 
 #define ISAL_ZLIB_ADLER32_METHODDEF    \
-    {"adler32", (PyCFunction)(void(*)(void))isal_zlib_adler32, METH_FASTCALL, isal_zlib_adler32__doc__}
+    {"adler32", (PyCFunction)(void(*)(void))isal_zlib_adler32, METH_FASTCALL, \
+     isal_zlib_adler32__doc__}
 
 static PyObject *
 isal_zlib_adler32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
@@ -188,7 +192,8 @@ PyDoc_STRVAR(zlib_crc32__doc__,
 "The returned checksum is an integer.");
 
 #define ISAL_ZLIB_CRC32_METHODDEF    \
-    {"crc32", (PyCFunction)(void(*)(void))isal_zlib_crc32, METH_FASTCALL, zlib_crc32__doc__}
+    {"crc32", (PyCFunction)(void(*)(void))isal_zlib_crc32, METH_FASTCALL, \
+     zlib_crc32__doc__}
 
 static PyObject *
 isal_zlib_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
@@ -233,13 +238,14 @@ PyDoc_STRVAR(zlib_compress__doc__,
 "    The window buffer size and container format.");
 
 #define ISAL_ZLIB_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))isal_zlib_compress, METH_VARARGS|METH_KEYWORDS, zlib_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))isal_zlib_compress, \
+     METH_VARARGS|METH_KEYWORDS, zlib_compress__doc__}
 
 static PyObject *
 isal_zlib_compress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"", "level", "wbits", NULL};
-    char *format ="y*|ii:isal_zlib.compress";
+    static char *keywords[] = {"", "level", "wbits", NULL};
+    static char *format ="y*|ii:isal_zlib.compress";
     Py_buffer data = {NULL, NULL};
     int level = ISAL_DEFAULT_COMPRESSION;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
@@ -276,15 +282,16 @@ PyDoc_STRVAR(zlib_decompress__doc__,
 "    The initial output buffer size.");
 
 #define ISAL_ZLIB_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_decompress, METH_VARARGS|METH_KEYWORDS, zlib_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_decompress, \
+     METH_VARARGS|METH_KEYWORDS, zlib_decompress__doc__}
 
 
 static PyObject *
 isal_zlib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    char *keywords[] = {"", "wbits", "bufsize", NULL};
-    char *format ="y*|in:isal_zlib.decompress";
+    static char *keywords[] = {"", "wbits", "bufsize", NULL};
+    static char *format ="y*|in:isal_zlib.decompress";
     Py_buffer data = {NULL, NULL};
     int wbits = ISAL_DEF_MAX_HIST_BITS;
     Py_ssize_t bufsize = DEF_BUF_SIZE;
@@ -315,10 +322,11 @@ isal_zlib_decompress(PyObject *module, PyObject *args, PyObject *kwargs)
 typedef struct
 {
     PyObject_HEAD
-    struct isal_zstream zst;
-    int is_initialised;
-    uint8_t * level_buf;
+    uint8_t *level_buf;
     PyObject *zdict;
+    int is_initialised;
+    // isal_zstream should be at the bottom as it contains buffers inside the struct.
+    struct isal_zstream zst;
 } compobject;
 
 static void
@@ -347,13 +355,14 @@ newcompobject()
 typedef struct
 {
     PyObject_HEAD
-    struct inflate_state zst;
     PyObject *unused_data;
     PyObject *unconsumed_tail;
-    char eof;
+    PyObject *zdict;
     int is_initialised;
     int method_set;
-    PyObject *zdict;
+    char eof;
+    // inflate_state should be at the bottom as it contains buffers inside the struct.
+    struct inflate_state zst;
 } decompobject;
 
 static void
@@ -433,7 +442,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     if (strategy != Z_DEFAULT_STRATEGY){
         err = PyErr_WarnEx(
             PyExc_UserWarning, 
-            "Only one strategy is supported when using isal_zlib. Using the default strategy.",
+            "Only one strategy is supported when using isal_zlib. Using the "
+            "default strategy.",
             1);
         if (err == -1)
             // Warning was turned into an exception.
@@ -454,7 +464,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     if (mem_level_to_bufsize(
         level, isal_mem_level, &level_buf_size) == -1) {
         PyErr_Format(PyExc_ValueError, 
-                     "Invalid compression level: %d. Compression level should be between 0 and 3", 
+                     "Invalid compression level: %d. Compression level should "
+                     "be between 0 and 3", 
                      level);
         goto error;
     }   
@@ -606,7 +617,7 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             new_data = PyBytes_FromStringAndSize(NULL, new_size);
             if (new_data == NULL)
                 return -1;
-            char * new_data_ptr = PyBytes_AS_STRING(new_data);
+            char *new_data_ptr = PyBytes_AS_STRING(new_data);
             memcpy(new_data_ptr,
                    PyBytes_AS_STRING(self->unused_data), old_size);
             bitbuffer_copy(&(self->zst), new_data_ptr + old_size, bytes_in_bitbuffer);
@@ -688,7 +699,8 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
                 goto abort;
             }
 
-        } while (self->zst.avail_out == 0 && self->zst.block_state != ISAL_BLOCK_FINISH);
+        } while (self->zst.avail_out == 0 && 
+                 self->zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
@@ -800,7 +812,8 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 
         do {
             length = arrange_output_buffer(&(self->zst.avail_out),
-                                           &(self->zst.next_out), &RetVal, length);
+                                           &(self->zst.next_out), 
+                                           &RetVal, length);
             if (length < 0)
                 goto abort;
 
@@ -811,7 +824,8 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
                 goto abort;
             }
 
-        } while (self->zst.avail_out == 0 && self->zst.block_state != ISAL_BLOCK_FINISH);
+        } while (self->zst.avail_out == 0 && 
+                 self->zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
@@ -866,14 +880,16 @@ PyDoc_STRVAR(isal_zlib_compressobj__doc__,
 "    containing subsequences that are likely to occur in the input data.");
 
 #define ISAL_ZLIB_COMPRESSOBJ_METHODDEF    \
-    {"compressobj", (PyCFunction)(void(*)(void))isal_zlib_compressobj, METH_VARARGS|METH_KEYWORDS, isal_zlib_compressobj__doc__}
+    {"compressobj", (PyCFunction)(void(*)(void))isal_zlib_compressobj, \
+     METH_VARARGS|METH_KEYWORDS, isal_zlib_compressobj__doc__}
 
 static PyObject *
 isal_zlib_compressobj(PyObject *module, PyObject *args, PyObject *kwargs)
 {
     PyObject *return_value = NULL;
-    char *keywords[] = {"level", "method", "wbits", "memLevel", "strategy", "zdict", NULL};
-    char *format = "|iiiiiy*:compressobj";
+    static char *keywords[] = {"level", "method", "wbits", "memLevel", 
+                               "strategy", "zdict", NULL};
+    static char *format = "|iiiiiy*:compressobj";
     int level = ISAL_DEFAULT_COMPRESSION;
     int method = Z_DEFLATED;
     int wbits = ISAL_DEF_MAX_HIST_BITS;
@@ -886,7 +902,8 @@ isal_zlib_compressobj(PyObject *module, PyObject *args, PyObject *kwargs)
             &level, &method, &wbits, &memLevel, &strategy, &zdict)) {
         return NULL;
     }
-    return_value = isal_zlib_compressobj_impl(module, level, method, wbits, memLevel, strategy, &zdict);
+    return_value = isal_zlib_compressobj_impl(module, level, method, wbits, 
+                                              memLevel, strategy, &zdict);
     PyBuffer_Release(&zdict);
     return return_value;
 }
@@ -904,13 +921,14 @@ PyDoc_STRVAR(isal_zlib_decompressobj__doc__,
 "    dictionary as used by the compressor that produced the input data.");
 
 #define ISAL_ZLIB_DECOMPRESSOBJ_METHODDEF    \
-    {"decompressobj", (PyCFunction)(void(*)(void))isal_zlib_decompressobj, METH_VARARGS|METH_KEYWORDS, isal_zlib_decompressobj__doc__}
+    {"decompressobj", (PyCFunction)(void(*)(void))isal_zlib_decompressobj, \
+     METH_VARARGS|METH_KEYWORDS, isal_zlib_decompressobj__doc__}
 
 static PyObject *
 isal_zlib_decompressobj(PyObject *module, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"wbits", "zdict", NULL};
-    char *format = "|iO:decompressobj";
+    static char *keywords[] = {"wbits", "zdict", NULL};
+    static char *format = "|iO:decompressobj";
     int wbits = ISAL_DEF_MAX_HIST_BITS;
     PyObject *zdict = NULL;
 
@@ -936,7 +954,8 @@ PyDoc_STRVAR(isal_zlib_Compress_compress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_COMPRESS_COMPRESS_METHODDEF    \
-    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, METH_O, isal_zlib_Compress_compress__doc__}
+    {"compress", (PyCFunction)(void(*)(void))isal_zlib_Compress_compress, \
+     METH_O, isal_zlib_Compress_compress__doc__}
 
 
 static PyObject *
@@ -969,14 +988,15 @@ PyDoc_STRVAR(isal_zlib_Decompress_decompress__doc__,
 "Call the flush() method to clear these buffers.");
 
 #define ISAL_ZLIB_DECOMPRESS_DECOMPRESS_METHODDEF    \
-    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, METH_VARARGS|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
+    {"decompress", (PyCFunction)(void(*)(void))isal_zlib_Decompress_decompress, \
+     METH_VARARGS|METH_KEYWORDS, isal_zlib_Decompress_decompress__doc__}
 
 
 static PyObject *
 isal_zlib_Decompress_decompress(decompobject *self, PyObject *args, PyObject *kwargs)
 {
-    char *keywords[] = {"", "max_length", NULL};
-    char *format = "y*|n:decompress";
+    static char *keywords[] = {"", "max_length", NULL};
+    static char *format = "y*|n:decompress";
    
     Py_buffer data = {NULL, NULL};
     Py_ssize_t max_length = 0;
@@ -984,7 +1004,8 @@ isal_zlib_Decompress_decompress(decompobject *self, PyObject *args, PyObject *kw
             args, kwargs, format, keywords, &data, &max_length)) {
         return NULL;
     }
-    PyObject *return_value = isal_zlib_Decompress_decompress_impl(self, &data, max_length);
+    PyObject *return_value = isal_zlib_Decompress_decompress_impl(self, &data, 
+                                                                  max_length);
     PyBuffer_Release(&data);
     return return_value;
 }
@@ -1002,11 +1023,15 @@ PyDoc_STRVAR(isal_zlib_Compress_flush__doc__,
 "    can still be compressed.");
 
 #define ISAL_ZLIB_COMPRESS_FLUSH_METHODDEF    \
-    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Compress_flush, METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_flush__doc__}
+    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Compress_flush, \
+     METH_FASTCALL|METH_KEYWORDS, isal_zlib_Compress_flush__doc__}
 
 
 static PyObject *
-isal_zlib_Compress_flush(compobject *self, PyObject *const *args, Py_ssize_t nargs, PyObject *kwnames)
+isal_zlib_Compress_flush(compobject *self, 
+                         PyObject *const *args, 
+                         Py_ssize_t nargs, 
+                         PyObject *kwnames)
 {
     Py_ssize_t mode; 
     if (nargs == 0) {
@@ -1045,7 +1070,8 @@ PyDoc_STRVAR(isal_zlib_Decompress_flush__doc__,
 
 
 #define ISAL_ZLIB_DECOMPRESS_FLUSH_METHODDEF    \
-    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, METH_FASTCALL, isal_zlib_Decompress_flush__doc__}
+    {"flush", (PyCFunction)(void(*)(void))isal_zlib_Decompress_flush, \
+     METH_FASTCALL, isal_zlib_Decompress_flush__doc__}
 
 static PyObject *
 isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t nargs)
@@ -1171,11 +1197,10 @@ static struct PyModuleDef isal_zlib_module = {
 PyMODINIT_FUNC
 PyInit_isal_zlib(void)
 {
-    PyObject *m;
-
-    m = PyModule_Create(&isal_zlib_module);
-    if (m == NULL)
+    PyObject *m = PyModule_Create(&isal_zlib_module);
+    if (m == NULL) {
         return NULL;
+    }
 
     PyObject *igzip_lib_module = PyImport_ImportModule("isal.igzip_lib");
     if (igzip_lib_module == NULL) {
@@ -1220,7 +1245,6 @@ PyInit_isal_zlib(void)
     PyModule_AddIntConstant(m, "DEFLATED", Z_DEFLATED);
     PyModule_AddIntMacro(m, DEF_MEM_LEVEL);
     PyModule_AddIntMacro(m, DEF_BUF_SIZE);
-    // compression levels
     // No compression is not supported by ISA-L. Throw an error if chosen.
     // PyModule_AddIntMacro(m, Z_NO_COMPRESSION);
     PyModule_AddIntConstant(m, "Z_BEST_SPEED", ISAL_DEF_MIN_LEVEL);
