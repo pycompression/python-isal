@@ -57,7 +57,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
     /* data_size is strictly positive, but because we repeatedly have to
        compare against max_length and PyBytes_GET_SIZE we declare it as
        signed */
-    PyObject * RetVal = NULL;
+    PyObject *RetVal = NULL;
     Py_ssize_t hard_limit;
     
     Py_ssize_t obuflen;
@@ -187,11 +187,11 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
         self->needs_input = 0;
         Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->state));
         if (self->avail_in_real + bytes_in_bitbuffer > 0) {
-            PyObject * new_data = PyBytes_FromStringAndSize(
+            PyObject *new_data = PyBytes_FromStringAndSize(
                 NULL, self->avail_in_real + bytes_in_bitbuffer);
             if (new_data == NULL)
                 goto error;
-            char * new_data_ptr = PyBytes_AS_STRING(new_data);
+            char *new_data_ptr = PyBytes_AS_STRING(new_data);
             bitbuffer_copy(&(self->state), new_data_ptr, bytes_in_bitbuffer);
             memcpy(new_data_ptr + bytes_in_bitbuffer, self->state.next_in, 
                    self->avail_in_real);
@@ -213,7 +213,7 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
             /* Discard buffer if it's too small
                (resizing it may needlessly copy the current contents) */
             if (self->input_buffer != NULL &&
-                self->input_buffer_size < self->avail_in_real) {
+                    self->input_buffer_size < self->avail_in_real) {
                 PyMem_Free(self->input_buffer);
                 self->input_buffer = NULL;
             }
@@ -572,9 +572,7 @@ static struct PyModuleDef igzip_lib_module = {
 PyMODINIT_FUNC
 PyInit_igzip_lib(void)
 {
-    PyObject *m;
-
-    m = PyModule_Create(&igzip_lib_module);
+    PyObject *m = PyModule_Create(&igzip_lib_module);
     if (m == NULL)
         return NULL;
 

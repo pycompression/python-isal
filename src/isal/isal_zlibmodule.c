@@ -119,8 +119,11 @@ static const int ZLIB_MEM_LEVEL_TO_ISAL[10] = {
 
 static inline int zlib_mem_level_to_isal(int mem_level) {
     if (mem_level < 1 || mem_level > 9) {
-        PyErr_Format(PyExc_ValueError, 
-        "Invalid mem level: %d. Mem level should be between 1 and 9");
+        PyErr_Format(
+            PyExc_ValueError, 
+            "Invalid mem level: %d. Mem level should be between 1 and 9", 
+            mem_level
+        );
         return -1;}
     return ZLIB_MEM_LEVEL_TO_ISAL[mem_level];
 }
@@ -614,7 +617,7 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             new_data = PyBytes_FromStringAndSize(NULL, new_size);
             if (new_data == NULL)
                 return -1;
-            char * new_data_ptr = PyBytes_AS_STRING(new_data);
+            char *new_data_ptr = PyBytes_AS_STRING(new_data);
             memcpy(new_data_ptr,
                    PyBytes_AS_STRING(self->unused_data), old_size);
             bitbuffer_copy(&(self->zst), new_data_ptr + old_size, bytes_in_bitbuffer);
@@ -1194,9 +1197,7 @@ static struct PyModuleDef isal_zlib_module = {
 PyMODINIT_FUNC
 PyInit_isal_zlib(void)
 {
-    PyObject *m;
-
-    m = PyModule_Create(&isal_zlib_module);
+    PyObject *m = PyModule_Create(&isal_zlib_module);
     if (m == NULL) {
         return NULL;
     }

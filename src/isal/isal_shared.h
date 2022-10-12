@@ -84,7 +84,7 @@ static const uint32_t LEVEL_BUF_SIZES[24] = {
 };
 
 static inline int mem_level_to_bufsize(int compression_level, int mem_level,
-                                uint32_t * bufsize)
+                                uint32_t *bufsize)
 {
     if (compression_level < 0 || compression_level > 3 || 
         mem_level < MEM_LEVEL_DEFAULT || mem_level > MEM_LEVEL_EXTRA_LARGE) {
@@ -96,7 +96,7 @@ static inline int mem_level_to_bufsize(int compression_level, int mem_level,
 
 static void isal_deflate_error(int err)
 {
-    const char * msg = NULL;
+    const char *msg = NULL;
     switch (err) {
         case COMP_OK: return;
         case INVALID_FLUSH:
@@ -127,7 +127,7 @@ static void isal_deflate_error(int err)
 }
 
 static void isal_inflate_error(int err){
-    const char * msg = NULL;
+    const char *msg = NULL;
     switch (err){
         case ISAL_DECOMP_OK:
             return;
@@ -199,8 +199,8 @@ static int bitbuffer_copy(struct inflate_state *state, char *to, size_t n){
     int remainder = bits_in_buffer % 8;
     // Shift the 8-byte bitbuffer read_in so that the bytes are aligned.
     uint64_t remaining_bytes = state->read_in >> remainder;
-    char * remaining_bytes_ptr = (char *)(&remaining_bytes);
-    memcpy(to, remaining_bytes_ptr, n);
+    // memcpy works because of little-endianness
+    memcpy(to, &remaining_bytes, n);
     return 0;
 }
 

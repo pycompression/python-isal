@@ -27,9 +27,7 @@ static struct PyModuleDef _isal_module = {
 PyMODINIT_FUNC
 PyInit__isal(void)
 {
-    PyObject *m;
-
-    m = PyModule_Create(&_isal_module);
+    PyObject *m = PyModule_Create(&_isal_module);
     if (m == NULL) {
         return NULL;
     }
