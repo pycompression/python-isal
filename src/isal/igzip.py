@@ -449,9 +449,7 @@ def _argument_parser():
                              "timestamp")
     parser.add_argument("-f", "--force", action="store_true",
                         help="Overwrite output without prompting")
-    # -b flag not taken by either gzip or igzip. Hidden attribute. Above 32K
-    # diminishing returns hit. _compression.BUFFER_SIZE = 8k. But 32K is about
-    # ~6% faster.
+    # -b flag not taken by either gzip or igzip. Hidden attribute.
     parser.add_argument("-b", "--buffer-size",
                         default=READ_BUFFER_SIZE, type=int,
                         help=argparse.SUPPRESS)
