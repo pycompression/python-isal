@@ -23,7 +23,8 @@ Changes compared to CPython:
 
 typedef struct {
     PyObject_HEAD
-    PyObject *unused_data;
+    PyObject *unused_data;    
+    PyThread_type_lock lock;
     PyObject *zdict;
     uint8_t *input_buffer;
     Py_ssize_t input_buffer_size;
@@ -41,6 +42,7 @@ typedef struct {
 static void
 IgzipDecompressor_dealloc(IgzipDecompressor *self)
 {
+    PyThread_free_lock(self->lock);
     PyMem_Free(self->input_buffer);
     Py_CLEAR(self->unused_data);
     Py_CLEAR(self->zdict);
@@ -99,7 +101,10 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
             else if (obuflen == -2)
                 break;
         
+            Py_BEGIN_ALLOW_THREADS;
             err = isal_inflate(&(self->state));
+            Py_END_ALLOW_THREADS;
+
             if (err != ISAL_DECOMP_OK){
                 isal_inflate_error(err);
                 goto error;
@@ -357,6 +362,8 @@ igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self,
 {
     static char *keywords[] = {"", "max_length", NULL};
     static char *format = "y*|n:decompress";
+
+    PyObject *result = NULL;
     Py_buffer data = {NULL, NULL};
     Py_ssize_t max_length = -1;
 
@@ -364,11 +371,14 @@ igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self,
             args, kwargs, format, keywords, &data, &max_length)) {
         return NULL;
     }
-    PyObject *result = NULL;
-    if (self->eof)
+    ENTER_ZLIB(self);
+    if (self->eof) {
         PyErr_SetString(PyExc_EOFError, "End of stream already reached");
-    else
+    }
+    else {
         result = decompress(self, data.buf, data.len, max_length);
+    }
+    LEAVE_ZLIB(self);
     PyBuffer_Release(&data);
     return result;
 }
@@ -414,6 +424,12 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
     self->unused_data = PyBytes_FromStringAndSize(NULL, 0);
     if (self->unused_data == NULL) {
         Py_CLEAR(self);
+        return NULL;
+    }
+    self->lock = PyThread_allocate_lock();
+    if (self->lock == NULL) {
+        Py_DECREF(self);
+        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
     isal_inflate_init(&(self->state));

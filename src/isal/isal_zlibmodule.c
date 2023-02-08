@@ -174,7 +174,9 @@ isal_zlib_adler32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
             return NULL;
         }
     }
+    Py_BEGIN_ALLOW_THREADS
     value = isal_adler32(value, data.buf, (uint64_t)data.len);
+    Py_END_ALLOW_THREADS
     return_value = PyLong_FromUnsignedLong(value & 0xffffffffU);
     PyBuffer_Release(&data);
     return return_value;
@@ -219,7 +221,9 @@ isal_zlib_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
             return NULL;
         }
     }
+    Py_BEGIN_ALLOW_THREADS
     value = crc32_gzip_refl(value, data.buf, (uint64_t)data.len);
+    Py_END_ALLOW_THREADS
     return_value = PyLong_FromUnsignedLong(value & 0xffffffffU);
     PyBuffer_Release(&data);
     return return_value;
@@ -325,6 +329,7 @@ typedef struct
     uint8_t *level_buf;
     PyObject *zdict;
     int is_initialised;
+    PyThread_type_lock lock;
     // isal_zstream should be at the bottom as it contains buffers inside the struct.
     struct isal_zstream zst;
 } compobject;
@@ -334,6 +339,7 @@ Comp_dealloc(compobject *self)
 {
     if (self->is_initialised && self->level_buf != NULL)
         PyMem_Free(self->level_buf);
+    PyThread_free_lock(self->lock);
     Py_XDECREF(self->zdict);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
@@ -348,6 +354,12 @@ newcompobject()
     self->is_initialised = 0;
     self->zdict = NULL;
     self->level_buf = NULL;
+    self->lock = PyThread_allocate_lock();
+    if (self->lock == NULL) {
+        Py_DECREF(self);
+        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
+        return NULL;
+    }
     return self;
 }
 
@@ -361,6 +373,7 @@ typedef struct
     int is_initialised;
     int method_set;
     char eof;
+    PyThread_type_lock lock;
     // inflate_state should be at the bottom as it contains buffers inside the struct.
     struct inflate_state zst;
 } decompobject;
@@ -368,6 +381,7 @@ typedef struct
 static void
 Decomp_dealloc(decompobject *self)
 {
+    PyThread_free_lock(self->lock);
     Py_XDECREF(self->unused_data);
     Py_XDECREF(self->unconsumed_tail);
     Py_XDECREF(self->zdict);
@@ -418,6 +432,12 @@ newdecompobject()
     self->unconsumed_tail = PyBytes_FromStringAndSize("", 0);
     if (self->unconsumed_tail == NULL) {
         Py_DECREF(self);
+        return NULL;
+    }
+        self->lock = PyThread_allocate_lock();
+    if (self->lock == NULL) {
+        Py_DECREF(self);
+        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
     return self;
@@ -562,6 +582,8 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
     Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE;
     int err;
 
+    ENTER_ZLIB(self);
+
     self->zst.next_in = data->buf;
     ibuflen = data->len;
 
@@ -573,7 +595,9 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
             if (obuflen < 0)
                 goto error;
 
+            Py_BEGIN_ALLOW_THREADS
             err = isal_deflate(&self->zst);
+            Py_END_ALLOW_THREADS
 
             if (err != COMP_OK) {
                 isal_deflate_error(err);
@@ -591,6 +615,7 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
  error:
     Py_CLEAR(RetVal);
  success:
+    LEAVE_ZLIB(self);
     return RetVal;
 }
 
@@ -668,12 +693,15 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
         }
         self->method_set = 1;
     }
-    self->zst.next_in = data->buf;
-    ibuflen = data->len;
 
     /* limit amount of data allocated to max_length */
     if (max_length && obuflen > max_length)
         obuflen = max_length;
+
+    ENTER_ZLIB(self);
+
+    self->zst.next_in = data->buf;
+    ibuflen = data->len;
 
     do {
         arrange_input_buffer(&(self->zst.avail_in), &ibuflen);
@@ -693,7 +721,10 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
                 goto abort;
             }
 
+            Py_BEGIN_ALLOW_THREADS
             err = isal_inflate(&self->zst);
+            Py_END_ALLOW_THREADS
+
             if (err != ISAL_DECOMP_OK){
                 isal_inflate_error(err);
                 goto abort;
@@ -719,6 +750,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
  abort:
     Py_CLEAR(RetVal);
  success:
+    LEAVE_ZLIB(self);
     return RetVal;
 }
 
@@ -732,8 +764,12 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     /* Flushing with Z_NO_FLUSH is a no-op, so there's no point in
        doing any work at all; just return an empty string. */
     if (mode == Z_NO_FLUSH) {
-        return PyBytes_FromStringAndSize(NULL, 0);
-    } else if (mode == Z_FINISH) {
+        return PyBytes_FromStringAndSize(NULL, 0);        
+    } 
+    
+    ENTER_ZLIB(self);
+
+    if (mode == Z_FINISH) {
         self->zst.flush = FULL_FLUSH;
         self->zst.end_of_stream = 1;
     } else if (mode == Z_FULL_FLUSH){
@@ -756,7 +792,9 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
             goto error;
         }
 
+        Py_BEGIN_ALLOW_THREADS
         err = isal_deflate(&self->zst);
+        Py_END_ALLOW_THREADS
 
         if (err != COMP_OK) {
             isal_deflate_error(err);
@@ -784,6 +822,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         Py_CLEAR(RetVal);
 
  error:
+    LEAVE_ZLIB(self);
     return RetVal;
 }
 
@@ -800,7 +839,10 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
         return NULL;
     }
 
+    ENTER_ZLIB(self);
+
     if (PyObject_GetBuffer(self->unconsumed_tail, &data, PyBUF_SIMPLE) == -1) {
+        LEAVE_ZLIB(self);
         return NULL;
     }
 
@@ -817,7 +859,9 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
             if (length < 0)
                 goto abort;
 
+            Py_BEGIN_ALLOW_THREADS
             err = isal_inflate(&self->zst);
+            Py_END_ALLOW_THREADS
 
             if (err != ISAL_DECOMP_OK) {
                 isal_inflate_error(err);
@@ -846,6 +890,7 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
     Py_CLEAR(RetVal);
  success:
     PyBuffer_Release(&data);
+    LEAVE_ZLIB(self);
     return RetVal;
 }
 
