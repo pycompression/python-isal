@@ -224,6 +224,12 @@ class TestIgzipDecompressor():
         with pytest.raises(Exception):
             igzd.decompress(self.BAD_DATA * 30)
 
+    def test_dictionary(self):
+        compressor = zlib.compressobj(zdict=b"bla")
+        data = compressor.compress(b"bladiebla") + compressor.flush()
+        igzd = IgzipDecompressor(flag=DECOMP_ZLIB, zdict=b"bla")
+        assert igzd.decompress(data) == b"bladiebla"
+
 
 @pytest.mark.parametrize("test_offset", range(5))
 def test_igzip_decompressor_raw_deflate_unused_data_zlib(test_offset):
