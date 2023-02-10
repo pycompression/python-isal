@@ -72,19 +72,7 @@ class BuildIsalExt(build_ext):
                 raise NotImplementedError(
                     f"Unsupported platform: {sys.platform}")
         else:
-            if self.compiler.compiler_type == "msvc":
-                compiler = copy.deepcopy(self.compiler)
-                if not compiler.initialized:
-                    compiler.initialize()
-                compiler_command = f'"{compiler.cc}"'
-                compiler_args = compiler.compile_options
-            elif self.compiler.compiler_type == "unix":
-                compiler_command = self.compiler.compiler[0]
-                compiler_args = self.compiler.compiler[1:]
-            else:
-                raise NotImplementedError("Unknown compiler")
-            isa_l_prefix_dir = build_isa_l(compiler_command,
-                                           " ".join(compiler_args))
+            isa_l_prefix_dir = build_isa_l()
             if SYSTEM_IS_UNIX:
                 ext.extra_objects = [
                     os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
@@ -106,7 +94,7 @@ class BuildIsalExt(build_ext):
 # 'cache' is only available from python 3.9 onwards.
 # see: https://docs.python.org/3/library/functools.html#functools.cache
 @functools.lru_cache(maxsize=None)
-def build_isa_l(compiler_command: str, compiler_options: str):
+def build_isa_l():
     # Check for cache
     if BUILD_CACHE:
         if BUILD_CACHE_FILE.exists():
@@ -122,14 +110,8 @@ def build_isa_l(compiler_command: str, compiler_options: str):
     # Build environment is a copy of OS environment to allow user to influence
     # it.
     build_env = os.environ.copy()
-    # Add -fPIC flag to allow static compilation
-    build_env["CC"] = compiler_command
     if SYSTEM_IS_UNIX:
-        build_env["CFLAGS"] = compiler_options + " -fPIC"
-    elif SYSTEM_IS_WINDOWS:
-        # The nmake file has CLFAGS_REL for all the compiler options.
-        # This is added to CFLAGS with all the necessary include options.
-        build_env["CFLAGS_REL"] = compiler_options
+        build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -O2 -fPIC"
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
