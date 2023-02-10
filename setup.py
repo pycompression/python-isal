@@ -124,7 +124,7 @@ def build_isa_l():
         subprocess.run(["make", "-j", str(cpu_count)], **run_args)
         subprocess.run(["make", "-j", str(cpu_count), "install"], **run_args)
     elif SYSTEM_IS_WINDOWS:
-        subprocess.run(["nmake", "/E", "/f", "Makefile.nmake"], **run_args)
+        subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
         Path(temp_prefix, "include").mkdir()
         print(temp_prefix, file=sys.stderr)
         shutil.copytree(os.path.join(build_dir, "include"),
