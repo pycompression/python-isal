@@ -6,7 +6,6 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-import copy
 import functools
 import os
 import shutil
@@ -124,6 +123,7 @@ def build_isa_l():
         subprocess.run(["make", "-j", str(cpu_count)], **run_args)
         subprocess.run(["make", "-j", str(cpu_count), "install"], **run_args)
     elif SYSTEM_IS_WINDOWS:
+        print(build_env, file=sys.stderr)
         subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
         Path(temp_prefix, "include").mkdir()
         print(temp_prefix, file=sys.stderr)
