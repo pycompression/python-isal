@@ -174,9 +174,15 @@ isal_zlib_adler32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
             return NULL;
         }
     }
-    Py_BEGIN_ALLOW_THREADS
-    value = isal_adler32(value, data.buf, (uint64_t)data.len);
-    Py_END_ALLOW_THREADS
+    uint64_t buffer_length = (uint64_t)data.len;
+    /* Do not drop GIL for small values as it is too much overhead */
+    if (buffer_length > 5 * 1024) {
+        Py_BEGIN_ALLOW_THREADS
+        value = isal_adler32(value, data.buf, buffer_length);
+        Py_END_ALLOW_THREADS
+    } else {
+        value = isal_adler32(value, data.buf, buffer_length);
+    }
     return_value = PyLong_FromUnsignedLong(value & 0xffffffffU);
     PyBuffer_Release(&data);
     return return_value;
@@ -221,9 +227,15 @@ isal_zlib_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
             return NULL;
         }
     }
-    Py_BEGIN_ALLOW_THREADS
-    value = crc32_gzip_refl(value, data.buf, (uint64_t)data.len);
-    Py_END_ALLOW_THREADS
+    uint64_t buffer_length = (uint64_t)data.len;
+    /* Do not drop GIL for small values as it is too much overhead */
+    if (buffer_length > 5 * 1024) {
+        Py_BEGIN_ALLOW_THREADS
+        value = crc32_gzip_refl(value, data.buf, buffer_length);
+        Py_END_ALLOW_THREADS
+    } else {
+        value = crc32_gzip_refl(value, data.buf, buffer_length);
+    }
     return_value = PyLong_FromUnsignedLong(value & 0xffffffffU);
     PyBuffer_Release(&data);
     return return_value;
