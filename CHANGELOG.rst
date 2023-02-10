@@ -9,6 +9,9 @@ Changelog
 
 version 1.2.0-dev
 -----------------
++ Simplify build setup. ISA-L release flags are now used and not
+  overwritten with python release flags when building the included static
+  library.
 + Fix bug where zdict's could not be set for ``isal_zlib.decompressobj`` and
   ``igzip_lib.IgzipDecompressor``.
 + Escape GIL when calling inflate, deflate, crc32 and adler32 functions to
