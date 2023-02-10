@@ -28,6 +28,14 @@ Changes compared to CPython:
 
 static PyObject *IsalError;
 
+#define ENTER_ZLIB(obj) do {                      \
+    if (!PyThread_acquire_lock((obj)->lock, 0)) { \
+        Py_BEGIN_ALLOW_THREADS                    \
+        PyThread_acquire_lock((obj)->lock, 1);    \
+        Py_END_ALLOW_THREADS                      \
+    } } while (0)
+#define LEAVE_ZLIB(obj) PyThread_release_lock((obj)->lock);
+
 /* Initial buffer size. */
 #define DEF_BUF_SIZE (16*1024)
 #define DEF_MAX_INITIAL_BUF_SIZE (16 * 1024 * 1024)
@@ -317,7 +325,10 @@ igzip_lib_compress_impl(Py_buffer *data,
                         "Unsufficient memory for buffer allocation");
                 goto error;
             }
+
+            Py_BEGIN_ALLOW_THREADS
             err = isal_deflate(&zst);
+            Py_END_ALLOW_THREADS
 
             if (err != COMP_OK) {
                 isal_deflate_error(err);
@@ -376,7 +387,10 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
                 goto error;
             }
 
+            Py_BEGIN_ALLOW_THREADS
             err = isal_inflate(&zst);
+            Py_END_ALLOW_THREADS
+
             if (err != ISAL_DECOMP_OK) {
                 isal_inflate_error(err);
                 goto error;

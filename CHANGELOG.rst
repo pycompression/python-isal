@@ -7,6 +7,13 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.2.0-dev
+-----------------
++ Escape GIL when calling inflate, deflate, crc32 and adler32 functions to
+  just like in CPython. This allows for utilising more CPU cores in combination
+  with the threading module. This comes with a very slight cost in efficiency
+  for strict single-threaded applications.
+
 version 1.1.0
 -----------------
 + Added tests and support for Python 3.11.
