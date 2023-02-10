@@ -165,3 +165,21 @@ def test_unused_data(unused_size, wbits):
     result = decompressor.decompress(compressed + unused_data)
     assert result == data
     assert decompressor.unused_data == unused_data
+
+
+def test_zlib_dictionary_decompress():
+    dictionary = b"bla"
+    data = b"bladiebla"
+    compobj = zlib.compressobj(zdict=dictionary)
+    compressed = compobj.compress(data) + compobj.flush()
+    decompobj = isal_zlib.decompressobj(zdict=dictionary)
+    assert decompobj.decompress(compressed) == data
+
+
+def test_isal_zlib_dictionary_decompress():
+    dictionary = b"bla"
+    data = b"bladiebla"
+    compobj = isal_zlib.compressobj(zdict=dictionary)
+    compressed = compobj.compress(data) + compobj.flush()
+    decompobj = zlib.decompressobj(zdict=dictionary)
+    assert decompobj.decompress(compressed) == data

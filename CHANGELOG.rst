@@ -9,6 +9,8 @@ Changelog
 
 version 1.2.0-dev
 -----------------
++ Fix bug where zdict's could not be set for ``isal_zlib.decompressobj`` and
+  ``igzip_lib.IgzipDecompressor``.
 + Escape GIL when calling inflate, deflate, crc32 and adler32 functions to
   just like in CPython. This allows for utilising more CPU cores in combination
   with the threading module. This comes with a very slight cost in efficiency

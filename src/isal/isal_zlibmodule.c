@@ -724,14 +724,28 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
             Py_BEGIN_ALLOW_THREADS
             err = isal_inflate(&self->zst);
             Py_END_ALLOW_THREADS
-
-            if (err != ISAL_DECOMP_OK){
-                isal_inflate_error(err);
-                goto abort;
+            
+            switch(err) {
+                case ISAL_DECOMP_OK:
+                    break;
+                case ISAL_NEED_DICT:                
+                    if  (self->zdict != NULL) {
+                        if (set_inflate_zdict(self) < 0) {
+                            goto abort;
+                        }
+                        else 
+                            break;
+                    }
+                    else {
+                        isal_inflate_error(err);
+                        goto abort;
+                    }
+                default:
+                    isal_inflate_error(err);
+                    goto abort;
             }
 
-        } while (self->zst.avail_out == 0 && 
-                 self->zst.block_state != ISAL_BLOCK_FINISH);
+        } while (self->zst.avail_out == 0 || err == ISAL_NEED_DICT);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
