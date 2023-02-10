@@ -724,6 +724,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
             Py_BEGIN_ALLOW_THREADS
             err = isal_inflate(&self->zst);
             Py_END_ALLOW_THREADS
+            
             switch(err) {
                 case ISAL_DECOMP_OK:
                     break;

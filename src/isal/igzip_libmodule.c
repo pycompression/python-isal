@@ -49,6 +49,32 @@ IgzipDecompressor_dealloc(IgzipDecompressor *self)
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
 
+
+static int
+set_inflate_zdict_IgzipDecompressor(IgzipDecompressor *self)
+{
+    Py_buffer zdict_buf;
+    if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
+        return -1;
+    }
+    if ((size_t)zdict_buf.len > UINT32_MAX) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "zdict length does not fit in an unsigned 32-bit integer");
+        PyBuffer_Release(&zdict_buf);
+        return -1;
+    }
+    int err;
+    err = isal_inflate_set_dict(&self->state,
+                                zdict_buf.buf, (uint32_t)zdict_buf.len);
+    PyBuffer_Release(&zdict_buf);
+    if (err != ISAL_DECOMP_OK) {
+        isal_inflate_error(err);
+        return -1;
+    }
+    return 0;
+}
+
+
 /* Decompress data of length d->bzs_avail_in_real in d->state.next_in.  The output
    buffer is allocated dynamically and returned.  At most max_length bytes are
    returned, so some of the input may not be consumed. d->state.next_in and
@@ -105,12 +131,28 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
             err = isal_inflate(&(self->state));
             Py_END_ALLOW_THREADS;
 
-            if (err != ISAL_DECOMP_OK){
-                isal_inflate_error(err);
-                goto error;
+            switch(err) {
+                case ISAL_DECOMP_OK:
+                    break;
+                case ISAL_NEED_DICT:                
+                    if  (self->zdict != NULL) {
+                        if (set_inflate_zdict_IgzipDecompressor(self) < 0) {
+                            goto error;
+                        }
+                        else 
+                            break;
+                    }
+                    else {
+                        isal_inflate_error(err);
+                        goto error;
+                    }
+                default:
+                    isal_inflate_error(err);
+                    goto error;
             }
-        } while (self->state.avail_out == 0 && 
-                 self->state.block_state != ISAL_BLOCK_FINISH);
+
+        } while (self->state.avail_out == 0 || err == ISAL_NEED_DICT);
+    
     } while(self->avail_in_real != 0 && 
             self->state.block_state != ISAL_BLOCK_FINISH);
 
@@ -414,7 +456,6 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
         return NULL;
     }
     IgzipDecompressor *self = PyObject_New(IgzipDecompressor, type); 
-    int err;
     self->eof = 0;
     self->needs_input = 1;
     self->avail_in_real = 0;
@@ -436,26 +477,10 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
     self->state.hist_bits = hist_bits;
     self->state.crc_flag = flag;
     if (self->zdict != NULL){
-        Py_buffer zdict_buf;
-        if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
-                Py_CLEAR(self);
-                return NULL;
-        }
-        if ((size_t)zdict_buf.len > UINT32_MAX) {
-            PyErr_SetString(PyExc_OverflowError,
-                           "zdict length does not fit in an unsigned 32-bits int");
-            PyBuffer_Release(&zdict_buf);
+        if (set_inflate_zdict_IgzipDecompressor(self) < 0) {
             Py_CLEAR(self);
             return NULL;
         }
-        err = isal_inflate_set_dict(&(self->state), zdict_buf.buf, 
-                                    (uint32_t)zdict_buf.len);
-        PyBuffer_Release(&zdict_buf);
-        if (err != ISAL_DECOMP_OK) {
-            isal_inflate_error(err);
-            Py_CLEAR(self);
-            return NULL;
-        }        
     }
     return (PyObject *)self;
 }
