@@ -105,22 +105,25 @@ jobs:
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
-        distro: [ "ubuntu_latest" ]
-        arch: ["aarch64"]
+        python_version:
+          - "3.7"
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
     steps:
       - uses: actions/checkout@v2.3.4
         with:
           submodules: recursive
-      - uses: uraimo/run-on-arch-action@v2.2.0
+      - uses: uraimo/run-on-arch-action@v2.5.0
         name: Build & run test
         with:
-          arch: ${{ matrix.arch }}
-          distro: ${{ matrix.distro }}
-          install: |
-            apt-get update -q -y
-            apt-get install -q -y python3 python3-pip gcc binutils automake autoconf libtool tox
-          run: |
-            tox
+          arch: none
+          distro: none
+          base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
+          run: |-
+            python${{matrix.python_version}} -m pip install . pytest
+            python${{matrix.python_version}} -m pytest tests
 
   # Test if the python-isal conda package can be build. Which is linked
   # dynamically to the conda isa-l package.
