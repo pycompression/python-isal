@@ -71,20 +71,17 @@ class BuildIsalExt(build_ext):
                 raise NotImplementedError(
                     f"Unsupported platform: {sys.platform}")
         else:
-            isa_l_prefix_dir = build_isa_l()
+            isa_l_build_dir = build_isa_l()
             if SYSTEM_IS_UNIX:
                 ext.extra_objects = [
-                    os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
+                    os.path.join(isa_l_build_dir, ".libs", "libisal.a")]
             elif SYSTEM_IS_WINDOWS:
                 ext.extra_objects = [
-                    os.path.join(isa_l_prefix_dir, "isa-l_static.lib")]
+                    os.path.join(isa_l_build_dir, "isa-l_static.lib")]
             else:
                 raise NotImplementedError(
                     f"Unsupported platform: {sys.platform}")
-            ext.include_dirs = [os.path.join(isa_l_prefix_dir,
-                                             "include")]
-            # -fPIC needed for proper static linking
-            ext.extra_compile_args = ["-fPIC"]
+            ext.include_dirs = [isa_l_build_dir]
         super().build_extension(ext)
 
 
@@ -98,12 +95,11 @@ def build_isa_l():
     if BUILD_CACHE:
         if BUILD_CACHE_FILE.exists():
             cache_path = Path(BUILD_CACHE_FILE.read_text())
-            if (cache_path / "include" / "isa-l").exists():
+            if (cache_path / "isa-l.h").exists():
                 return str(cache_path)
 
     # Creating temporary directories
     build_dir = tempfile.mktemp()
-    temp_prefix = tempfile.mkdtemp()
     shutil.copytree(ISA_L_SOURCE, build_dir)
 
     # Build environment is a copy of OS environment to allow user to influence
@@ -118,27 +114,17 @@ def build_isa_l():
     run_args = dict(cwd=build_dir, env=build_env)
     if SYSTEM_IS_UNIX:
         subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
-        subprocess.run([os.path.join(build_dir, "configure"),
-                        "--prefix", temp_prefix], **run_args)
+        subprocess.run([os.path.join(build_dir, "configure")], **run_args)
         subprocess.run(["make", "-j", str(cpu_count)], **run_args)
-        subprocess.run(["make", "-j", str(cpu_count), "install"], **run_args)
     elif SYSTEM_IS_WINDOWS:
-        print(build_env, file=sys.stderr)
         subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
-        Path(temp_prefix, "include").mkdir()
-        print(temp_prefix, file=sys.stderr)
-        shutil.copytree(os.path.join(build_dir, "include"),
-                        Path(temp_prefix, "include", "isa-l"))
-        shutil.copy(os.path.join(build_dir, "isa-l_static.lib"),
-                    os.path.join(temp_prefix, "isa-l_static.lib"))
-        shutil.copy(os.path.join(build_dir, "isa-l.h"),
-                    os.path.join(temp_prefix, "include", "isa-l.h"))
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
-    shutil.rmtree(build_dir)
+    shutil.copytree(os.path.join(build_dir, "include"),
+                    os.path.join(build_dir, "isa-l"))
     if BUILD_CACHE:
-        BUILD_CACHE_FILE.write_text(temp_prefix)
-    return temp_prefix
+        BUILD_CACHE_FILE.write_text(build_dir)
+    return build_dir
 
 
 setup(
