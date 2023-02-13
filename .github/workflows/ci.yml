@@ -216,11 +216,26 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: ${{ matrix.cibw_before_all_linux }}
           # Fully test the build wheels again.
           CIBW_TEST_REQUIRES: "pytest"
-          # Simple test that requires the project to be build correctly
-          CIBW_TEST_COMMAND: >-
+          # Simple tests that requires the project to be build correctly
+          # Skip extensive compatibility testing which is slow.
+          CIBW_TEST_COMMAND_LINUX: >-
             pytest {project}/tests/test_igzip.py
-            {project}/tests/test_compat.py
+            {project}/tests/test_gzip_compliance.py
+            {project}/tests/test_zlib_compliance.py
             {project}/tests/test_igzip_lib.py
+            -k 'not test_compress_decompress'
+          CIBW_TEST_COMMAND_MACOS: >-
+            pytest {project}/tests/test_igzip.py
+            {project}/tests/test_gzip_compliance.py
+            {project}/tests/test_zlib_compliance.py
+            {project}/tests/test_igzip_lib.py
+            -k 'not test_compress_decompress'
+          # Windows does not have the test module apparently. Do more expensive
+          # tests to verify build.
+          CIBW_TEST_COMMAND_WINDOWS: >-
+            pytest {project}/tests/test_igzip.py
+            {project}/tests/test_igzip_lib.py
+            {project}/tests/test_compat.py
           CIBW_ENVIRONMENT_LINUX: >-
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=/tmp/build_cache
