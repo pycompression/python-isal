@@ -222,13 +222,13 @@ jobs:
           # Simple tests that requires the project to be build correctly
           # Skip extensive compatibility testing which is slow.
           CIBW_TEST_COMMAND_LINUX: >-
-            pytest {project}/tests/test_igzip.py
+            pytest -v {project}/tests/test_igzip.py
             {project}/tests/test_gzip_compliance.py
             {project}/tests/test_zlib_compliance.py
             {project}/tests/test_igzip_lib.py
             -k 'not test_compress_decompress'
           CIBW_TEST_COMMAND_MACOS: >-
-            pytest {project}/tests/test_igzip.py
+            pytest -v {project}/tests/test_igzip.py
             {project}/tests/test_gzip_compliance.py
             {project}/tests/test_zlib_compliance.py
             {project}/tests/test_igzip_lib.py
