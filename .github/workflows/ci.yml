@@ -122,7 +122,7 @@ jobs:
           distro: none
           base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
           run: |-
-            python${{matrix.python_version}} -m pip install . pytest
+            CFLAGS="-DNDEBUG -g0" python${{matrix.python_version}} -m pip install . pytest
             python${{matrix.python_version}} -m pytest tests
 
   # Test if the python-isal conda package can be build. Which is linked
@@ -222,13 +222,13 @@ jobs:
           # Simple tests that requires the project to be build correctly
           # Skip extensive compatibility testing which is slow.
           CIBW_TEST_COMMAND_LINUX: >-
-            pytest {project}/tests/test_igzip.py
+            pytest -v {project}/tests/test_igzip.py
             {project}/tests/test_gzip_compliance.py
             {project}/tests/test_zlib_compliance.py
             {project}/tests/test_igzip_lib.py
             -k 'not test_compress_decompress'
           CIBW_TEST_COMMAND_MACOS: >-
-            pytest {project}/tests/test_igzip.py
+            pytest -v {project}/tests/test_igzip.py
             {project}/tests/test_gzip_compliance.py
             {project}/tests/test_zlib_compliance.py
             {project}/tests/test_igzip_lib.py
