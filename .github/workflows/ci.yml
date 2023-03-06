@@ -87,7 +87,7 @@ jobs:
       - name: Install build dependencies (Macos)
         # Install yasm because nasm does not work when building wheels.
         # Probably because of nasm-filter.sh not filtering all flags that can not be used.
-        run: brew install nasm automake autoconf
+        run: brew install nasm
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
         uses: ilammy/msvc-dev-cmd@v1.6.0
@@ -198,7 +198,7 @@ jobs:
       - name: Install cibuildwheel twine wheel
         run: python -m pip install cibuildwheel twine wheel
       - name: Install build dependencies (Macos)
-        run: brew install nasm automake autoconf
+        run: brew install nasm
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
         uses: ilammy/msvc-dev-cmd@v1.6.0
