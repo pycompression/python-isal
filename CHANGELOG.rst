@@ -9,6 +9,8 @@ Changelog
 
 version 1.2.0-dev
 -----------------
++ Speed-up source build by using ISA-L Unix-specific makefile rather than the
+  autotools build.
 + Simplify build setup. ISA-L release flags are now used and not
   overwritten with python release flags when building the included static
   library.
