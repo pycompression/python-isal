@@ -135,7 +135,7 @@ def build_isa_l():
 
 setup(
     name="isal",
-    version="1.2.0",
+    version="1.3.0-dev",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",
