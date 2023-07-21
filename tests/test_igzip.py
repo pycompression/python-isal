@@ -443,3 +443,13 @@ def test_concatenated_gzip():
     with igzip.open(concat, "rb") as igzip_h:
         result = igzip_h.read()
     assert data == result
+
+
+def test_bgzip():
+    bgzip_file = Path(__file__).parent / "data" / "test.fastq.bgzip.gz"
+    gzip_file = Path(__file__).parent / "data" / "test.fastq.gz"
+    with igzip.open(bgzip_file, "rb") as bgz:
+        bgz_data = bgz.read()
+    with igzip.open(gzip_file, "rb") as gz:
+        gz_data = gz.read()
+    assert bgz_data == gz_data
