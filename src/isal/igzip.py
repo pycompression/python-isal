@@ -249,6 +249,7 @@ class _IGzipReader(gzip._GzipReader):
         # Set flag indicating start of a new member
         self._new_member = True
         self._last_mtime = None
+        self._read_buffer_size = READ_BUFFER_SIZE
 
     def read(self, size=-1):
         if size < 0:
@@ -282,7 +283,7 @@ class _IGzipReader(gzip._GzipReader):
 
             # Read a chunk of data from the file
             if self._decompressor.needs_input:
-                buf = self._fp.read(READ_BUFFER_SIZE)
+                buf = self._fp.read(self._read_buffer_size)
                 uncompress = self._decompressor.decompress(buf, size)
             else:
                 uncompress = self._decompressor.decompress(b"", size)
