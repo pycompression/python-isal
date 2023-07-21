@@ -220,6 +220,22 @@ class IGzipFile(gzip.GzipFile):
         return length
 
 
+def detect_bgzip(header: bytes) -> bool:
+    if len(header) < 18:
+        return False
+    magic, method, flags, mtime, xfl, os, xlen, si1, si2, slen, bsize = \
+        struct.unpack("<HBBIBBHBBHH", header[:18])
+    return (
+            method == 8 and  # Deflate method used
+            flags & 4 and    # There are extra fields
+            xlen == 6 and    # The extra field should be of length 6
+            si1 == 66 and    # BGZIP magic number one
+            si2 == 67 and    # BGZIP magic number two
+            slen == 2        # The length of the 16 bit integer that stores
+                             # the size of the block
+    )
+
+
 class _PaddedFile(gzip._PaddedFile):
     # Overwrite _PaddedFile from gzip as its prepend method assumes that
     # the prepended data is always read from its _buffer. Unfortunately in
@@ -250,6 +266,14 @@ class _IGzipReader(gzip._GzipReader):
         self._new_member = True
         self._last_mtime = None
         self._read_buffer_size = READ_BUFFER_SIZE
+        if detect_bgzip(fp.peek(18)):
+            # bgzip consists of puny little blocks of max 64K uncompressed data
+            # so in practice probably more around 16K in compressed size. A
+            # 128K buffer is a massive overshoot and slows down the
+            # decompression.
+            # bgzip stores the block size, so it can be unpacked more
+            # efficiently but this is outside scope for python-isal.
+            self._read_buffer_size = 16 * 1024
 
     def read(self, size=-1):
         if size < 0:
