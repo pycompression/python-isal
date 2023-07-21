@@ -266,7 +266,7 @@ class _IGzipReader(gzip._GzipReader):
         self._new_member = True
         self._last_mtime = None
         self._read_buffer_size = READ_BUFFER_SIZE
-        if detect_bgzip(fp.peek(18)):
+        if hasattr(fp, "peek") and detect_bgzip(fp.peek(18)):
             # bgzip consists of puny little blocks of max 64K uncompressed data
             # so in practice probably more around 16K in compressed size. A
             # 128K buffer is a massive overshoot and slows down the
