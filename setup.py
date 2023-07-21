@@ -6,9 +6,9 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-import copy
 import functools
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -72,32 +72,17 @@ class BuildIsalExt(build_ext):
                 raise NotImplementedError(
                     f"Unsupported platform: {sys.platform}")
         else:
-            if self.compiler.compiler_type == "msvc":
-                compiler = copy.deepcopy(self.compiler)
-                if not compiler.initialized:
-                    compiler.initialize()
-                compiler_command = f'"{compiler.cc}"'
-                compiler_args = compiler.compile_options
-            elif self.compiler.compiler_type == "unix":
-                compiler_command = self.compiler.compiler[0]
-                compiler_args = self.compiler.compiler[1:]
-            else:
-                raise NotImplementedError("Unknown compiler")
-            isa_l_prefix_dir = build_isa_l(compiler_command,
-                                           " ".join(compiler_args))
+            isa_l_build_dir = build_isa_l()
             if SYSTEM_IS_UNIX:
                 ext.extra_objects = [
-                    os.path.join(isa_l_prefix_dir, "lib", "libisal.a")]
+                    os.path.join(isa_l_build_dir, "bin", "isa-l.a")]
             elif SYSTEM_IS_WINDOWS:
                 ext.extra_objects = [
-                    os.path.join(isa_l_prefix_dir, "isa-l_static.lib")]
+                    os.path.join(isa_l_build_dir, "isa-l_static.lib")]
             else:
                 raise NotImplementedError(
                     f"Unsupported platform: {sys.platform}")
-            ext.include_dirs = [os.path.join(isa_l_prefix_dir,
-                                             "include")]
-            # -fPIC needed for proper static linking
-            ext.extra_compile_args = ["-fPIC"]
+            ext.include_dirs = [isa_l_build_dir]
         super().build_extension(ext)
 
 
@@ -106,62 +91,51 @@ class BuildIsalExt(build_ext):
 # 'cache' is only available from python 3.9 onwards.
 # see: https://docs.python.org/3/library/functools.html#functools.cache
 @functools.lru_cache(maxsize=None)
-def build_isa_l(compiler_command: str, compiler_options: str):
+def build_isa_l():
     # Check for cache
     if BUILD_CACHE:
         if BUILD_CACHE_FILE.exists():
             cache_path = Path(BUILD_CACHE_FILE.read_text())
-            if (cache_path / "include" / "isa-l").exists():
+            if (cache_path / "isa-l.h").exists():
                 return str(cache_path)
 
     # Creating temporary directories
     build_dir = tempfile.mktemp()
-    temp_prefix = tempfile.mkdtemp()
     shutil.copytree(ISA_L_SOURCE, build_dir)
 
     # Build environment is a copy of OS environment to allow user to influence
     # it.
     build_env = os.environ.copy()
-    # Add -fPIC flag to allow static compilation
-    build_env["CC"] = compiler_command
     if SYSTEM_IS_UNIX:
-        build_env["CFLAGS"] = compiler_options + " -fPIC"
-    elif SYSTEM_IS_WINDOWS:
-        # The nmake file has CLFAGS_REL for all the compiler options.
-        # This is added to CFLAGS with all the necessary include options.
-        build_env["CFLAGS_REL"] = compiler_options
+        build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
     if SYSTEM_IS_UNIX:
-        subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
-        subprocess.run([os.path.join(build_dir, "configure"),
-                        "--prefix", temp_prefix], **run_args)
-        subprocess.run(["make", "-j", str(cpu_count)], **run_args)
-        subprocess.run(["make", "-j", str(cpu_count), "install"], **run_args)
+        if platform.machine() == "aarch64":
+            cflags_param = "CFLAGS_aarch64"
+        else:
+            cflags_param = "CFLAGS_"
+        subprocess.run(["make", "-j", str(cpu_count), "-f", "Makefile.unx",
+                        "isa-l.h", "bin/isa-l.a",
+                        f"{cflags_param}={build_env.get('CFLAGS', '')}"],
+                       **run_args)
     elif SYSTEM_IS_WINDOWS:
-        subprocess.run(["nmake", "/E", "/f", "Makefile.nmake"], **run_args)
-        Path(temp_prefix, "include").mkdir()
-        print(temp_prefix, file=sys.stderr)
-        shutil.copytree(os.path.join(build_dir, "include"),
-                        Path(temp_prefix, "include", "isa-l"))
-        shutil.copy(os.path.join(build_dir, "isa-l_static.lib"),
-                    os.path.join(temp_prefix, "isa-l_static.lib"))
-        shutil.copy(os.path.join(build_dir, "isa-l.h"),
-                    os.path.join(temp_prefix, "include", "isa-l.h"))
+        subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
     else:
         raise NotImplementedError(f"Unsupported platform: {sys.platform}")
-    shutil.rmtree(build_dir)
+    shutil.copytree(os.path.join(build_dir, "include"),
+                    os.path.join(build_dir, "isa-l"))
     if BUILD_CACHE:
-        BUILD_CACHE_FILE.write_text(temp_prefix)
-    return temp_prefix
+        BUILD_CACHE_FILE.write_text(build_dir)
+    return build_dir
 
 
 setup(
     name="isal",
-    version="1.1.0",
+    version="1.2.0",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",

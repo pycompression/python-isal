@@ -7,6 +7,24 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.2.0
+-----------------
++ Bgzip files are now detected and a smaller reading buffer is used to
+  accomodate the fact that bgzip blocks are typically less than 64K. (Unlike
+  normal gzip files that consist of one block that spans the entire file.)
+  This has reduced decompression time for bgzip files by roughly 12%.
++ Speed-up source build by using ISA-L Unix-specific makefile rather than the
+  autotools build.
++ Simplify build setup. ISA-L release flags are now used and not
+  overwritten with python release flags when building the included static
+  library.
++ Fix bug where zdict's could not be set for ``isal_zlib.decompressobj`` and
+  ``igzip_lib.IgzipDecompressor``.
++ Escape GIL when calling inflate, deflate, crc32 and adler32 functions just
+  like in CPython. This allows for utilising more CPU cores in combination
+  with the threading module. This comes with a very slight cost in efficiency
+  for strict single-threaded applications.
+
 version 1.1.0
 -----------------
 + Added tests and support for Python 3.11.

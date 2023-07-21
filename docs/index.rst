@@ -82,8 +82,6 @@ python-isal is available on conda-forge and can be installed with::
 This will automatically install the ISA-L library dependency as well, since
 it is available on conda-forge.
 
-.. _differences-with-zlib-and-gzip-modules:
-
 ===========================================
 python-isal as a dependency in your project
 ===========================================
@@ -92,6 +90,7 @@ python-isal as a dependency in your project
    :start-after: .. dependency start
    :end-before: .. dependency end
 
+.. _differences-with-zlib-and-gzip-modules:
 
 ======================================
 Differences with zlib and gzip modules

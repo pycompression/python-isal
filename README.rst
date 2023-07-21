@@ -111,12 +111,12 @@ your project please list a python-isal dependency as follows.
 ``setup.cfg``::
 
     install_requires =
-        isal; platform.machine == "x86_64" or platform.machine == "AMD64"
+        isal; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"
 
 ``setup.py``::
 
     extras_require={
-        ":platform.machine == 'x86_64' or platform.machine == 'AMD64'": ['isal']
+        ":platform.machine == 'x86_64' or platform.machine == 'AMD64' or platform.machine == 'aarch64'": ['isal']
     },
 
 .. dependency end

@@ -23,7 +23,8 @@ Changes compared to CPython:
 
 typedef struct {
     PyObject_HEAD
-    PyObject *unused_data;
+    PyObject *unused_data;    
+    PyThread_type_lock lock;
     PyObject *zdict;
     uint8_t *input_buffer;
     Py_ssize_t input_buffer_size;
@@ -41,11 +42,38 @@ typedef struct {
 static void
 IgzipDecompressor_dealloc(IgzipDecompressor *self)
 {
+    PyThread_free_lock(self->lock);
     PyMem_Free(self->input_buffer);
     Py_CLEAR(self->unused_data);
     Py_CLEAR(self->zdict);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
+
+
+static int
+set_inflate_zdict_IgzipDecompressor(IgzipDecompressor *self)
+{
+    Py_buffer zdict_buf;
+    if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
+        return -1;
+    }
+    if ((size_t)zdict_buf.len > UINT32_MAX) {
+        PyErr_SetString(PyExc_OverflowError,
+                        "zdict length does not fit in an unsigned 32-bit integer");
+        PyBuffer_Release(&zdict_buf);
+        return -1;
+    }
+    int err;
+    err = isal_inflate_set_dict(&self->state,
+                                zdict_buf.buf, (uint32_t)zdict_buf.len);
+    PyBuffer_Release(&zdict_buf);
+    if (err != ISAL_DECOMP_OK) {
+        isal_inflate_error(err);
+        return -1;
+    }
+    return 0;
+}
+
 
 /* Decompress data of length d->bzs_avail_in_real in d->state.next_in.  The output
    buffer is allocated dynamically and returned.  At most max_length bytes are
@@ -99,13 +127,32 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
             else if (obuflen == -2)
                 break;
         
+            Py_BEGIN_ALLOW_THREADS;
             err = isal_inflate(&(self->state));
-            if (err != ISAL_DECOMP_OK){
-                isal_inflate_error(err);
-                goto error;
+            Py_END_ALLOW_THREADS;
+
+            switch(err) {
+                case ISAL_DECOMP_OK:
+                    break;
+                case ISAL_NEED_DICT:                
+                    if  (self->zdict != NULL) {
+                        if (set_inflate_zdict_IgzipDecompressor(self) < 0) {
+                            goto error;
+                        }
+                        else 
+                            break;
+                    }
+                    else {
+                        isal_inflate_error(err);
+                        goto error;
+                    }
+                default:
+                    isal_inflate_error(err);
+                    goto error;
             }
-        } while (self->state.avail_out == 0 && 
-                 self->state.block_state != ISAL_BLOCK_FINISH);
+
+        } while (self->state.avail_out == 0 || err == ISAL_NEED_DICT);
+    
     } while(self->avail_in_real != 0 && 
             self->state.block_state != ISAL_BLOCK_FINISH);
 
@@ -357,6 +404,8 @@ igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self,
 {
     static char *keywords[] = {"", "max_length", NULL};
     static char *format = "y*|n:decompress";
+
+    PyObject *result = NULL;
     Py_buffer data = {NULL, NULL};
     Py_ssize_t max_length = -1;
 
@@ -364,11 +413,14 @@ igzip_lib_IgzipDecompressor_decompress(IgzipDecompressor *self,
             args, kwargs, format, keywords, &data, &max_length)) {
         return NULL;
     }
-    PyObject *result = NULL;
-    if (self->eof)
+    ENTER_ZLIB(self);
+    if (self->eof) {
         PyErr_SetString(PyExc_EOFError, "End of stream already reached");
-    else
+    }
+    else {
         result = decompress(self, data.buf, data.len, max_length);
+    }
+    LEAVE_ZLIB(self);
     PyBuffer_Release(&data);
     return result;
 }
@@ -404,7 +456,6 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
         return NULL;
     }
     IgzipDecompressor *self = PyObject_New(IgzipDecompressor, type); 
-    int err;
     self->eof = 0;
     self->needs_input = 1;
     self->avail_in_real = 0;
@@ -416,30 +467,20 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
         Py_CLEAR(self);
         return NULL;
     }
+    self->lock = PyThread_allocate_lock();
+    if (self->lock == NULL) {
+        Py_DECREF(self);
+        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
+        return NULL;
+    }
     isal_inflate_init(&(self->state));
     self->state.hist_bits = hist_bits;
     self->state.crc_flag = flag;
     if (self->zdict != NULL){
-        Py_buffer zdict_buf;
-        if (PyObject_GetBuffer(self->zdict, &zdict_buf, PyBUF_SIMPLE) == -1) {
-                Py_CLEAR(self);
-                return NULL;
-        }
-        if ((size_t)zdict_buf.len > UINT32_MAX) {
-            PyErr_SetString(PyExc_OverflowError,
-                           "zdict length does not fit in an unsigned 32-bits int");
-            PyBuffer_Release(&zdict_buf);
+        if (set_inflate_zdict_IgzipDecompressor(self) < 0) {
             Py_CLEAR(self);
             return NULL;
         }
-        err = isal_inflate_set_dict(&(self->state), zdict_buf.buf, 
-                                    (uint32_t)zdict_buf.len);
-        PyBuffer_Release(&zdict_buf);
-        if (err != ISAL_DECOMP_OK) {
-            isal_inflate_error(err);
-            Py_CLEAR(self);
-            return NULL;
-        }        
     }
     return (PyObject *)self;
 }
