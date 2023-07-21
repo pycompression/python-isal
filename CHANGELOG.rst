@@ -9,6 +9,10 @@ Changelog
 
 version 1.2.0-dev
 -----------------
++ Bgzip files are now detected and a smaller reading buffer is used to
+  accomodate the fact that bgzip blocks are typically less than 64K. (Unlike
+  normal gzip files that consist of one block that spans the entire file.)
+  This has reduced decompression time for bgzip files by roughly 12%.
 + Speed-up source build by using ISA-L Unix-specific makefile rather than the
   autotools build.
 + Simplify build setup. ISA-L release flags are now used and not
