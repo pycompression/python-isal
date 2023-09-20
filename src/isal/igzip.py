@@ -220,22 +220,6 @@ class IGzipFile(gzip.GzipFile):
         return length
 
 
-def detect_bgzip(header: bytes) -> bool:
-    if len(header) < 18:
-        return False
-    magic, method, flags, mtime, xfl, os, xlen, si1, si2, slen, bsize = \
-        struct.unpack("<HBBIBBHBBHH", header[:18])
-    return (
-            method == 8 and  # Deflate method used
-            flags & 4 and    # There are extra fields
-            xlen == 6 and    # The extra field should be of length 6
-            si1 == 66 and    # BGZIP magic number one
-            si2 == 67 and    # BGZIP magic number two
-            slen == 2        # The length of the 16 bit integer that stores
-                             # the size of the block
-    )
-
-
 def _read_exact(fp, n):
     '''Read exactly *n* bytes from `fp`
 
@@ -255,7 +239,9 @@ def _read_exact(fp, n):
 def _read_gzip_header(fp):
     '''Read a gzip header from `fp` and progress to the end of the header.
 
-    Returns last mtime if header was present or None otherwise.
+    Returns None if header not present. Parses mtime from the header, looks
+    for BGZF format blocks and parses the block size, setting it to None if
+    not present. Returns a tuple of mtime, block_size if a header was present.
     '''
     # Do not use read_exact because a header may not be present. Read twice
     # since fp might be unbuffered.
@@ -340,20 +326,16 @@ class _IGzipReader(gzip._GzipReader):
         self._new_member = True
         self._last_mtime = None
         self._read_buffer_size = READ_BUFFER_SIZE
-        if hasattr(fp, "peek") and detect_bgzip(fp.peek(18)):
-            # bgzip consists of puny little blocks of max 64K uncompressed data
-            # so in practice probably more around 16K in compressed size. A
-            # 128K buffer is a massive overshoot and slows down the
-            # decompression.
-            # bgzip stores the block size, so it can be unpacked more
-            # efficiently but this is outside scope for python-isal.
-            self._read_buffer_size = 16 * 1024
 
     def _read_gzip_header(self):
         header_info = _read_gzip_header(self._fp)
         if header_info is None:
             return False
-        # Get the BGZF block size from the header if present
+        # Get the BGZF block size from the header if present. If the read
+        # buffer size is set to exactly the block size, there will be less
+        # overhead as reading the file will stop right before the gzip trailer.
+        # On normal gzip files nothing happens and this optimization is not
+        # detrimental.
         last_mtime, block_size = header_info
         self._last_mtime = last_mtime
         self._read_buffer_size = (block_size if block_size is not None
