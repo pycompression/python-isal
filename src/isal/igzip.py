@@ -270,6 +270,8 @@ def _read_gzip_header(fp):
     (method, flag, last_mtime) = struct.unpack("<BBIxx", common_fields)
     if method != 8:
         raise BadGzipFile('Unknown compression method')
+    if not flag:  # Likely when data compressed in memory
+        return last_mtime
     header = magic + common_fields
     if flag & FEXTRA:
         # Read & discard the extra field, if present
