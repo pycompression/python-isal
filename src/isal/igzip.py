@@ -435,6 +435,10 @@ def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
 def decompress(data):
     """Decompress a gzip compressed string in one shot.
     Return the decompressed string.
+
+    This function checks for extra gzip members. Using
+    isal_zlib.decompress(data, wbits=31) is faster in cases where only one
+    gzip member is guaranteed to be present.
     """
     decompressed_members = []
     while True:
