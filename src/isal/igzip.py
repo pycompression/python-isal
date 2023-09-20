@@ -270,14 +270,21 @@ def _read_gzip_header(fp):
     (method, flag, last_mtime) = struct.unpack("<BBIxx", common_fields)
     if method != 8:
         raise BadGzipFile('Unknown compression method')
+    block_size = None
     if not flag:  # Likely when data compressed in memory
-        return last_mtime
+        return last_mtime, block_size
     header = magic + common_fields
     if flag & FEXTRA:
         # Read & discard the extra field, if present
         encoded_length = _read_exact(fp, 2)
         extra_len, = struct.unpack("<H", encoded_length)
         extra_field = _read_exact(fp, extra_len)
+        # Bgzip file detection
+        if extra_len == 6:
+            s1, s2, slen, bsize = struct.unpack("<BBHH", extra_field)
+            if s1 == 66 and s2 == 67 and slen == 2:
+                # Bgzip magic and correct slen.
+                block_size = bsize
         header = header + encoded_length + extra_field
     if flag & FNAME:
         # Read and discard a null-terminated string containing the filename
@@ -300,7 +307,7 @@ def _read_gzip_header(fp):
         if header_crc != crc:
             raise BadGzipFile(f"Corrupted gzip header. Checksums do not "
                               f"match: {crc:04x} != {header_crc:04x}")
-    return last_mtime
+    return last_mtime, block_size
 
 
 class _PaddedFile(gzip._PaddedFile):
@@ -343,10 +350,14 @@ class _IGzipReader(gzip._GzipReader):
             self._read_buffer_size = 16 * 1024
 
     def _read_gzip_header(self):
-        last_mtime = _read_gzip_header(self._fp)
-        if last_mtime is None:
+        header_info = _read_gzip_header(self._fp)
+        if header_info is None:
             return False
+        # Get the BGZF block size from the header if present
+        last_mtime, block_size = header_info
         self._last_mtime = last_mtime
+        self._read_buffer_size = (block_size if block_size is not None
+                                  else READ_BUFFER_SIZE)
         return True
 
     def read(self, size=-1):
