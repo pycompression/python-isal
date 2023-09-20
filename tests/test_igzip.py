@@ -392,8 +392,10 @@ def headers():
 
 
 @pytest.mark.parametrize("header", list(headers()))
-def test_gzip_header_end(header):
-    assert igzip._gzip_header_end(header) == len(header)
+def test_read_gzip_header_position(header):
+    fp = io.BytesIO(header)
+    igzip._read_gzip_header(fp)
+    assert fp.tell() == len(header)
 
 
 def test_header_too_short():
