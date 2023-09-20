@@ -299,7 +299,8 @@ class _IGzipReader(gzip._GzipReader):
             if self._new_member:
                 # If the _new_member flag is set, we have to
                 # jump to the next member, if there is one.
-                self._init_read()
+                self._crc = isal_zlib.crc32(b"")
+                self._stream_size = 0  # Decompressed size of unconcatenated stream
                 if not self._read_gzip_header():
                     self._size = self._pos
                     return b""
