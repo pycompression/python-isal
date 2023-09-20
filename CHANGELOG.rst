@@ -7,6 +7,17 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.3.0-dev
+-----------------
++ Gzip headers are now actively checked for a BGZF extra field. If found the
+  block size is taken into account when decompressing. This has further
+  improved bgzf decompression speed by 5% on some files compared to the
+  more generic solution of 1.2.0.
++ Integrated CPython 3.11 code for reading gzip headers. This leads to more
+  commonality between the python-isal code and the upstream gzip.py code.
+  This has enabled the change above. It comes at the cost of a slight increase
+  in overhead at the ``gzip.decompress`` function.
+
 version 1.2.0
 -----------------
 + Bgzip files are now detected and a smaller reading buffer is used to
