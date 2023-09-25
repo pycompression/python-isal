@@ -1,6 +1,7 @@
 import io
 import queue
 import threading
+from time import perf_counter_ns
 
 from . import igzip
 
@@ -18,8 +19,9 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
 
 
 class ThreadedGzipReader(io.RawIOBase):
-    def __init__(self, fp, queue_size = 64, block_size = 128 * 1024):
-        self.fileobj = io.BufferedReader(igzip._IGzipReader(fp))
+    def __init__(self, fp, queue_size = 8, block_size = 128 * 1024):
+        self.raw = fp
+        self.fileobj = igzip._IGzipReader(fp)
         self.pos = 0
         self.read_file = False
         self.queue = queue.Queue(queue_size)
@@ -42,12 +44,7 @@ class ThreadedGzipReader(io.RawIOBase):
                 return
             if not data:
                 return
-            while self.running:
-                try:
-                    block_queue.put(data, timeout=0.01)
-                    break
-                except queue.Full:
-                    pass
+            block_queue.put(data)
 
     def read(self, size: int = -1) -> bytes:
         if size < 0:
