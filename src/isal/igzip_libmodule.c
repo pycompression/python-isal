@@ -527,6 +527,11 @@ static PyTypeObject IgzipDecompressor_Type = {
     .tp_new = igzip_lib_IgzipDecompressor__new__,
 };
 
+#define IGZIPREADER_HEADER 1
+#define IGZIPREADER_DEFLATE_BLOCK 2
+#define IGZIPREADER_TRAILER 3
+#define IGZIPREADER_NULL_BYTES 4
+
 typedef struct _IGzipReaderStruct {
     uint8_t *input_buffer;
     size_t buffer_size;
@@ -534,8 +539,11 @@ typedef struct _IGzipReaderStruct {
     uint8_t *buffer_end; 
     size_t pos;
     ssize_t _size;
+    uint32_t crc32;
+    uint32_t stream_size;
     PyObject *fp;
-    char eof;
+    char stream_state;
+    char all_bytes_read;
     uint32_t _last_mtime;
     PyThread_type_lock lock;
     struct inflate_state state;
@@ -565,7 +573,8 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     Py_INCREF(fp);
     self->fp = fp;
     self->pos = 0;
-    self->eof = 0;
+    self->stream_state = IGZIPREADER_HEADER;
+    self->all_bytes_read = 0;
     self->_size = -1; 
     self->_last_mtime = 0;
     self->lock = PyThread_allocate_lock();
@@ -611,19 +620,101 @@ static inline ssize_t IGzipReader_read_from_file(IGzipReader *self)
     }
     size_t new_size = PyBytes_GET_SIZE(new_bytes_obj);
     if (new_size == 0) {
-        self->eof = 1;
+        self->all_bytes_read = 1;
     }
     memcpy(buffer_end, PyBytes_AS_STRING(new_bytes_obj), new_size);
+    Py_DECREF(new_bytes_obj);
     buffer_end += new_size;
     self->current_pos = current_pos;
     self->buffer_end = buffer_end;
     return 0;
 }
 
+#define EOF_MESSAGE "Compressed file ended before the end-of-stream marker was reached"
+
 static ssize_t 
 IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_size)
 {
-    
+    while (1) {
+        uint8_t *current_pos = self->current_pos;
+        uint8_t *buffer_end = self->buffer_end;        
+        switch (self->stream_state) {
+            case IGZIPREADER_TRAILER:
+                if (buffer_end - current_pos < 8) {
+                    break;
+                }
+                uint32_t crc = *(uint32_t *)current_pos;
+                current_pos += 4;
+                if (crc != self->crc32) {
+                    PyErr_Format(
+                        PyExc_ValueError, 
+                        "CRC check failed %u != %u", 
+                        crc, self->crc32
+                    );
+                    return -1;
+                }
+                uint32_t length = *(uint32_t *)current_pos;
+                current_pos += 4; 
+                if (length != self->stream_size) {
+                    PyErr_SetString(PyExc_ValueError, "Incorrect length of data produced");
+                    return -1;
+                }
+                self->stream_state = IGZIPREADER_NULL_BYTES;
+            case IGZIPREADER_NULL_BYTES:
+                while (current_pos < buffer_end) {
+                    if (*current_pos != 0) {
+                        self->stream_state = IGZIPREADER_HEADER;
+                        break;
+                    }
+                    current_pos += 1;
+                }
+                if (current_pos >= buffer_end) {
+                    break;
+                }
+            case IGZIPREADER_HEADER:
+                size_t remaining = buffer_end - current_pos;
+                if (remaining == 0 && self->all_bytes_read) {
+                    // Reached EOF
+                    return 0;
+                } 
+                if ((buffer_end - current_pos) < 10) {
+                    break;
+                }
+                uint8_t magic1 = current_pos[0];
+                uint8_t magic2 = current_pos[1];
+                
+                if (!(magic1 == 0x1f && magic2 == 0x8b)) {
+                    PyErr_Format(PyExc_ValueError, 
+                        "Not a gzipped file (%R)", 
+                        PyBytes_FromStringAndSize(current_pos, 2));
+                    return -1;
+                }
+                current_pos += 2;
+                uint8_t method = *current_pos;
+                current_pos += 3;
+                if (method != 8) {
+                    PyErr_SetString(PyExc_ValueError, "Unknown compression method");
+                    return -1;
+                }
+                // TODO: Implement further, run isal_deflate_reset.
+                self->stream_state = IGZIPREADER_DEFLATE_BLOCK;
+            case IGZIPREADER_DEFLATE_BLOCK:
+                // TODO: Implement
+                self->stream_state = IGZIPREADER_TRAILER;
+                break;
+            default:
+                Py_UNREACHABLE();
+        }
+        // If buffer_end is reached, nothing was returned and all bytes are 
+        // read we have an EOFError.
+        if (self->all_bytes_read) {
+            PyErr_SetString(PyExc_EOFError, EOF_MESSAGE);
+            return -1;
+        }
+        self->current_pos = current_pos;
+        self->buffer_end = buffer_end;
+        IGzipReader_read_from_file(self);
+    }
 }
 
 static PyMethodDef IgzipLibMethods[] = {
