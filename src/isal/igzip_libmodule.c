@@ -527,6 +527,60 @@ static PyTypeObject IgzipDecompressor_Type = {
     .tp_new = igzip_lib_IgzipDecompressor__new__,
 };
 
+typedef struct _IGzipReaderStruct {
+    uint8_t *input_buffer;
+    size_t buffer_size;
+    uint8_t *current_pos; 
+    uint8_t *buffer_end; 
+    PyObject *buffer_obj;
+    PyObject *fp;
+    size_t pos;
+    char eof;
+    ssize_t _size;
+    PyThread_type_lock lock;
+    struct inflate_state state;
+} IGzipReader;
+
+static void IGzipReader_dealloc(IGzipReader *self) 
+{
+    PyThread_free_lock(self->lock);
+    Py_XDECREF(self->fp);
+    Py_XDECREF(self->buffer_obj);
+}
+
+static PyObject *
+IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+{
+    PyObject *fp;
+    static char *keywords[] = {"fp", NULL};
+    static char *format = "O:IGzipReader";
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords, &fp)) {
+        return NULL;
+    }
+    IGzipReader *self = PyObject_New(IGzipReader, type);
+    self->input_buffer = NULL;
+    self->buffer_size = NULL;
+    self->current_pos = NULL;
+    self->buffer_end = NULL;
+    self->buffer_obj = NULL;
+    Py_INCREF(fp);
+    self->fp = fp;
+    self->pos = 0;
+    self->eof = 0;
+    self->_size = -1; 
+    self->lock = PyThread_allocate_lock();
+    if (self->lock == NULL) {
+        Py_DECREF(self);
+        PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
+        return NULL;
+    }
+    isal_inflate_init(&self->state);
+    self->state.hist_bits = ISAL_DEF_MAX_HIST_BITS;
+    self->state.crc_flag = ISAL_DEFLATE;
+    return (PyObject *)self;
+}
+
 static PyMethodDef IgzipLibMethods[] = {
     IGZIP_LIB_COMPRESS_METHODDEF,
     IGZIP_LIB_DECOMPRESS_METHODDEF,
