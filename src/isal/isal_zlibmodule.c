@@ -1450,7 +1450,8 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_s
                         break;
                     }
                     uint16_t header_crc = *(uint16_t *)header_cursor;
-                    uint16_t crc = 0;
+                    uint16_t crc = crc32_gzip_refl(
+                        0, current_pos, header_cursor - current_pos) & 0xFFFF;
                     if (header_crc != crc) {
                         PyErr_Format(
                             PyExc_ValueError,
