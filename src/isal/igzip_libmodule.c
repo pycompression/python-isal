@@ -532,11 +532,11 @@ typedef struct _IGzipReaderStruct {
     size_t buffer_size;
     uint8_t *current_pos; 
     uint8_t *buffer_end; 
-    PyObject *buffer_obj;
-    PyObject *fp;
     size_t pos;
-    char eof;
     ssize_t _size;
+    PyObject *fp;
+    char eof;
+    uint32_t _last_mtime;
     PyThread_type_lock lock;
     struct inflate_state state;
 } IGzipReader;
@@ -545,7 +545,6 @@ static void IGzipReader_dealloc(IGzipReader *self)
 {
     PyThread_free_lock(self->lock);
     Py_XDECREF(self->fp);
-    Py_XDECREF(self->buffer_obj);
 }
 
 static PyObject *
@@ -563,22 +562,68 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->buffer_size = NULL;
     self->current_pos = NULL;
     self->buffer_end = NULL;
-    self->buffer_obj = NULL;
     Py_INCREF(fp);
     self->fp = fp;
     self->pos = 0;
     self->eof = 0;
     self->_size = -1; 
+    self->_last_mtime = 0;
     self->lock = PyThread_allocate_lock();
     if (self->lock == NULL) {
         Py_DECREF(self);
         PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
+    self->buffer_size == 128 * 1024;
+    self->input_buffer = PyMem_Malloc(self->buffer_size);
+    if (self->input_buffer == NULL) {
+        Py_DECREF(self);
+        return PyErr_NoMemory();    
+    }
+    self->current_pos = self->input_buffer;
+    self->buffer_end = self->current_pos;
     isal_inflate_init(&self->state);
     self->state.hist_bits = ISAL_DEF_MAX_HIST_BITS;
     self->state.crc_flag = ISAL_DEFLATE;
     return (PyObject *)self;
+}
+
+static inline ssize_t IGzipReader_read_from_file(IGzipReader *self) 
+{
+    uint8_t *input_buffer = self->input_buffer;
+    uint8_t *current_pos = self->current_pos;
+    uint8_t *buffer_end = self->buffer_end;
+    size_t remaining = buffer_end - current_pos;
+    if (remaining > 0) {
+        memmove(input_buffer, current_pos, remaining);
+    }
+    current_pos = input_buffer;
+    buffer_end = input_buffer + remaining;
+    size_t read_in_size = self->buffer_size - remaining;
+    PyObject *new_bytes_obj = PyObject_CallMethod(self->fp, "read", "n", read_in_size);
+    if (!PyBytes_CheckExact(new_bytes_obj)) {
+        PyErr_Format(
+            PyExc_TypeError, 
+            "fp did not return bytes upon calling read %R", 
+            self->fp
+        );
+        return -1;
+    }
+    size_t new_size = PyBytes_GET_SIZE(new_bytes_obj);
+    if (new_size == 0) {
+        self->eof = 1;
+    }
+    memcpy(buffer_end, PyBytes_AS_STRING(new_bytes_obj), new_size);
+    buffer_end += new_size;
+    self->current_pos = current_pos;
+    self->buffer_end = buffer_end;
+    return 0;
+}
+
+static ssize_t 
+IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_size)
+{
+    
 }
 
 static PyMethodDef IgzipLibMethods[] = {
