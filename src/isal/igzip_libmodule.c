@@ -539,10 +539,8 @@ typedef struct _IGzipReaderStruct {
     uint8_t *buffer_end; 
     size_t pos;
     ssize_t _size;
-    uint32_t crc32;
-    uint32_t stream_size;
     PyObject *fp;
-    char stream_state;
+    char stream_phase;
     char all_bytes_read;
     uint32_t _last_mtime;
     PyThread_type_lock lock;
@@ -573,7 +571,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     Py_INCREF(fp);
     self->fp = fp;
     self->pos = 0;
-    self->stream_state = IGZIPREADER_HEADER;
+    self->stream_phase = IGZIPREADER_HEADER;
     self->all_bytes_read = 0;
     self->_size = -1; 
     self->_last_mtime = 0;
@@ -593,7 +591,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->buffer_end = self->current_pos;
     isal_inflate_init(&self->state);
     self->state.hist_bits = ISAL_DEF_MAX_HIST_BITS;
-    self->state.crc_flag = ISAL_DEFLATE;
+    self->state.crc_flag = ISAL_GZIP_NO_HDR;
     return (PyObject *)self;
 }
 
@@ -631,6 +629,11 @@ static inline ssize_t IGzipReader_read_from_file(IGzipReader *self)
 }
 
 #define EOF_MESSAGE "Compressed file ended before the end-of-stream marker was reached"
+#define FTEXT 1
+#define FHCRC 2
+#define FEXTRA 4
+#define FNAME 8
+#define FCOMMENT 16
 
 static ssize_t 
 IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_size)
@@ -638,32 +641,33 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_s
     while (1) {
         uint8_t *current_pos = self->current_pos;
         uint8_t *buffer_end = self->buffer_end;        
-        switch (self->stream_state) {
+        switch (self->stream_phase) {
             case IGZIPREADER_TRAILER:
                 if (buffer_end - current_pos < 8) {
                     break;
                 }
                 uint32_t crc = *(uint32_t *)current_pos;
                 current_pos += 4;
-                if (crc != self->crc32) {
+                if (crc != self->state.crc) {
                     PyErr_Format(
                         PyExc_ValueError, 
                         "CRC check failed %u != %u", 
-                        crc, self->crc32
+                        crc, self->state.crc
                     );
                     return -1;
                 }
                 uint32_t length = *(uint32_t *)current_pos;
                 current_pos += 4; 
-                if (length != self->stream_size) {
+                if (length != self->state.total_out) {
                     PyErr_SetString(PyExc_ValueError, "Incorrect length of data produced");
                     return -1;
                 }
-                self->stream_state = IGZIPREADER_NULL_BYTES;
+                self->stream_phase = IGZIPREADER_NULL_BYTES;
             case IGZIPREADER_NULL_BYTES:
                 while (current_pos < buffer_end) {
                     if (*current_pos != 0) {
-                        self->stream_state = IGZIPREADER_HEADER;
+                        current_pos += 1;
+                        self->stream_phase = IGZIPREADER_HEADER;
                         break;
                     }
                     current_pos += 1;
@@ -675,9 +679,10 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_s
                 size_t remaining = buffer_end - current_pos;
                 if (remaining == 0 && self->all_bytes_read) {
                     // Reached EOF
+                    self->_size = self->pos;
                     return 0;
                 } 
-                if ((buffer_end - current_pos) < 10) {
+                if ((remaining) < 10) {
                     break;
                 }
                 uint8_t magic1 = current_pos[0];
@@ -688,19 +693,66 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_s
                         "Not a gzipped file (%R)", 
                         PyBytes_FromStringAndSize(current_pos, 2));
                     return -1;
-                }
-                current_pos += 2;
-                uint8_t method = *current_pos;
-                current_pos += 3;
+                };
+                uint8_t method = current_pos[2];
                 if (method != 8) {
                     PyErr_SetString(PyExc_ValueError, "Unknown compression method");
                     return -1;
                 }
-                // TODO: Implement further, run isal_deflate_reset.
-                self->stream_state = IGZIPREADER_DEFLATE_BLOCK;
+                uint8_t flags = current_pos[3];
+                self->_last_mtime = *(uint32_t *)(current_pos + 4);
+                // Skip XFL and header flag
+                uint8_t *header_cursor = current_pos + 10;
+                if (flags & FEXTRA) {
+                    // Read the extra field and discard it.
+                    if (header_cursor + 2 >= buffer_end) {
+                        break;
+                    }
+                    uint16_t flength = *(uint16_t *)header_cursor;
+                    header_cursor += 2;
+                    if (header_cursor + flength >= buffer_end) {
+                        break;
+                    }
+                    header_cursor += flength;
+                }
+                if (flags & FNAME) {
+                    header_cursor = memchr(header_cursor, 0, buffer_end - header_cursor);
+                    if (header_cursor == NULL) {
+                        break;
+                    }
+                    // skip over the 0 value;
+                    header_cursor +=1;
+                }                 
+                if (flags & FCOMMENT) {
+                    header_cursor = memchr(header_cursor, 0, buffer_end - header_cursor);
+                    if (header_cursor == NULL) {
+                        break;
+                    }
+                    // skip over the 0 value;
+                    header_cursor +=1;
+                }
+                if (flags & FHCRC) {
+                    if (header_cursor + 2 >= buffer_end) {
+                        break;
+                    }
+                    uint16_t header_crc = *(uint16_t *)header_cursor;
+                    uint16_t crc = 0;
+                    if (header_crc != crc) {
+                        PyErr_Format(
+                            PyExc_ValueError,
+                            "Corrupted gzip header. Checksums do not"
+                            "match: %u != %u", 
+                            crc, header_crc
+                        );    
+                    }
+                    header_cursor += 2;
+                }
+                current_pos = header_cursor;
+                isal_deflate_reset(&self->state);
+                self->stream_phase = IGZIPREADER_DEFLATE_BLOCK;
             case IGZIPREADER_DEFLATE_BLOCK:
                 // TODO: Implement
-                self->stream_state = IGZIPREADER_TRAILER;
+                self->stream_phase = IGZIPREADER_TRAILER;
                 break;
             default:
                 Py_UNREACHABLE();
