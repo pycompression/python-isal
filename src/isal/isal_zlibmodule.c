@@ -1350,7 +1350,7 @@ static inline ssize_t IGzipReader_read_from_file(IGzipReader *self)
 #define FCOMMENT 16
 
 static ssize_t 
-IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_size)
+IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
     while (1) {
         uint8_t *current_pos = self->current_pos;
@@ -1466,7 +1466,10 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *buffer, size_t buffer_s
                 isal_deflate_reset(&self->state);
                 self->stream_phase = IGZIPREADER_DEFLATE_BLOCK;
             case IGZIPREADER_DEFLATE_BLOCK:
-                // TODO: Implement
+                self->state.next_in = current_pos;
+                self->state.avail_in = buffer_end - current_pos;
+                self->state.next_out = out_buffer;
+               // TODO continue
                 self->stream_phase = IGZIPREADER_TRAILER;
                 break;
             default:
