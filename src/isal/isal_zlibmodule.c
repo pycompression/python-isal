@@ -1647,7 +1647,7 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
             return NULL;
         }
         ssize_t written_size = IGzipReader_read_into_buffer(
-            self, (uint8_t *)PyBytes_AS_STRING, chunk_size);
+            self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
         if (written_size < 0) {
             Py_DECREF(chunk);
             Py_DECREF(chunk_list);
