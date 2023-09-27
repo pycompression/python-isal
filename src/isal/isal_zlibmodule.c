@@ -1784,19 +1784,6 @@ PyInit_isal_zlib(void)
         return NULL;
     }
 
-    /* Import IO.RawIOBase and set that as the base type for IGzipReader 
-       This provides readall, readlines etc. */
-    PyObject *io_module = PyImport_ImportModule("io");
-    if (io_module == NULL) {
-        return NULL;
-    }
-
-    PyObject *RawIOBase = PyObject_GetAttrString(io_module, "RawIOBase");
-    if (RawIOBase == NULL) {
-        return NULL;
-    }
-
-    IGzipReader_Type.tp_base = (PyTypeObject *)RawIOBase;
     if (PyType_Ready(&IGzipReader_Type) != 0) {
         return NULL;
     }
