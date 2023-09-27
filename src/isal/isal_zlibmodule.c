@@ -1247,6 +1247,7 @@ static PyTypeObject IsalZlibDecompType = {
 #define IGZIPREADER_NULL_BYTES 4
 
 typedef struct _IGzipReaderStruct {
+    PyObject_HEAD;
     uint8_t *input_buffer;
     size_t buffer_size;
     uint8_t *current_pos; 
@@ -1693,6 +1694,18 @@ IGzipReader_tell(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
     return PyLong_FromLongLong(self->_pos);
 }
 
+static PyObject *
+IGzipReader_get_last_mtime(IGzipReader *self, void *Py_UNUSED(closure)) 
+{
+    return PyLong_FromUnsignedLong(self->_last_mtime);
+}
+
+static PyObject *
+IGzipReader_get_closed(IGzipReader *self, void *Py_UNUSED(closure)) 
+{
+    return PyBool_FromLong(self->closed);
+}
+
 static PyMethodDef IGzipReader_methods[] = {
     {"readinto", (PyCFunction)IGzipReader_readinto, METH_O, NULL},
     {"readable", (PyCFunction)IGzipReader_readable, METH_NOARGS, NULL},
@@ -1704,6 +1717,12 @@ static PyMethodDef IGzipReader_methods[] = {
     {NULL},
 };
 
+static PyGetSetDef IGzipReader_properties[] = {
+    {"closed", (getter)IGzipReader_get_closed, NULL, NULL, NULL},
+    {"_last_mtime", (getter)IGzipReader_get_last_mtime, NULL, NULL, NULL},
+    {NULL},
+};
+
 static PyTypeObject IGzipReader_Type = {
     .tp_name = "isal_zlib._IGzipReader",
     .tp_basicsize = sizeof(IGzipReader),
@@ -1711,6 +1730,7 @@ static PyTypeObject IGzipReader_Type = {
     .tp_dealloc = (destructor)IGzipReader_dealloc,
     .tp_new = (newfunc)(IGzipReader__new__),
     .tp_methods = IGzipReader_methods,
+    .tp_getset = IGzipReader_properties,
 };
 
 PyDoc_STRVAR(isal_zlib_module_documentation,
