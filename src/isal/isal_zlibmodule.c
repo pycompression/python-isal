@@ -1256,6 +1256,7 @@ typedef struct _IGzipReaderStruct {
     PyObject *fp;
     char stream_phase;
     char all_bytes_read;
+    char closed;
     uint32_t _last_mtime;
     PyThread_type_lock lock;
     struct inflate_state state;
@@ -1287,6 +1288,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->all_bytes_read = 0;
     self->_size = -1; 
     self->_last_mtime = 0;
+    self->closed = 0;
     self->lock = PyThread_allocate_lock();
     if (self->lock == NULL) {
         Py_DECREF(self);
@@ -1626,6 +1628,56 @@ IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs)
 }
 
 static PyObject *
+IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore)) 
+{
+    /* Try to consume the entire buffer without too much overallocation */
+    Py_ssize_t chunk_size = self->buffer_size * 4;
+    PyObject *chunk_list = PyList_New(0);
+    if (chunk_list == NULL) {
+        return NULL;
+    }
+    while (1) {
+        PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
+        if (chunk == NULL) {
+            Py_DECREF(chunk_list);
+            return NULL;
+        }
+        ssize_t written_size = IGzipReader_read_into_buffer(
+            self, (uint8_t *)PyBytes_AS_STRING, chunk_size);
+        if (written_size < 0) {
+            Py_DECREF(chunk);
+            Py_DECREF(chunk_list);
+            return NULL;
+        }
+        if (_PyBytes_Resize(&chunk, written_size) < 0) {
+            Py_DECREF(chunk_list);
+            return NULL;
+        }
+        if (PyList_Append(chunk_list, chunk) < 0) {
+            Py_DECREF(chunk);
+            Py_DECREF(chunk_list);
+            return NULL;
+        }
+    }
+    PyObject *empty_bytes = PyBytes_FromStringAndSize(NULL, 0);
+    if (empty_bytes == NULL) {
+        Py_DECREF(chunk_list);
+        return NULL;
+    }
+    PyObject *ret = _PyBytes_Join(empty_bytes, chunk_list);
+    Py_DECREF(empty_bytes);
+    return ret;
+}
+
+static PyObject *
+IGzipReader_close(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+    if (!self->closed) {
+        self->closed = 1;
+    }
+    Py_RETURN_NONE;
+}
+
+static PyObject *
 IGzipReader_readable(IGzipReader *self, PyObject *Py_UNUSED(ignore))
 {
     Py_RETURN_TRUE;
@@ -1647,6 +1699,8 @@ static PyMethodDef IGzipReader_methods[] = {
     {"seekable", (PyCFunction)IGzipReader_seekable, METH_NOARGS, NULL},
     {"tell", (PyCFunction)IGzipReader_tell, METH_NOARGS, NULL},
     {"seek", (PyCFunction)IGzipReader_seek, METH_VARARGS | METH_KEYWORDS, NULL},
+    {"close", (PyCFunction)IGzipReader_close, METH_NOARGS, NULL},
+    {"readall", (PyCFunction)IGzipReader_readall, METH_NOARGS, NULL},
     {NULL},
 };
 
