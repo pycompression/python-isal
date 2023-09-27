@@ -1353,6 +1353,8 @@ static inline ssize_t IGzipReader_read_from_file(IGzipReader *self)
 #define FNAME 8
 #define FCOMMENT 16
 
+static PyObject *BadGzipFile; // Import BadGzipFile error for consistency
+
 static ssize_t 
 IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
@@ -1384,14 +1386,14 @@ igzipreader_read_header:
                 uint8_t magic2 = current_pos[1];
                 
                 if (!(magic1 == 0x1f && magic2 == 0x8b)) {
-                    PyErr_Format(PyExc_ValueError, 
+                    PyErr_Format(BadGzipFile, 
                         "Not a gzipped file (%R)", 
                         PyBytes_FromStringAndSize((char *)current_pos, 2));
                     return -1;
                 };
                 uint8_t method = current_pos[2];
                 if (method != 8) {
-                    PyErr_SetString(PyExc_ValueError, "Unknown compression method");
+                    PyErr_SetString(BadGzipFile, "Unknown compression method");
                     return -1;
                 }
                 uint8_t flags = current_pos[3];
@@ -1435,7 +1437,7 @@ igzipreader_read_header:
                         0, current_pos, header_cursor - current_pos) & 0xFFFF;
                     if (header_crc != crc) {
                         PyErr_Format(
-                            PyExc_ValueError,
+                            BadGzipFile,
                             "Corrupted gzip header. Checksums do not"
                             "match: %u != %u", 
                             crc, header_crc
@@ -1482,7 +1484,7 @@ igzipreader_read_header:
                 current_pos += 4;
                 if (crc != self->state.crc) {
                     PyErr_Format(
-                        PyExc_ValueError, 
+                        BadGzipFile, 
                         "CRC check failed %u != %u", 
                         crc, self->state.crc
                     );
@@ -1491,7 +1493,7 @@ igzipreader_read_header:
                 uint32_t length = *(uint32_t *)current_pos;
                 current_pos += 4; 
                 if (length != self->state.total_out) {
-                    PyErr_SetString(PyExc_ValueError, "Incorrect length of data produced");
+                    PyErr_SetString(BadGzipFile, "Incorrect length of data produced");
                     return -1;
                 }
                 self->stream_phase = IGZIPREADER_NULL_BYTES;
@@ -1818,10 +1820,18 @@ PyInit_isal_zlib(void)
     if (IsalError == NULL) {
         return NULL;
     }
-    Py_INCREF(IsalError);
-    if (PyModule_AddObject(m, "error", IsalError) < 0) {
+
+    PyObject *gzip_module = PyImport_ImportModule("gzip");
+    if (gzip_module == NULL) {
         return NULL;
     }
+
+    BadGzipFile = PyObject_GetAttrString(gzip_module, "BadGzipFile");
+    if (BadGzipFile == NULL) {
+        return NULL;
+    }
+    Py_INCREF(BadGzipFile);
+
 
     Py_INCREF(IsalError);
     if (PyModule_AddObject(m, "IsalError", IsalError) < 0) {
