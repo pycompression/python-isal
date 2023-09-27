@@ -1323,6 +1323,9 @@ static inline ssize_t IGzipReader_read_from_file(IGzipReader *self)
     buffer_end = input_buffer + remaining;
     size_t read_in_size = self->buffer_size - remaining;
     PyObject *new_bytes_obj = PyObject_CallMethod(self->fp, "read", "n", read_in_size);
+    if (new_bytes_obj == NULL) {
+        return -1;
+    }
     if (!PyBytes_CheckExact(new_bytes_obj)) {
         PyErr_Format(
             PyExc_TypeError, 
