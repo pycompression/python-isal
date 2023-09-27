@@ -1541,9 +1541,27 @@ IGzipReader_readinto(IGzipReader *self, PyObject *buffer_obj)
     return PyLong_FromSsize_t((Py_ssize_t)written_size);
 }
 
+static PyObject *
+IGzipReader_readable(IGzipReader *self, PyObject *Py_UNUSED(ignore))
+{
+    Py_RETURN_TRUE;
+}
+
+static PyObject *
+IGzipReader_seekable(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+    return PyObject_CallMethod(self->fp, "seekable", NULL);
+}
+
+static PyObject *
+IGzipReader_tell(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+    return PyLong_FromSize_t(self->pos);
+}
+
 static PyMethodDef IGzipReader_methods[] = {
-    {"readinto", (PyCFunction)IGzipReader_readinto, IGzipReader_readinto_method,
-    NULL},
+    {"readinto", (PyCFunction)IGzipReader_readinto, METH_O, NULL},
+    {"readable", (PyCFunction)IGzipReader_readable, METH_NOARGS, NULL},
+    {"seekable", (PyCFunction)IGzipReader_seekable, METH_NOARGS, NULL},
+    {"tell", (PyCFunction)IGzipReader_tell, METH_NOARGS, NULL},
     {NULL},
 };
 
