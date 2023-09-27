@@ -1461,6 +1461,7 @@ igzipreader_read_header:
                 }
                 bytes_written = self->state.next_out - out_buffer;
                 self->_pos += bytes_written;
+                current_pos = self->state.next_in;
                 if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
                     if (bytes_written == 0) {
                         break;
@@ -1468,6 +1469,7 @@ igzipreader_read_header:
                     self->current_pos = current_pos;
                     return bytes_written;
                 }
+                current_pos -= bitbuffer_size(&self->state);
                 // Block done check trailer.
                 self->stream_phase = IGZIPREADER_TRAILER;
             case IGZIPREADER_TRAILER:
@@ -1652,6 +1654,9 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
             Py_DECREF(chunk);
             Py_DECREF(chunk_list);
             return NULL;
+        }
+        if (written_size == 0) {
+            break;
         }
         if (_PyBytes_Resize(&chunk, written_size) < 0) {
             Py_DECREF(chunk_list);
