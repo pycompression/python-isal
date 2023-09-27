@@ -1695,9 +1695,17 @@ IGzipReader_tell(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
 }
 
 static PyObject *
+IGzipReader_flush(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+    Py_RETURN_NONE;
+}
+
+static PyObject *
 IGzipReader_get_last_mtime(IGzipReader *self, void *Py_UNUSED(closure)) 
 {
-    return PyLong_FromUnsignedLong(self->_last_mtime);
+    if (self->_last_mtime) {
+        return PyLong_FromUnsignedLong(self->_last_mtime);
+    }
+    Py_RETURN_NONE;
 }
 
 static PyObject *
@@ -1714,6 +1722,7 @@ static PyMethodDef IGzipReader_methods[] = {
     {"seek", (PyCFunction)IGzipReader_seek, METH_VARARGS | METH_KEYWORDS, NULL},
     {"close", (PyCFunction)IGzipReader_close, METH_NOARGS, NULL},
     {"readall", (PyCFunction)IGzipReader_readall, METH_NOARGS, NULL},
+    {"flush", (PyCFunction)IGzipReader_flush, METH_NOARGS, NULL},
     {NULL},
 };
 

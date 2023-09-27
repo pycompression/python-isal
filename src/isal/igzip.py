@@ -39,6 +39,7 @@ from typing import Optional, SupportsInt
 import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
+from  .isal_zlib import _IGzipReader
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile",
            "READ_BUFFER_SIZE"]
@@ -166,7 +167,7 @@ class IGzipFile(gzip.GzipFile):
                                                   isal_zlib.DEF_MEM_LEVEL,
                                                   0)
         if self.mode == READ:
-            raw = isal_zlib._IGzipReader(self.fileobj)
+            raw = _IGzipReader(self.fileobj)
             self._buffer = io.BufferedReader(raw)
 
     def __repr__(self):
@@ -222,7 +223,7 @@ class IGzipFile(gzip.GzipFile):
 
 # Aliases for improved compatibility with CPython gzip module.
 GzipFile = IGzipFile
-_GzipReader = isal_zlib._IGzipReader
+_GzipReader = _IGzipReader
 
 
 def _create_simple_gzip_header(compresslevel: int,
@@ -264,7 +265,7 @@ def decompress(data):
     gzip member is guaranteed to be present.
     """
     fp = io.BytesIO(data)
-    reader = isal_zlib._IGzipReader(fp)
+    reader = _IGzipReader(fp)
     return reader.readall()
 
 
