@@ -1541,54 +1541,8 @@ IGzipReader_readinto(IGzipReader *self, PyObject *buffer_obj)
     return PyLong_FromSsize_t((Py_ssize_t)written_size);
 }
 
-#define IGzipReader_readall_method METH_NOARGS
-
-static PyObject *
-IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore)) 
-{
-    /* Try to consume the entire buffer without too much overallocation */
-    Py_ssize_t chunk_size = self->buffer_size * 4;
-    PyObject *chunk_list = PyList_New(0);
-    if (chunk_list == NULL) {
-        return NULL;
-    }
-    while (1) {
-        PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
-        if (chunk == NULL) {
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        ssize_t written_size = IGzipReader_read_into_buffer(
-            self, (uint8_t *)PyBytes_AS_STRING, chunk_size);
-        if (written_size < 0) {
-            Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        if (_PyBytes_Resize(&chunk, written_size) < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        if (PyList_Append(chunk_list, chunk) < 0) {
-            Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-    }
-    PyObject *empty_bytes = PyBytes_FromStringAndSize(NULL, 0);
-    if (empty_bytes == NULL) {
-        Py_DECREF(chunk_list);
-        return NULL;
-    }
-    PyObject *ret = _PyBytes_Join(empty_bytes, chunk_list);
-    Py_DECREF(empty_bytes);
-    return ret;
-}
-
 static PyMethodDef IGzipReader_methods[] = {
     {"readinto", (PyCFunction)IGzipReader_readinto, IGzipReader_readinto_method,
-    NULL},
-    {"readall", (PyCFunction)IGzipReader_readall, IGzipReader_readall_method,
     NULL},
     {NULL},
 };
@@ -1673,6 +1627,19 @@ PyInit_isal_zlib(void)
         return NULL;
     }
 
+    /* Import IO.RawIOBase and set that as the base type for IGzipReader 
+       This provides readall, readlines etc. */
+    PyObject *io_module = PyImport_ImportModule("io");
+    if (io_module == NULL) {
+        return NULL;
+    }
+
+    PyObject *RawIOBase = PyObject_GetAttrString(io_module, "RawIOBase");
+    if (RawIOBase == NULL) {
+        return NULL;
+    }
+
+    IGzipReader_Type.tp_base = (PyTypeObject *)RawIOBase;
     if (PyType_Ready(&IGzipReader_Type) != 0) {
         return NULL;
     }
