@@ -1651,7 +1651,7 @@ static PyMethodDef IGzipReader_methods[] = {
 };
 
 static PyTypeObject IGzipReader_Type = {
-    .tp_name = "isal_zlib.IGzipReader",
+    .tp_name = "isal_zlib._IGzipReader",
     .tp_basicsize = sizeof(IGzipReader),
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor)IGzipReader_dealloc,
@@ -1747,7 +1747,7 @@ PyInit_isal_zlib(void)
         return NULL;
     }
     Py_INCREF(&IGzipReader_Type);
-    if (PyModule_AddObject(m, "IGzipReader", (PyObject *)&IGzipReader_Type) < 0) {
+    if (PyModule_AddObject(m, "_IGzipReader", (PyObject *)&IGzipReader_Type) < 0) {
         return NULL;
     }
 

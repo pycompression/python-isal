@@ -5,6 +5,9 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
+import io
+import typing
+
 ISAL_BEST_SPEED: int
 ISAL_BEST_COMPRESSION: int
 ISAL_DEFAULT_COMPRESSION: int
@@ -61,3 +64,6 @@ def compressobj(level: int = ISAL_DEFAULT_COMPRESSION,
                 strategy: int = Z_DEFAULT_STRATEGY,
                 zdict = None) -> Compress: ...
 def decompressobj(wbits: int = MAX_WBITS, zdict = None) -> Decompress: ...
+
+class _IGzipReader(io.RawIOBase):
+    def __init__(self, fp: typing.BinaryIO): ...

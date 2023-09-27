@@ -166,7 +166,7 @@ class IGzipFile(gzip.GzipFile):
                                                   isal_zlib.DEF_MEM_LEVEL,
                                                   0)
         if self.mode == READ:
-            raw = _IGzipReader(self.fileobj)
+            raw = isal_zlib._IGzipReader(self.fileobj)
             self._buffer = io.BufferedReader(raw)
 
     def __repr__(self):
@@ -220,186 +220,9 @@ class IGzipFile(gzip.GzipFile):
         return length
 
 
-def _read_exact(fp, n):
-    '''Read exactly *n* bytes from `fp`
-
-    This method is required because fp may be unbuffered,
-    i.e. return short reads.
-    '''
-    data = fp.read(n)
-    while len(data) < n:
-        b = fp.read(n - len(data))
-        if not b:
-            raise EOFError("Compressed file ended before the "
-                           "end-of-stream marker was reached")
-        data += b
-    return data
-
-
-def _read_gzip_header(fp):
-    '''Read a gzip header from `fp` and progress to the end of the header.
-
-    Returns None if header not present. Parses mtime from the header, looks
-    for BGZF format blocks and parses the block size, setting it to None if
-    not present. Returns a tuple of mtime, block_size if a header was present.
-    '''
-    # Do not use read_exact because a header may not be present. Read twice
-    # since fp might be unbuffered.
-    magic = fp.read(1) + fp.read(1)
-    if magic == b'':
-        return None
-
-    if magic != b'\037\213':
-        raise BadGzipFile('Not a gzipped file (%r)' % magic)
-
-    common_fields = _read_exact(fp, 8)
-    (method, flag, last_mtime) = struct.unpack("<BBIxx", common_fields)
-    if method != 8:
-        raise BadGzipFile('Unknown compression method')
-    block_size = None
-    if not flag:  # Likely when data compressed in memory
-        return last_mtime, block_size
-    header = magic + common_fields
-    if flag & FEXTRA:
-        # Read & discard the extra field, if present
-        encoded_length = _read_exact(fp, 2)
-        extra_len, = struct.unpack("<H", encoded_length)
-        extra_field = _read_exact(fp, extra_len)
-        # Bgzip file detection
-        if extra_len == 6:
-            s1, s2, slen, bsize = struct.unpack("<BBHH", extra_field)
-            if s1 == 66 and s2 == 67 and slen == 2:
-                # Bgzip magic and correct slen.
-                block_size = bsize
-        header = header + encoded_length + extra_field
-    if flag & FNAME:
-        # Read and discard a null-terminated string containing the filename
-        while True:
-            s = _read_exact(fp, 1)
-            header += s
-            if s == b'\000':
-                break
-    if flag & FCOMMENT:
-        # Read and discard a null-terminated string containing a comment
-        while True:
-            s = _read_exact(fp, 1)
-            header += s
-            if s == b'\000':
-                break
-    if flag & FHCRC:
-        header_crc_encoded = _read_exact(fp, 2)
-        header_crc, = struct.unpack("<H", header_crc_encoded)
-        crc = isal_zlib.crc32(header) & 0xFFFF
-        if header_crc != crc:
-            raise BadGzipFile(f"Corrupted gzip header. Checksums do not "
-                              f"match: {crc:04x} != {header_crc:04x}")
-    return last_mtime, block_size
-
-
-class _PaddedFile(gzip._PaddedFile):
-    # Overwrite _PaddedFile from gzip as its prepend method assumes that
-    # the prepended data is always read from its _buffer. Unfortunately in
-    # isal_zlib.decompressobj there is a bitbuffer as well which may be added.
-    # So an extra check is added to prepend to ensure no extra data in front
-    # of the buffer was present. (Negative self._read).
-    def prepend(self, prepend=b''):
-        if self._read is not None:
-            # Assume data was read since the last prepend() call
-            self._read -= len(prepend)
-            if self._read >= 0:
-                return
-            # If self._read is negative the data was read further back and
-            # the buffer needs to be reset.
-        self._buffer = prepend
-        self._length = len(self._buffer)
-        self._read = 0
-
-
-class _IGzipReader(gzip._GzipReader):
-    def __init__(self, fp):
-        # Call the init method of gzip._GzipReader's parent here.
-        # It is not very invasive and allows us to override _PaddedFile
-        _compression.DecompressReader.__init__(
-            self, _PaddedFile(fp), igzip_lib.IgzipDecompressor,
-            hist_bits=igzip_lib.MAX_HIST_BITS, flag=igzip_lib.DECOMP_DEFLATE)
-        # Set flag indicating start of a new member
-        self._new_member = True
-        self._last_mtime = None
-        self._read_buffer_size = READ_BUFFER_SIZE
-
-    def _read_gzip_header(self):
-        header_info = _read_gzip_header(self._fp)
-        if header_info is None:
-            return False
-        # Get the BGZF block size from the header if present. If the read
-        # buffer size is set to exactly the block size, there will be less
-        # overhead as reading the file will stop right before the gzip trailer.
-        # On normal gzip files nothing happens and this optimization is not
-        # detrimental.
-        last_mtime, block_size = header_info
-        self._last_mtime = last_mtime
-        self._read_buffer_size = (block_size if block_size is not None
-                                  else READ_BUFFER_SIZE)
-        return True
-
-    def read(self, size=-1):
-        if size < 0:
-            return self.readall()
-        # size=0 is special because decompress(max_length=0) is not supported
-        if not size:
-            return b""
-
-        # For certain input data, a single
-        # call to decompress() may not return
-        # any data. In this case, retry until we get some data or reach EOF.
-        while True:
-            if self._decompressor.eof:
-                # Ending case: we've come to the end of a member in the file,
-                # so finish up this member, and read a new gzip header.
-                # Check the CRC and file size, and set the flag so we read
-                # a new member
-                self._read_eof()
-                self._new_member = True
-                self._decompressor = self._decomp_factory(
-                    **self._decomp_args)
-
-            if self._new_member:
-                # If the _new_member flag is set, we have to
-                # jump to the next member, if there is one.
-                self._crc = isal_zlib.crc32(b"")
-                # Decompressed size of unconcatenated stream
-                self._stream_size = 0
-                if not self._read_gzip_header():
-                    self._size = self._pos
-                    return b""
-                self._new_member = False
-
-            # Read a chunk of data from the file
-            if self._decompressor.needs_input:
-                buf = self._fp.read(self._read_buffer_size)
-                uncompress = self._decompressor.decompress(buf, size)
-            else:
-                uncompress = self._decompressor.decompress(b"", size)
-            if self._decompressor.unused_data != b"":
-                # Prepend the already read bytes to the fileobj so they can
-                # be seen by _read_eof() and _read_gzip_header()
-                self._fp.prepend(self._decompressor.unused_data)
-
-            if uncompress != b"":
-                break
-            if buf == b"":
-                raise EOFError("Compressed file ended before the "
-                               "end-of-stream marker was reached")
-
-        self._crc = isal_zlib.crc32(uncompress, self._crc)
-        self._stream_size += len(uncompress)
-        self._pos += len(uncompress)
-        return uncompress
-
-
 # Aliases for improved compatibility with CPython gzip module.
 GzipFile = IGzipFile
-_GzipReader = _IGzipReader
+_GzipReader = isal_zlib._IGzipReader
 
 
 def _create_simple_gzip_header(compresslevel: int,
@@ -440,28 +263,9 @@ def decompress(data):
     isal_zlib.decompress(data, wbits=31) is faster in cases where only one
     gzip member is guaranteed to be present.
     """
-    decompressed_members = []
-    while True:
-        if not data:  # Empty data returns empty bytestring
-            return b"".join(decompressed_members)
-        fp = io.BytesIO(data)
-        if _read_gzip_header(fp) is None:
-            return b"".join(decompressed_members)
-        header_end = fp.tell()
-        # Use a zlib raw deflate compressor
-        do = isal_zlib.decompressobj(wbits=-isal_zlib.MAX_WBITS)
-        # Read all the data except the header
-        decompressed = do.decompress(data[header_end:])
-        if not do.eof or len(do.unused_data) < 8:
-            raise EOFError("Compressed file ended before the end-of-stream "
-                           "marker was reached")
-        crc, length = struct.unpack("<II", do.unused_data[:8])
-        if crc != isal_zlib.crc32(decompressed):
-            raise BadGzipFile("CRC check failed")
-        if length != (len(decompressed) & 0xffffffff):
-            raise BadGzipFile("Incorrect length of data produced")
-        decompressed_members.append(decompressed)
-        data = do.unused_data[8:].lstrip(b"\x00")
+    fp = io.BytesIO(data)
+    reader = isal_zlib._IGzipReader(fp)
+    return reader.readall()
 
 
 def _argument_parser():
