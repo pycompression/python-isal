@@ -1671,6 +1671,35 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
 }
 
 static PyObject *
+IGzipReader_read(IGzipReader *self, PyObject *args) 
+{
+    Py_ssize_t size = -1;
+    if (PyArg_ParseTuple(args, "|n:IGzipReader.read", &size) < 0) {
+        return NULL;
+    }
+    if (size < 0) {
+        return IGzipReader_readall(self, NULL);
+    }
+    if (size == 0) {
+        return PyBytes_FromStringAndSize(NULL, 0);
+    }
+    Py_ssize_t answer_size = Py_MIN((Py_ssize_t)self->buffer_size * 10, size);
+    PyObject *answer = PyBytes_FromStringAndSize(NULL, answer_size);
+    if (answer == NULL) {
+        return NULL;
+    }
+    ssize_t written_bytes = IGzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AS_STRING(answer), answer_size);
+    if (written_bytes < 0) {
+        Py_DECREF(answer);
+        return NULL;
+    }
+    if (_PyBytes_Resize(&answer, written_bytes) < 0) {
+        return NULL;
+    }
+    return answer;
+}
+
+static PyObject *
 IGzipReader_close(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
     if (!self->closed) {
         self->closed = 1;
@@ -1723,6 +1752,7 @@ static PyMethodDef IGzipReader_methods[] = {
     {"close", (PyCFunction)IGzipReader_close, METH_NOARGS, NULL},
     {"readall", (PyCFunction)IGzipReader_readall, METH_NOARGS, NULL},
     {"flush", (PyCFunction)IGzipReader_flush, METH_NOARGS, NULL},
+    {"read", (PyCFunction)IGzipReader_read, METH_VARARGS, NULL},
     {NULL},
 };
 
