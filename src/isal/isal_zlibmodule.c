@@ -1278,8 +1278,6 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         return NULL;
     }
     IGzipReader *self = PyObject_New(IGzipReader, type);
-    self->input_buffer = NULL;
-    self->buffer_size = NULL;
     self->current_pos = NULL;
     self->buffer_end = NULL;
     Py_INCREF(fp);
@@ -1295,7 +1293,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
-    self->buffer_size == 128 * 1024;
+    self->buffer_size = 128 * 1024;
     self->input_buffer = PyMem_Malloc(self->buffer_size);
     if (self->input_buffer == NULL) {
         Py_DECREF(self);
@@ -1352,49 +1350,26 @@ static inline ssize_t IGzipReader_read_from_file(IGzipReader *self)
 static ssize_t 
 IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
+    if (out_buffer_size > UINT32_MAX) {
+        PyErr_SetString(
+            PyExc_RuntimeError, 
+            "Internal function IGzipReader_read_into_buffer called "
+            "with a too large buffer");
+            return -1;
+    }
+    ssize_t bytes_written = 0;
     while (1) {
         uint8_t *current_pos = self->current_pos;
         uint8_t *buffer_end = self->buffer_end;        
         switch (self->stream_phase) {
-            case IGZIPREADER_TRAILER:
-                if (buffer_end - current_pos < 8) {
-                    break;
-                }
-                uint32_t crc = *(uint32_t *)current_pos;
-                current_pos += 4;
-                if (crc != self->state.crc) {
-                    PyErr_Format(
-                        PyExc_ValueError, 
-                        "CRC check failed %u != %u", 
-                        crc, self->state.crc
-                    );
-                    return -1;
-                }
-                uint32_t length = *(uint32_t *)current_pos;
-                current_pos += 4; 
-                if (length != self->state.total_out) {
-                    PyErr_SetString(PyExc_ValueError, "Incorrect length of data produced");
-                    return -1;
-                }
-                self->stream_phase = IGZIPREADER_NULL_BYTES;
-            case IGZIPREADER_NULL_BYTES:
-                while (current_pos < buffer_end) {
-                    if (*current_pos != 0) {
-                        current_pos += 1;
-                        self->stream_phase = IGZIPREADER_HEADER;
-                        break;
-                    }
-                    current_pos += 1;
-                }
-                if (current_pos >= buffer_end) {
-                    break;
-                }
             case IGZIPREADER_HEADER:
+igzipreader_read_header:
                 size_t remaining = buffer_end - current_pos;
                 if (remaining == 0 && self->all_bytes_read) {
                     // Reached EOF
                     self->_size = self->pos;
-                    return 0;
+                    self->current_pos = current_pos;
+                    return bytes_written;
                 } 
                 if ((remaining) < 10) {
                     break;
@@ -1405,7 +1380,7 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *out_buffer, size_t out_
                 if (!(magic1 == 0x1f && magic2 == 0x8b)) {
                     PyErr_Format(PyExc_ValueError, 
                         "Not a gzipped file (%R)", 
-                        PyBytes_FromStringAndSize(current_pos, 2));
+                        PyBytes_FromStringAndSize((char *)current_pos, 2));
                     return -1;
                 };
                 uint8_t method = current_pos[2];
@@ -1463,27 +1438,88 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *out_buffer, size_t out_
                     header_cursor += 2;
                 }
                 current_pos = header_cursor;
-                isal_deflate_reset(&self->state);
+                isal_inflate_reset(&self->state);
                 self->stream_phase = IGZIPREADER_DEFLATE_BLOCK;
             case IGZIPREADER_DEFLATE_BLOCK:
                 self->state.next_in = current_pos;
                 self->state.avail_in = buffer_end - current_pos;
                 self->state.next_out = out_buffer;
-               // TODO continue
+                self->state.avail_out = out_buffer_size;
+                int ret;
+                Py_BEGIN_ALLOW_THREADS
+                ret = isal_inflate(&self->state);
+                Py_END_ALLOW_THREADS
+                if (ret != ISAL_DECOMP_OK) {
+                    isal_inflate_error(ret);
+                    return -1;
+                }
+                bytes_written = self->state.next_out - out_buffer;
+                self->pos += bytes_written;
+                if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
+                    if (bytes_written == 0) {
+                        break;
+                    }
+                    self->current_pos = current_pos;
+                    return bytes_written;
+                }
+                // Block done check trailer.
                 self->stream_phase = IGZIPREADER_TRAILER;
-                break;
+            case IGZIPREADER_TRAILER:
+                if (buffer_end - current_pos < 8) {
+                    break;
+                }
+                uint32_t crc = *(uint32_t *)current_pos;
+                current_pos += 4;
+                if (crc != self->state.crc) {
+                    PyErr_Format(
+                        PyExc_ValueError, 
+                        "CRC check failed %u != %u", 
+                        crc, self->state.crc
+                    );
+                    return -1;
+                }
+                uint32_t length = *(uint32_t *)current_pos;
+                current_pos += 4; 
+                if (length != self->state.total_out) {
+                    PyErr_SetString(PyExc_ValueError, "Incorrect length of data produced");
+                    return -1;
+                }
+                self->stream_phase = IGZIPREADER_NULL_BYTES;
+                if (bytes_written) {
+                    // Do not return on empty gzip blocks
+                    self->current_pos = current_pos;
+                    return bytes_written;
+                }
+            case IGZIPREADER_NULL_BYTES:
+                // There maybe NULL bytes between gzip members
+                while (current_pos < buffer_end) {
+                    if (*current_pos != 0) {
+                        self->stream_phase = IGZIPREADER_HEADER;
+                        // Use goto to prevent unnecessarily refreshing the buffer;
+                        goto igzipreader_read_header;
+                    }
+                    current_pos += 1;
+                }
+                if (current_pos >= buffer_end) {
+                    break;
+                }
             default:
                 Py_UNREACHABLE();
         }
         // If buffer_end is reached, nothing was returned and all bytes are 
         // read we have an EOFError.
         if (self->all_bytes_read) {
+            if (self->stream_phase == IGZIPREADER_NULL_BYTES) {
+                self->_size = self->pos;
+                return 0;
+            }
             PyErr_SetString(PyExc_EOFError, EOF_MESSAGE);
             return -1;
         }
         self->current_pos = current_pos;
-        self->buffer_end = buffer_end;
-        IGzipReader_read_from_file(self);
+        if (IGzipReader_read_from_file(self) < 0) {
+            return -1;
+        }
     }
 }
 
