@@ -1523,6 +1523,19 @@ igzipreader_read_header:
     }
 }
 
+static PyMethodDef IGzipReader_methods[] = {
+    {NULL},
+};
+
+static PyTypeObject IGzipReader_Type = {
+    .tp_name = "isal_zlib.IGzipReader",
+    .tp_basicsize = sizeof(IGzipReader),
+    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_dealloc = (destructor)IGzipReader_dealloc,
+    .tp_new = (newfunc)(IGzipReader__new__),
+    .tp_methods = IGzipReader_methods,
+};
+
 PyDoc_STRVAR(isal_zlib_module_documentation,
 "The functions in this module allow compression and decompression using the\n"
 "zlib library, which is based on GNU zip.\n"
@@ -1591,6 +1604,14 @@ PyInit_isal_zlib(void)
 
     Py_INCREF(Decomptype);
     if (PyModule_AddObject(m, "Decompress",  (PyObject *)Decomptype) < 0) {
+        return NULL;
+    }
+
+    if (PyType_Ready(&IGzipReader_Type) != 0) {
+        return NULL;
+    }
+    Py_INCREF(&IGzipReader_Type);
+    if (PyModule_AddObject(m, "IGzipReader", (PyObject *)&IGzipReader_Type) < 0) {
         return NULL;
     }
 
