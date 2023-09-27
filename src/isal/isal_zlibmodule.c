@@ -1251,8 +1251,8 @@ typedef struct _IGzipReaderStruct {
     size_t buffer_size;
     uint8_t *current_pos; 
     uint8_t *buffer_end; 
-    size_t pos;
-    ssize_t _size;
+    int64_t _pos;
+    int64_t _size;
     PyObject *fp;
     char stream_phase;
     char all_bytes_read;
@@ -1282,7 +1282,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->buffer_end = NULL;
     Py_INCREF(fp);
     self->fp = fp;
-    self->pos = 0;
+    self->_pos = 0;
     self->stream_phase = IGZIPREADER_HEADER;
     self->all_bytes_read = 0;
     self->_size = -1; 
@@ -1367,7 +1367,7 @@ igzipreader_read_header:
                 size_t remaining = buffer_end - current_pos;
                 if (remaining == 0 && self->all_bytes_read) {
                     // Reached EOF
-                    self->_size = self->pos;
+                    self->_size = self->_pos;
                     self->current_pos = current_pos;
                     return bytes_written;
                 } 
@@ -1454,7 +1454,7 @@ igzipreader_read_header:
                     return -1;
                 }
                 bytes_written = self->state.next_out - out_buffer;
-                self->pos += bytes_written;
+                self->_pos += bytes_written;
                 if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
                     if (bytes_written == 0) {
                         break;
@@ -1510,7 +1510,7 @@ igzipreader_read_header:
         // read we have an EOFError.
         if (self->all_bytes_read) {
             if (self->stream_phase == IGZIPREADER_NULL_BYTES) {
-                self->_size = self->pos;
+                self->_size = self->_pos;
                 return 0;
             }
             PyErr_SetString(PyExc_EOFError, EOF_MESSAGE);
@@ -1523,7 +1523,6 @@ igzipreader_read_header:
     }
 }
 
-#define IGzipReader_readinto_method METH_O
 static PyObject *
 IGzipReader_readinto(IGzipReader *self, PyObject *buffer_obj)
 {
@@ -1542,6 +1541,91 @@ IGzipReader_readinto(IGzipReader *self, PyObject *buffer_obj)
 }
 
 static PyObject *
+IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs) 
+{
+    Py_ssize_t offset;
+    Py_ssize_t whence = SEEK_SET;
+    static char *keywords[] = {"offset", "whence", NULL};
+    static char format[] = {"n|n:IGzipReader.seek"};
+    if (PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence) < 0) {
+        return NULL;
+    }  
+    // Recalculate offset as an absolute file position.
+    if (whence == SEEK_SET) {
+        ;
+    } else if (whence == SEEK_CUR) {
+        offset = self->_pos + offset;
+    } else if (whence == SEEK_END) {
+        // Seeking relative to EOF - we need to know the file's size.
+        if (self->_size < 0) {
+            size_t tmp_buffer_size = 8 * 1024;
+            uint8_t *tmp_buffer = PyMem_Malloc(tmp_buffer_size);
+            if (tmp_buffer == NULL) {
+                return PyErr_NoMemory();
+            }
+            while (1) {
+                /* Simply overwrite the tmp buffer over and over */
+                ssize_t written_bytes = IGzipReader_read_into_buffer(
+                    self, tmp_buffer, tmp_buffer_size
+                );
+                if (written_bytes < 0) {
+                    PyMem_FREE(tmp_buffer);
+                    return NULL;
+                }
+                if (written_bytes == 0) {
+                    break;
+                }
+            }
+            assert(self->_size >= 0);
+            PyMem_Free(tmp_buffer);
+        }
+        offset = self->_size + offset;
+    } else {
+        PyErr_Format(
+            PyExc_ValueError,
+            "Invalid format for whence: %zd", whence
+        );
+        return NULL;
+    }
+
+    // Make it so that offset is the number of bytes to skip forward.
+    if (offset < self->_pos) {
+        PyObject *seek_result = PyObject_CallMethod(self->fp, "seek", "n", 0);
+        if (seek_result == NULL) {
+            return NULL;
+        }
+        self->stream_phase = IGZIPREADER_HEADER;
+        self->_pos = 0;
+        isal_inflate_reset(&self->state);
+    } else {
+        offset -= self->_pos;
+    }
+    
+    // Read and discard data until we reach the desired position.
+    if (offset > 0) {
+        Py_ssize_t tmp_buffer_size = 8 * 1024;
+        uint8_t *tmp_buffer = PyMem_Malloc(tmp_buffer_size);
+        if (tmp_buffer == NULL) {
+            return PyErr_NoMemory();
+        }
+        while (offset > 0) {
+            ssize_t bytes_written = IGzipReader_read_into_buffer(
+                self, tmp_buffer, Py_MIN(tmp_buffer_size, offset));
+            if (bytes_written < 0) {
+                PyMem_FREE(tmp_buffer);
+                return NULL;
+            }
+            if (bytes_written == 0) {
+                break;
+            }
+            offset -= bytes_written;
+        }
+        PyMem_Free(tmp_buffer);
+    }
+    return PyLong_FromLongLong(self->_pos);
+}
+
+static PyObject *
 IGzipReader_readable(IGzipReader *self, PyObject *Py_UNUSED(ignore))
 {
     Py_RETURN_TRUE;
@@ -1554,7 +1638,7 @@ IGzipReader_seekable(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
 
 static PyObject *
 IGzipReader_tell(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
-    return PyLong_FromSize_t(self->pos);
+    return PyLong_FromLongLong(self->_pos);
 }
 
 static PyMethodDef IGzipReader_methods[] = {
@@ -1562,6 +1646,7 @@ static PyMethodDef IGzipReader_methods[] = {
     {"readable", (PyCFunction)IGzipReader_readable, METH_NOARGS, NULL},
     {"seekable", (PyCFunction)IGzipReader_seekable, METH_NOARGS, NULL},
     {"tell", (PyCFunction)IGzipReader_tell, METH_NOARGS, NULL},
+    {"seek", (PyCFunction)IGzipReader_seek, METH_VARARGS | METH_KEYWORDS, NULL},
     {NULL},
 };
 
