@@ -1472,6 +1472,8 @@ igzipreader_read_header:
                 current_pos -= bitbuffer_size(&self->state);
                 // Block done check trailer.
                 self->stream_phase = IGZIPREADER_TRAILER;
+                self->current_pos = current_pos;
+                return bytes_written;
             case IGZIPREADER_TRAILER:
                 if (buffer_end - current_pos < 8) {
                     break;
@@ -1493,11 +1495,6 @@ igzipreader_read_header:
                     return -1;
                 }
                 self->stream_phase = IGZIPREADER_NULL_BYTES;
-                if (bytes_written) {
-                    // Do not return on empty gzip blocks
-                    self->current_pos = current_pos;
-                    return bytes_written;
-                }
             case IGZIPREADER_NULL_BYTES:
                 // There maybe NULL bytes between gzip members
                 while (current_pos < buffer_end) {

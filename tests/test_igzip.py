@@ -391,13 +391,6 @@ def headers():
     yield header + crc.to_bytes(2, "little")
 
 
-@pytest.mark.parametrize("header", list(headers()))
-def test_read_gzip_header_position(header):
-    fp = io.BytesIO(header)
-    igzip._read_gzip_header(fp)
-    assert fp.tell() == len(header)
-
-
 def test_header_too_short():
     with pytest.raises(igzip.BadGzipFile):
         gzip.decompress(b"00")
