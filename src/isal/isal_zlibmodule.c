@@ -1838,6 +1838,11 @@ PyInit_isal_zlib(void)
         return NULL;
     }
 
+    Py_INCREF(IsalError);
+    if (PyModule_AddObject(m, "error", IsalError) < 0) {
+        return NULL;
+    }
+
     PyTypeObject *Comptype = (PyTypeObject *)&IsalZlibCompType;
     if (PyType_Ready(Comptype) != 0) { 
         return NULL;
