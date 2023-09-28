@@ -1462,8 +1462,9 @@ igzipreader_read_header:
                     isal_inflate_error(ret);
                     return -1;
                 }
-                bytes_written = self->state.next_out - out_buffer;
-                self->_pos += bytes_written;
+                size_t current_bytes_written = self->state.next_out - out_buffer;
+                bytes_written += current_bytes_written;
+                self->_pos += current_bytes_written;
                 current_pos = self->state.next_in;
                 if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
                     if (bytes_written == 0) {
@@ -1557,7 +1558,7 @@ IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs)
     static char format[] = {"n|n:IGzipReader.seek"};
     if (PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence) < 0) {
         return NULL;
-    }  
+    }
     // Recalculate offset as an absolute file position.
     if (whence == SEEK_SET) {
         ;
