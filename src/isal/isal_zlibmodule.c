@@ -1438,10 +1438,11 @@ igzipreader_read_header:
                     if (header_crc != crc) {
                         PyErr_Format(
                             BadGzipFile,
-                            "Corrupted gzip header. Checksums do not"
-                            "match: %u != %u", 
+                            "Corrupted gzip header. Checksums do not "
+                            "match: %04x != %04x",
                             crc, header_crc
-                        );    
+                        );
+                        return -1;
                     }
                     header_cursor += 2;
                 }
