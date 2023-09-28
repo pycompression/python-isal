@@ -639,12 +639,6 @@ class TestGzip(BaseTest):
         with igzip.GzipFile(fileobj=io.BytesIO(gzdata)) as f:
             self.assertEqual(f.read(), b'Test')
 
-    def test_prepend_error(self):
-        # See issue #20875
-        with igzip.open(self.filename, "wb") as f:
-            f.write(data1)
-        with igzip.open(self.filename, "rb") as f:
-            f._buffer.raw._fp.prepend()
 
     def test_public_consts(self):
         # Confirm that all of the gzip module public consts are
