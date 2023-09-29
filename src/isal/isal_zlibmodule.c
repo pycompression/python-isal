@@ -1296,7 +1296,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
-    self->buffer_size = 128 * 1024;
+    self->buffer_size = 32 * 1024;
     self->input_buffer = PyMem_Malloc(self->buffer_size);
     if (self->input_buffer == NULL) {
         Py_DECREF(self);
