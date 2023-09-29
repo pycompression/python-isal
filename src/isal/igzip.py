@@ -168,7 +168,7 @@ class IGzipFile(gzip.GzipFile):
                                                   0)
         if self.mode == READ:
             raw = _IGzipReader(self.fileobj)
-            self._buffer = io.BufferedReader(raw)
+            self._buffer = io.BufferedReader(raw, 128 * 1024)
 
     def __repr__(self):
         s = repr(self.fileobj)
