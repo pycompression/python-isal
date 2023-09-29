@@ -1671,7 +1671,6 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
         total_size += written_size;
         chunk_list[number_of_chunks] = chunk;
         number_of_chunks += 1;
-        chunk_size *= 2; 
         if (written_size < chunk_size) {
             // Reached the end, resize the smaller chunk
             if (_PyBytes_Resize(&chunk, written_size) < 0) {
@@ -1679,6 +1678,7 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
             }
             break;
         }
+        chunk_size *= 2; 
     }
     if (number_of_chunks == 1) {
         // No need for an intermediate result. Return immediately.
