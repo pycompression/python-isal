@@ -167,8 +167,10 @@ class IGzipFile(gzip.GzipFile):
                                                   isal_zlib.DEF_MEM_LEVEL,
                                                   0)
         if self.mode == READ:
-            raw = _IGzipReader(self.fileobj)
-            self._buffer = io.BufferedReader(raw, 64 * 1024)
+            # Having a large input buffer seems to work well for both normal
+            # gzip and BGZIP files.
+            raw = _IGzipReader(self.fileobj, 512 * 1024)
+            self._buffer = io.BufferedReader(raw)
 
     def __repr__(self):
         s = repr(self.fileobj)

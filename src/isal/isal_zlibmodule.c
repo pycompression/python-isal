@@ -1273,10 +1273,11 @@ static PyObject *
 IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     PyObject *fp;
-    static char *keywords[] = {"fp", NULL};
-    static char *format = "O:IGzipReader";
+    Py_ssize_t buffer_size = 32 * 1024;
+    static char *keywords[] = {"fp", "buffersize", NULL};
+    static char *format = "O|n:IGzipReader";
     if (!PyArg_ParseTupleAndKeywords(
-            args, kwargs, format, keywords, &fp)) {
+            args, kwargs, format, keywords, &fp, &buffer_size)) {
         return NULL;
     }
     IGzipReader *self = PyObject_New(IGzipReader, type);
@@ -1296,7 +1297,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
-    self->buffer_size = 32 * 1024;
+    self->buffer_size = buffer_size;
     self->input_buffer = PyMem_Malloc(self->buffer_size);
     if (self->input_buffer == NULL) {
         Py_DECREF(self);
