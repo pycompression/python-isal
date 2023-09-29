@@ -1669,15 +1669,18 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
             goto readall_finish;
         }
         total_size += written_size;
-        chunk_list[number_of_chunks] = chunk;
-        number_of_chunks += 1;
+
         if (written_size < chunk_size) {
             // Reached the end, resize the smaller chunk
             if (_PyBytes_Resize(&chunk, written_size) < 0) {
                 goto readall_finish;
             }
+            chunk_list[number_of_chunks] = chunk;
+            number_of_chunks += 1;
             break;
         }
+        chunk_list[number_of_chunks] = chunk;
+        number_of_chunks += 1;
         chunk_size *= 2; 
     }
     if (number_of_chunks == 1) {
@@ -1693,7 +1696,7 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
     for (size_t i=0; i < number_of_chunks; i++) {
         PyObject *chunk = chunk_list[i];
         Py_ssize_t chunk_size = PyBytes_GET_SIZE(chunk);
-        memcpy(ret, PyBytes_AS_STRING(chunk), chunk_size);
+        memcpy(ret_ptr, PyBytes_AS_STRING(chunk), chunk_size);
         ret_ptr += chunk_size;
     }
 readall_finish:
