@@ -1639,46 +1639,68 @@ IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs)
 static PyObject *
 IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore)) 
 {
-    /* Try to consume the entire buffer without too much overallocation */
-    Py_ssize_t chunk_size = self->buffer_size * 4;
-    PyObject *chunk_list = PyList_New(0);
-    if (chunk_list == NULL) {
-        return NULL;
-    }
+    /* Pretty standard pattern: create a lot of bytes objects, stuff them in 
+       a list, and join them.
+        Optimizations:
+        - Do not create a list but use static array and keep track of the 
+          number of bytes objects.
+        - Start reading DEF_BUF_SIZE (16k) and increase by 2x.
+        - The static array contains 48 slots. The 48th chunk will have size
+          2 ** 47 * 16k. That is 2 million TB. That should be quite future proof.
+        - Since we kan keep track of the size while creating the chunks, there 
+          is no need to go over all the bytes objects again to calculate the
+          total size. (This is what _PyBytes_Join does internally). 
+        - If there is only one item, return that one. 
+    */
+    Py_ssize_t chunk_size = DEF_BUF_SIZE;
+    static PyObject *chunk_list[48];
+    size_t number_of_chunks = 0;
+    size_t total_size = 0;
+    PyObject *ret = NULL;
     while (1) {
         PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
         if (chunk == NULL) {
-            Py_DECREF(chunk_list);
-            return NULL;
+            goto readall_finish;
         }
         ssize_t written_size = IGzipReader_read_into_buffer(
             self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
         if (written_size < 0) {
             Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
+            goto readall_finish;
         }
-        if (written_size == 0) {
+        total_size += written_size;
+        chunk_list[number_of_chunks] = chunk;
+        number_of_chunks += 1;
+        chunk_size *= 2; 
+        if (written_size < chunk_size) {
+            // Reached the end, resize the smaller chunk
+            if (_PyBytes_Resize(&chunk, written_size) < 0) {
+                goto readall_finish;
+            }
             break;
         }
-        if (_PyBytes_Resize(&chunk, written_size) < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        if (PyList_Append(chunk_list, chunk) < 0) {
-            Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
     }
-    PyObject *empty_bytes = PyBytes_FromStringAndSize(NULL, 0);
-    if (empty_bytes == NULL) {
-        Py_DECREF(chunk_list);
-        return NULL;
+    if (number_of_chunks == 1) {
+        // No need for an intermediate result. Return immediately.
+        return chunk_list[0];
     }
-    PyObject *ret = _PyBytes_Join(empty_bytes, chunk_list);
-    Py_DECREF(empty_bytes);
-    return ret;
+    ret = PyBytes_FromStringAndSize(NULL, total_size);
+    if (ret == NULL) {
+        goto readall_finish;
+    }
+    char *ret_ptr = PyBytes_AS_STRING(ret);
+    chunk_size = DEF_BUF_SIZE;
+    for (size_t i=0; i < number_of_chunks; i++) {
+        PyObject *chunk = chunk_list[i];
+        Py_ssize_t chunk_size = PyBytes_GET_SIZE(chunk);
+        memcpy(ret, PyBytes_AS_STRING(chunk), chunk_size);
+        ret_ptr += chunk_size;
+    }
+readall_finish:
+    for (size_t i=0; i < number_of_chunks; i++) {
+        Py_DECREF(chunk_list[i]);
+    }
+    return ret;    
 }
 
 static PyObject *
