@@ -639,7 +639,6 @@ class TestGzip(BaseTest):
         with igzip.GzipFile(fileobj=io.BytesIO(gzdata)) as f:
             self.assertEqual(f.read(), b'Test')
 
-
     def test_public_consts(self):
         # Confirm that all of the gzip module public consts are
         # also accessible via igzip, for drop-in compatibility.

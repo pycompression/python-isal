@@ -36,10 +36,9 @@ import struct
 import sys
 import time
 from typing import Optional, SupportsInt
-import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
-from  .isal_zlib import _GzipReader
+from .isal_zlib import _GzipReader
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile",
            "READ_BUFFER_SIZE"]
