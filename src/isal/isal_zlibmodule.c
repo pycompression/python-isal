@@ -1323,24 +1323,23 @@ static inline ssize_t GzipReader_read_from_file(GzipReader *self)
     current_pos = input_buffer;
     buffer_end = input_buffer + remaining;
     size_t read_in_size = self->buffer_size - remaining;
-    PyObject *new_bytes_obj = PyObject_CallMethod(self->fp, "read", "n", read_in_size);
-    if (new_bytes_obj == NULL) {
+    PyObject *bufview = PyMemoryView_FromMemory((char *)buffer_end, read_in_size, PyBUF_WRITE);
+    if (bufview == NULL) {
         return -1;
     }
-    if (!PyBytes_CheckExact(new_bytes_obj)) {
-        PyErr_Format(
-            PyExc_TypeError, 
-            "fp did not return bytes upon calling read %R", 
-            self->fp
-        );
+    PyObject *new_size_obj = PyObject_CallMethod(self->fp, "readinto", "O", bufview);
+    Py_DECREF(bufview);
+    if (new_size_obj == NULL) {
         return -1;
     }
-    size_t new_size = PyBytes_GET_SIZE(new_bytes_obj);
+    Py_ssize_t new_size = PyLong_AsSsize_t(new_size_obj);
+    Py_DECREF(new_size_obj);
+    if (new_size < 0) {
+        return -1;
+    }
     if (new_size == 0) {
         self->all_bytes_read = 1;
     }
-    memcpy(buffer_end, PyBytes_AS_STRING(new_bytes_obj), new_size);
-    Py_DECREF(new_bytes_obj);
     buffer_end += new_size;
     self->current_pos = current_pos;
     self->buffer_end = buffer_end;
