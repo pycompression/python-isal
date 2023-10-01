@@ -267,7 +267,7 @@ def decompress(data):
     gzip member is guaranteed to be present.
     """
     fp = io.BytesIO(data)
-    reader = _GzipReader(fp)
+    reader = _GzipReader(fp, len(data))
     return reader.readall()
 
 
