@@ -169,7 +169,7 @@ class IGzipFile(gzip.GzipFile):
         if self.mode == READ:
             # Having a large input buffer seems to work well for both normal
             # gzip and BGZIP files.
-            raw = _GzipReader(self.fileobj, 512 * 1024)
+            raw = _GzipReader(self.fileobj, 128 * 1024)
             self._buffer = io.BufferedReader(raw)
 
     def __repr__(self):
