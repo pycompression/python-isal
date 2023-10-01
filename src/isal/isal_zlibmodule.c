@@ -1281,30 +1281,28 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         return NULL;
     }
     IGzipReader *self = PyObject_New(IGzipReader, type);
-    self->current_pos = NULL;
-    self->buffer_end = NULL;
+    self->buffer_size = buffer_size;
+    self->input_buffer = PyMem_Malloc(self->buffer_size);
+    if (self->input_buffer == NULL) {
+        Py_DECREF(self);
+        return PyErr_NoMemory();
+    }
+    self->current_pos = self->input_buffer;
+    self->buffer_end = self->current_pos;
+    self->_pos = 0;
+    self->_size = -1;
     Py_INCREF(fp);
     self->fp = fp;
-    self->_pos = 0;
     self->stream_phase = IGZIPREADER_HEADER;
     self->all_bytes_read = 0;
-    self->_size = -1; 
-    self->_last_mtime = 0;
     self->closed = 0;
+    self->_last_mtime = 0;
     self->lock = PyThread_allocate_lock();
     if (self->lock == NULL) {
         Py_DECREF(self);
         PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
         return NULL;
     }
-    self->buffer_size = buffer_size;
-    self->input_buffer = PyMem_Malloc(self->buffer_size);
-    if (self->input_buffer == NULL) {
-        Py_DECREF(self);
-        return PyErr_NoMemory();    
-    }
-    self->current_pos = self->input_buffer;
-    self->buffer_end = self->current_pos;
     isal_inflate_init(&self->state);
     self->state.hist_bits = ISAL_DEF_MAX_HIST_BITS;
     self->state.crc_flag = ISAL_GZIP_NO_HDR;
