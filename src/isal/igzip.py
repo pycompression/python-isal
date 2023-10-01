@@ -167,9 +167,7 @@ class IGzipFile(gzip.GzipFile):
                                                   isal_zlib.DEF_MEM_LEVEL,
                                                   0)
         if self.mode == READ:
-            # Having a large input buffer seems to work well for both normal
-            # gzip and BGZIP files.
-            raw = _GzipReader(self.fileobj, 128 * 1024)
+            raw = _GzipReader(self.fileobj, READ_BUFFER_SIZE)
             self._buffer = io.BufferedReader(raw)
 
     def __repr__(self):
@@ -370,8 +368,6 @@ def main():
         else:
             out_file = sys.stdout.buffer
 
-    global READ_BUFFER_SIZE
-    READ_BUFFER_SIZE = args.buffer_size
     try:
         while True:
             block = in_file.read(args.buffer_size)
