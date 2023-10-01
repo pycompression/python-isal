@@ -1241,12 +1241,12 @@ static PyTypeObject IsalZlibDecompType = {
     .tp_members = Decomp_members,
 };
 
-#define IGZIPREADER_HEADER 1
-#define IGZIPREADER_DEFLATE_BLOCK 2
-#define IGZIPREADER_TRAILER 3
-#define IGZIPREADER_NULL_BYTES 4
+#define GzipReader_HEADER 1
+#define GzipReader_DEFLATE_BLOCK 2
+#define GzipReader_TRAILER 3
+#define GzipReader_NULL_BYTES 4
 
-typedef struct _IGzipReaderStruct {
+typedef struct _GzipReaderStruct {
     PyObject_HEAD;
     uint8_t *input_buffer;
     size_t buffer_size;
@@ -1261,9 +1261,9 @@ typedef struct _IGzipReaderStruct {
     uint32_t _last_mtime;
     PyThread_type_lock lock;
     struct inflate_state state;
-} IGzipReader;
+} GzipReader;
 
-static void IGzipReader_dealloc(IGzipReader *self) 
+static void GzipReader_dealloc(GzipReader *self) 
 {
     PyMem_Free(self->input_buffer);
     Py_XDECREF(self->fp);
@@ -1272,17 +1272,17 @@ static void IGzipReader_dealloc(IGzipReader *self)
 }
 
 static PyObject *
-IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
+GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
     PyObject *fp;
     Py_ssize_t buffer_size = 32 * 1024;
     static char *keywords[] = {"fp", "buffersize", NULL};
-    static char *format = "O|n:IGzipReader";
+    static char *format = "O|n:GzipReader";
     if (!PyArg_ParseTupleAndKeywords(
             args, kwargs, format, keywords, &fp, &buffer_size)) {
         return NULL;
     }
-    IGzipReader *self = PyObject_New(IGzipReader, type);
+    GzipReader *self = PyObject_New(GzipReader, type);
     self->buffer_size = buffer_size;
     self->input_buffer = PyMem_Malloc(self->buffer_size);
     if (self->input_buffer == NULL) {
@@ -1295,7 +1295,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->_size = -1;
     Py_INCREF(fp);
     self->fp = fp;
-    self->stream_phase = IGZIPREADER_HEADER;
+    self->stream_phase = GzipReader_HEADER;
     self->all_bytes_read = 0;
     self->closed = 0;
     self->_last_mtime = 0;
@@ -1311,7 +1311,7 @@ IGzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     return (PyObject *)self;
 }
 
-static inline ssize_t IGzipReader_read_from_file(IGzipReader *self) 
+static inline ssize_t GzipReader_read_from_file(GzipReader *self) 
 {
     uint8_t *input_buffer = self->input_buffer;
     uint8_t *current_pos = self->current_pos;
@@ -1357,12 +1357,12 @@ static inline ssize_t IGzipReader_read_from_file(IGzipReader *self)
 static PyObject *BadGzipFile; // Import BadGzipFile error for consistency
 
 static ssize_t 
-IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
+GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
     if (out_buffer_size > UINT32_MAX) {
         PyErr_SetString(
             PyExc_RuntimeError, 
-            "Internal function IGzipReader_read_into_buffer called "
+            "Internal function GzipReader_read_into_buffer called "
             "with a too large buffer");
             return -1;
     }
@@ -1371,8 +1371,8 @@ IGzipReader_read_into_buffer(IGzipReader *self, uint8_t *out_buffer, size_t out_
         uint8_t *current_pos = self->current_pos;
         uint8_t *buffer_end = self->buffer_end;        
         switch (self->stream_phase) {
-            case IGZIPREADER_HEADER:
-igzipreader_read_header:
+            case GzipReader_HEADER:
+GzipReader_read_header:
                 size_t remaining = buffer_end - current_pos;
                 if (remaining == 0 && self->all_bytes_read) {
                     // Reached EOF
@@ -1449,8 +1449,8 @@ igzipreader_read_header:
                 }
                 current_pos = header_cursor;
                 isal_inflate_reset(&self->state);
-                self->stream_phase = IGZIPREADER_DEFLATE_BLOCK;
-            case IGZIPREADER_DEFLATE_BLOCK:
+                self->stream_phase = GzipReader_DEFLATE_BLOCK;
+            case GzipReader_DEFLATE_BLOCK:
                 self->state.next_in = current_pos;
                 self->state.avail_in = buffer_end - current_pos;
                 self->state.next_out = out_buffer;
@@ -1478,8 +1478,8 @@ igzipreader_read_header:
                 }
                 current_pos -= bitbuffer_size(&self->state);
                 // Block done check trailer.
-                self->stream_phase = IGZIPREADER_TRAILER;
-            case IGZIPREADER_TRAILER:
+                self->stream_phase = GzipReader_TRAILER;
+            case GzipReader_TRAILER:
                 if (buffer_end - current_pos < 8) {
                     break;
                 }
@@ -1499,14 +1499,14 @@ igzipreader_read_header:
                     PyErr_SetString(BadGzipFile, "Incorrect length of data produced");
                     return -1;
                 }
-                self->stream_phase = IGZIPREADER_NULL_BYTES;
-            case IGZIPREADER_NULL_BYTES:
+                self->stream_phase = GzipReader_NULL_BYTES;
+            case GzipReader_NULL_BYTES:
                 // There maybe NULL bytes between gzip members
                 while (current_pos < buffer_end) {
                     if (*current_pos != 0) {
-                        self->stream_phase = IGZIPREADER_HEADER;
+                        self->stream_phase = GzipReader_HEADER;
                         // Use goto to prevent unnecessarily refreshing the buffer;
-                        goto igzipreader_read_header;
+                        goto GzipReader_read_header;
                     }
                     current_pos += 1;
                 }
@@ -1519,7 +1519,7 @@ igzipreader_read_header:
         // If buffer_end is reached, nothing was returned and all bytes are 
         // read we have an EOFError.
         if (self->all_bytes_read) {
-            if (self->stream_phase == IGZIPREADER_NULL_BYTES) {
+            if (self->stream_phase == GzipReader_NULL_BYTES) {
                 self->_size = self->_pos;
                 self->current_pos = current_pos;
                 return bytes_written;
@@ -1528,14 +1528,14 @@ igzipreader_read_header:
             return -1;
         }
         self->current_pos = current_pos;
-        if (IGzipReader_read_from_file(self) < 0) {
+        if (GzipReader_read_from_file(self) < 0) {
             return -1;
         }
     }
 }
 
 static PyObject *
-IGzipReader_readinto(IGzipReader *self, PyObject *buffer_obj)
+GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
 {
     Py_buffer view;
     if (PyObject_GetBuffer(buffer_obj, &view, PyBUF_SIMPLE) < 0) {
@@ -1543,7 +1543,7 @@ IGzipReader_readinto(IGzipReader *self, PyObject *buffer_obj)
     }
     uint8_t *buffer = view.buf;
     size_t buffer_size = Py_MIN(view.len, UINT32_MAX);
-    ssize_t written_size = IGzipReader_read_into_buffer(self, buffer, buffer_size);
+    ssize_t written_size = GzipReader_read_into_buffer(self, buffer, buffer_size);
     PyBuffer_Release(&view);
     if (written_size < 0) {
         return NULL;
@@ -1552,12 +1552,12 @@ IGzipReader_readinto(IGzipReader *self, PyObject *buffer_obj)
 }
 
 static PyObject *
-IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs) 
+GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs) 
 {
     Py_ssize_t offset;
     Py_ssize_t whence = SEEK_SET;
     static char *keywords[] = {"offset", "whence", NULL};
-    static char format[] = {"n|n:IGzipReader.seek"};
+    static char format[] = {"n|n:GzipReader.seek"};
     if (PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence) < 0) {
         return NULL;
     }
@@ -1576,7 +1576,7 @@ IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs)
             }
             while (1) {
                 /* Simply overwrite the tmp buffer over and over */
-                ssize_t written_bytes = IGzipReader_read_into_buffer(
+                ssize_t written_bytes = GzipReader_read_into_buffer(
                     self, tmp_buffer, tmp_buffer_size
                 );
                 if (written_bytes < 0) {
@@ -1605,7 +1605,7 @@ IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs)
         if (seek_result == NULL) {
             return NULL;
         }
-        self->stream_phase = IGZIPREADER_HEADER;
+        self->stream_phase = GzipReader_HEADER;
         self->_pos = 0;
         isal_inflate_reset(&self->state);
     } else {
@@ -1620,7 +1620,7 @@ IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs)
             return PyErr_NoMemory();
         }
         while (offset > 0) {
-            ssize_t bytes_written = IGzipReader_read_into_buffer(
+            ssize_t bytes_written = GzipReader_read_into_buffer(
                 self, tmp_buffer, Py_MIN(tmp_buffer_size, offset));
             if (bytes_written < 0) {
                 PyMem_FREE(tmp_buffer);
@@ -1637,7 +1637,7 @@ IGzipReader_seek(IGzipReader *self, PyObject *args, PyObject *kwargs)
 }
 
 static PyObject *
-IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore)) 
+GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore)) 
 {
     /* Pretty standard pattern: create a lot of bytes objects, stuff them in 
        a list, and join them.
@@ -1662,7 +1662,7 @@ IGzipReader_readall(IGzipReader *self, PyObject *Py_UNUSED(ignore))
         if (chunk == NULL) {
             goto readall_finish;
         }
-        ssize_t written_size = IGzipReader_read_into_buffer(
+        ssize_t written_size = GzipReader_read_into_buffer(
             self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
         if (written_size < 0) {
             Py_DECREF(chunk);
@@ -1707,14 +1707,14 @@ readall_finish:
 }
 
 static PyObject *
-IGzipReader_read(IGzipReader *self, PyObject *args) 
+GzipReader_read(GzipReader *self, PyObject *args) 
 {
     Py_ssize_t size = -1;
-    if (PyArg_ParseTuple(args, "|n:IGzipReader.read", &size) < 0) {
+    if (PyArg_ParseTuple(args, "|n:GzipReader.read", &size) < 0) {
         return NULL;
     }
     if (size < 0) {
-        return IGzipReader_readall(self, NULL);
+        return GzipReader_readall(self, NULL);
     }
     if (size == 0) {
         return PyBytes_FromStringAndSize(NULL, 0);
@@ -1724,7 +1724,7 @@ IGzipReader_read(IGzipReader *self, PyObject *args)
     if (answer == NULL) {
         return NULL;
     }
-    ssize_t written_bytes = IGzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AS_STRING(answer), answer_size);
+    ssize_t written_bytes = GzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AS_STRING(answer), answer_size);
     if (written_bytes < 0) {
         Py_DECREF(answer);
         return NULL;
@@ -1736,7 +1736,7 @@ IGzipReader_read(IGzipReader *self, PyObject *args)
 }
 
 static PyObject *
-IGzipReader_close(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+GzipReader_close(GzipReader *self, PyObject *Py_UNUSED(ignore)) {
     if (!self->closed) {
         self->closed = 1;
     }
@@ -1744,28 +1744,28 @@ IGzipReader_close(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
 }
 
 static PyObject *
-IGzipReader_readable(IGzipReader *self, PyObject *Py_UNUSED(ignore))
+GzipReader_readable(GzipReader *self, PyObject *Py_UNUSED(ignore))
 {
     Py_RETURN_TRUE;
 }
 
 static PyObject *
-IGzipReader_seekable(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+GzipReader_seekable(GzipReader *self, PyObject *Py_UNUSED(ignore)) {
     return PyObject_CallMethod(self->fp, "seekable", NULL);
 }
 
 static PyObject *
-IGzipReader_tell(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+GzipReader_tell(GzipReader *self, PyObject *Py_UNUSED(ignore)) {
     return PyLong_FromLongLong(self->_pos);
 }
 
 static PyObject *
-IGzipReader_flush(IGzipReader *self, PyObject *Py_UNUSED(ignore)) {
+GzipReader_flush(GzipReader *self, PyObject *Py_UNUSED(ignore)) {
     Py_RETURN_NONE;
 }
 
 static PyObject *
-IGzipReader_get_last_mtime(IGzipReader *self, void *Py_UNUSED(closure)) 
+GzipReader_get_last_mtime(GzipReader *self, void *Py_UNUSED(closure)) 
 {
     if (self->_last_mtime) {
         return PyLong_FromUnsignedLong(self->_last_mtime);
@@ -1774,38 +1774,38 @@ IGzipReader_get_last_mtime(IGzipReader *self, void *Py_UNUSED(closure))
 }
 
 static PyObject *
-IGzipReader_get_closed(IGzipReader *self, void *Py_UNUSED(closure)) 
+GzipReader_get_closed(GzipReader *self, void *Py_UNUSED(closure)) 
 {
     return PyBool_FromLong(self->closed);
 }
 
-static PyMethodDef IGzipReader_methods[] = {
-    {"readinto", (PyCFunction)IGzipReader_readinto, METH_O, NULL},
-    {"readable", (PyCFunction)IGzipReader_readable, METH_NOARGS, NULL},
-    {"seekable", (PyCFunction)IGzipReader_seekable, METH_NOARGS, NULL},
-    {"tell", (PyCFunction)IGzipReader_tell, METH_NOARGS, NULL},
-    {"seek", (PyCFunction)IGzipReader_seek, METH_VARARGS | METH_KEYWORDS, NULL},
-    {"close", (PyCFunction)IGzipReader_close, METH_NOARGS, NULL},
-    {"readall", (PyCFunction)IGzipReader_readall, METH_NOARGS, NULL},
-    {"flush", (PyCFunction)IGzipReader_flush, METH_NOARGS, NULL},
-    {"read", (PyCFunction)IGzipReader_read, METH_VARARGS, NULL},
+static PyMethodDef GzipReader_methods[] = {
+    {"readinto", (PyCFunction)GzipReader_readinto, METH_O, NULL},
+    {"readable", (PyCFunction)GzipReader_readable, METH_NOARGS, NULL},
+    {"seekable", (PyCFunction)GzipReader_seekable, METH_NOARGS, NULL},
+    {"tell", (PyCFunction)GzipReader_tell, METH_NOARGS, NULL},
+    {"seek", (PyCFunction)GzipReader_seek, METH_VARARGS | METH_KEYWORDS, NULL},
+    {"close", (PyCFunction)GzipReader_close, METH_NOARGS, NULL},
+    {"readall", (PyCFunction)GzipReader_readall, METH_NOARGS, NULL},
+    {"flush", (PyCFunction)GzipReader_flush, METH_NOARGS, NULL},
+    {"read", (PyCFunction)GzipReader_read, METH_VARARGS, NULL},
     {NULL},
 };
 
-static PyGetSetDef IGzipReader_properties[] = {
-    {"closed", (getter)IGzipReader_get_closed, NULL, NULL, NULL},
-    {"_last_mtime", (getter)IGzipReader_get_last_mtime, NULL, NULL, NULL},
+static PyGetSetDef GzipReader_properties[] = {
+    {"closed", (getter)GzipReader_get_closed, NULL, NULL, NULL},
+    {"_last_mtime", (getter)GzipReader_get_last_mtime, NULL, NULL, NULL},
     {NULL},
 };
 
-static PyTypeObject IGzipReader_Type = {
-    .tp_name = "isal_zlib._IGzipReader",
-    .tp_basicsize = sizeof(IGzipReader),
+static PyTypeObject GzipReader_Type = {
+    .tp_name = "isal_zlib._GzipReader",
+    .tp_basicsize = sizeof(GzipReader),
     .tp_flags = Py_TPFLAGS_DEFAULT,
-    .tp_dealloc = (destructor)IGzipReader_dealloc,
-    .tp_new = (newfunc)(IGzipReader__new__),
-    .tp_methods = IGzipReader_methods,
-    .tp_getset = IGzipReader_properties,
+    .tp_dealloc = (destructor)GzipReader_dealloc,
+    .tp_new = (newfunc)(GzipReader__new__),
+    .tp_methods = GzipReader_methods,
+    .tp_getset = GzipReader_properties,
 };
 
 PyDoc_STRVAR(isal_zlib_module_documentation,
@@ -1892,11 +1892,11 @@ PyInit_isal_zlib(void)
         return NULL;
     }
 
-    if (PyType_Ready(&IGzipReader_Type) != 0) {
+    if (PyType_Ready(&GzipReader_Type) != 0) {
         return NULL;
     }
-    Py_INCREF(&IGzipReader_Type);
-    if (PyModule_AddObject(m, "_IGzipReader", (PyObject *)&IGzipReader_Type) < 0) {
+    Py_INCREF(&GzipReader_Type);
+    if (PyModule_AddObject(m, "_GzipReader", (PyObject *)&GzipReader_Type) < 0) {
         return NULL;
     }
 

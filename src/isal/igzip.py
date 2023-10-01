@@ -39,7 +39,7 @@ from typing import Optional, SupportsInt
 import _compression  # noqa: I201  # Not third-party
 
 from . import igzip_lib, isal_zlib
-from  .isal_zlib import _IGzipReader
+from  .isal_zlib import _GzipReader
 
 __all__ = ["IGzipFile", "open", "compress", "decompress", "BadGzipFile",
            "READ_BUFFER_SIZE"]
@@ -169,7 +169,7 @@ class IGzipFile(gzip.GzipFile):
         if self.mode == READ:
             # Having a large input buffer seems to work well for both normal
             # gzip and BGZIP files.
-            raw = _IGzipReader(self.fileobj, 512 * 1024)
+            raw = _GzipReader(self.fileobj, 512 * 1024)
             self._buffer = io.BufferedReader(raw)
 
     def __repr__(self):
@@ -225,7 +225,7 @@ class IGzipFile(gzip.GzipFile):
 
 # Aliases for improved compatibility with CPython gzip module.
 GzipFile = IGzipFile
-_GzipReader = _IGzipReader
+_IGzipReader = _GzipReader
 
 
 def _create_simple_gzip_header(compresslevel: int,
@@ -267,7 +267,7 @@ def decompress(data):
     gzip member is guaranteed to be present.
     """
     fp = io.BytesIO(data)
-    reader = _IGzipReader(fp)
+    reader = _GzipReader(fp)
     return reader.readall()
 
 
