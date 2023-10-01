@@ -1265,8 +1265,10 @@ typedef struct _IGzipReaderStruct {
 
 static void IGzipReader_dealloc(IGzipReader *self) 
 {
-    PyThread_free_lock(self->lock);
+    PyMem_Free(self->input_buffer);
     Py_XDECREF(self->fp);
+    PyThread_free_lock(self->lock);
+    Py_TYPE(self)->tp_free(self);
 }
 
 static PyObject *
