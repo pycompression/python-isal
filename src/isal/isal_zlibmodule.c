@@ -1282,6 +1282,16 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
             args, kwargs, format, keywords, &fp, &buffer_size)) {
         return NULL;
     }
+    if (buffer_size < 16) {
+        // Necessary to distinguish between truncated headers and headers
+        // which are too big. A header is at least 10 bytes, but may contain
+        // more depending on flags.
+        PyErr_Format(
+            PyExc_ValueError,
+            "buffersize must be at least 16, got %zd", buffer_size
+        );
+        return NULL;
+    }
     GzipReader *self = PyObject_New(GzipReader, type);
     self->buffer_size = buffer_size;
     self->input_buffer = PyMem_Malloc(self->buffer_size);
@@ -1323,6 +1333,15 @@ static inline ssize_t GzipReader_read_from_file(GzipReader *self)
     current_pos = input_buffer;
     buffer_end = input_buffer + remaining;
     size_t read_in_size = self->buffer_size - remaining;
+    if (read_in_size == 0) {
+        // The buffer is already full of data but the current position could not
+        // progress. This happens when the header is too large.
+        PyErr_Format(
+            PyExc_OverflowError, 
+            "header does not fit into buffer of size %zu",
+            self->buffer_size);
+        return -1;
+    }
     PyObject *bufview = PyMemoryView_FromMemory((char *)buffer_end, read_in_size, PyBUF_WRITE);
     if (bufview == NULL) {
         return -1;

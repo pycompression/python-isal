@@ -431,6 +431,26 @@ def test_truncated_header(trunc):
     with pytest.raises(EOFError):
         igzip.decompress(trunc)
 
+def test_very_long_header_in_data():
+    # header with a very long filename.
+    header = (b"\x1f\x8b\x08\x08\x00\x00\x00\x00\x00\xff" + 256 * 1024 * b"A" +
+              b"\x00")
+    compressed = header + isal_zlib.compress(b"", 3, -15) + 8 * b"\00"
+    assert igzip.decompress(compressed) == b""
+
+
+def test_very_long_header_in_file():
+    # header with a very long filename.
+    header = (b"\x1f\x8b\x08\x08\x00\x00\x00\x00\x00\xff" +
+              igzip.READ_BUFFER_SIZE * 2 * b"A" +
+              b"\x00")
+    compressed = header + isal_zlib.compress(b"", 3, -15) + 8 * b"\00"
+    f = io.BytesIO(compressed)
+    with pytest.raises(OverflowError) as error:
+        with igzip.open(f, "rb") as gzip_file:
+            gzip_file.read()
+    error.match(f"header does not fit into buffer of size {igzip.READ_BUFFER_SIZE}")
+
 
 def test_concatenated_gzip():
     concat = Path(__file__).parent / "data" / "concatenated.fastq.gz"
