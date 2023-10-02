@@ -1662,17 +1662,37 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
 {
     /* Try to consume the entire buffer without too much overallocation */
     Py_ssize_t chunk_size = self->buffer_size * 4;
-    PyObject *chunk_list = PyList_New(0);
+    /* Rather than immediately creating a list, read one chunk first and
+       only create a list when more read operations are necessary. */
+    PyObject *first_chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
+    if (first_chunk == NULL) {
+        return NULL;
+    }
+    ssize_t written_size = GzipReader_read_into_buffer(
+        self, (uint8_t *)PyBytes_AS_STRING(first_chunk), chunk_size);
+    if (written_size < 0) {
+        Py_DECREF(first_chunk);
+        return NULL;
+    }
+    if (written_size < chunk_size) {
+        if (_PyBytes_Resize(&first_chunk, written_size) < 0) {
+            return NULL;
+        }
+        return first_chunk;
+    }
+
+    PyObject *chunk_list = PyList_New(1);
     if (chunk_list == NULL) {
         return NULL;
     }
+    PyList_SET_ITEM(chunk_list, 0, first_chunk);
     while (1) {
         PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
         if (chunk == NULL) {
             Py_DECREF(chunk_list);
             return NULL;
         }
-        ssize_t written_size = GzipReader_read_into_buffer(
+        written_size = GzipReader_read_into_buffer(
             self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
         if (written_size < 0) {
             Py_DECREF(chunk);
