@@ -1347,7 +1347,8 @@ static inline ssize_t GzipReader_read_from_file(GzipReader *self)
             self->buffer_size);
         return -1;
     }
-    PyObject *bufview = PyMemoryView_FromMemory((char *)buffer_end, read_in_size, PyBUF_WRITE);
+    PyObject *bufview = PyMemoryView_FromMemory(
+        (char *)buffer_end, read_in_size, PyBUF_READ | PyBUF_WRITE);
     if (bufview == NULL) {
         return -1;
     }
