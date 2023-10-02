@@ -1774,6 +1774,12 @@ GzipReader_readable(GzipReader *self, PyObject *Py_UNUSED(ignore))
 }
 
 static PyObject *
+GzipReader_writable(GzipReader *self, PyObject *Py_UNUSED(ignore))
+{
+    Py_RETURN_TRUE;
+}
+
+static PyObject *
 GzipReader_seekable(GzipReader *self, PyObject *Py_UNUSED(ignore)) {
     return PyObject_CallMethod(self->fp, "seekable", NULL);
 }
@@ -1806,6 +1812,7 @@ GzipReader_get_closed(GzipReader *self, void *Py_UNUSED(closure))
 static PyMethodDef GzipReader_methods[] = {
     {"readinto", (PyCFunction)GzipReader_readinto, METH_O, NULL},
     {"readable", (PyCFunction)GzipReader_readable, METH_NOARGS, NULL},
+    {"writable", (PyCFunction)GzipReader_writable, METH_NOARGS, NULL},
     {"seekable", (PyCFunction)GzipReader_seekable, METH_NOARGS, NULL},
     {"tell", (PyCFunction)GzipReader_tell, METH_NOARGS, NULL},
     {"seek", (PyCFunction)GzipReader_seek, METH_VARARGS | METH_KEYWORDS, NULL},
