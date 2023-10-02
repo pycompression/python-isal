@@ -431,6 +431,7 @@ def test_truncated_header(trunc):
     with pytest.raises(EOFError):
         igzip.decompress(trunc)
 
+
 def test_very_long_header_in_data():
     # header with a very long filename.
     header = (b"\x1f\x8b\x08\x08\x00\x00\x00\x00\x00\xff" + 256 * 1024 * b"A" +
@@ -449,7 +450,8 @@ def test_very_long_header_in_file():
     with pytest.raises(OverflowError) as error:
         with igzip.open(f, "rb") as gzip_file:
             gzip_file.read()
-    error.match(f"header does not fit into buffer of size {igzip.READ_BUFFER_SIZE}")
+    error.match(
+        f"header does not fit into buffer of size {igzip.READ_BUFFER_SIZE}")
 
 
 def test_concatenated_gzip():
@@ -472,7 +474,7 @@ def test_seek():
             # Start testing forward seek
             gzip_file.seek(500)
             assert gzip_file.read(1) == b"A"
-            gzip_file.seek(1500)# Any positive number should end up at the end
+            gzip_file.seek(1500)
             assert gzip_file.read(1) == b"B"
             # Test reverse
             gzip_file.seek(500)
