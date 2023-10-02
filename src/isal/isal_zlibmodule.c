@@ -47,6 +47,11 @@ Changes compared to CPython:
 
 #define DEF_MEM_LEVEL 8
 
+/* Py_UNREACHABLE not defined on PyPy platforms apparently. */
+#ifndef Py_UNREACHABLE
+#define Py_UNREACHABLE() Py_FatalError("Reached unreachable state")
+#endif
+
 static PyTypeObject IsalZlibCompType;
 static PyTypeObject IsalZlibDecompType;
 
