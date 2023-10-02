@@ -47,9 +47,17 @@ Changes compared to CPython:
 
 #define DEF_MEM_LEVEL 8
 
-/* Py_UNREACHABLE not defined on PyPy platforms apparently. */
-#ifndef Py_UNREACHABLE
+/* PyPy quirks: no Py_UNREACHABLE and requires PyBUF_READ and PyBUF_WRITE set 
+   in memoryviews that enter a "readinto" call. CPython requires that only 
+   PyBUF_WRITE is set. 
+   (Both implementations are wrong because the state of the READ bit should 
+    not matter.)
+*/
+#ifdef PYPY_VERSION
 #define Py_UNREACHABLE() Py_FatalError("Reached unreachable state")
+#define MEMORYVIEW_READINTO_FLAGS (PyBUF_READ | PyBUF_WRITE)
+#else
+#define MEMORYVIEW_READINTO_FLAGS PyBUF_WRITE
 #endif
 
 static PyTypeObject IsalZlibCompType;
@@ -1348,7 +1356,7 @@ static inline ssize_t GzipReader_read_from_file(GzipReader *self)
         return -1;
     }
     PyObject *bufview = PyMemoryView_FromMemory(
-        (char *)buffer_end, read_in_size, PyBUF_READ | PyBUF_WRITE);
+        (char *)buffer_end, read_in_size, MEMORYVIEW_READINTO_FLAGS);
     if (bufview == NULL) {
         return -1;
     }
