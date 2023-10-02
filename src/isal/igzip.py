@@ -58,6 +58,7 @@ READ, WRITE = 1, 2
 
 BadGzipFile = gzip.BadGzipFile  # type: ignore
 
+
 # The open method was copied from the CPython source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
          encoding=None, errors=None, newline=None):
