@@ -1627,6 +1627,7 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
         }
         self->stream_phase = GzipReader_HEADER;
         self->_pos = 0;
+        self->all_bytes_read = 0;
         isal_inflate_reset(&self->state);
     } else {
         offset -= self->_pos;
