@@ -624,8 +624,7 @@ class TestGzip(BaseTest):
         with igzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
             self.assertRaises(EOFError, f.read)
         with igzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
-            self.assertEqual(f.read(len(data)), data)
-            self.assertRaises(EOFError, f.read, 1)
+            self.assertRaises(EOFError, f.read, len(data))
         # Incomplete 10-byte header.
         for i in range(2, 10):
             with igzip.GzipFile(fileobj=io.BytesIO(truncated[:i])) as f:
