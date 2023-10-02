@@ -1274,7 +1274,7 @@ static void GzipReader_dealloc(GzipReader *self)
 static PyObject *
 GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
-    PyObject *fp;
+    PyObject *fp = NULL;
     Py_ssize_t buffer_size = 32 * 1024;
     static char *keywords[] = {"fp", "buffersize", NULL};
     static char *format = "O|n:GzipReader";
@@ -1387,7 +1387,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
     while (1) {
         uint8_t *current_pos = self->current_pos;
         uint8_t *buffer_end = self->buffer_end;        
-        switch (self->stream_phase) {
+        switch(self->stream_phase) {
             case GzipReader_HEADER:
 GzipReader_read_header:
                 size_t remaining = buffer_end - current_pos;
@@ -1563,7 +1563,9 @@ GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
     }
     uint8_t *buffer = view.buf;
     size_t buffer_size = Py_MIN(view.len, UINT32_MAX);
+    ENTER_ZLIB(self);
     ssize_t written_size = GzipReader_read_into_buffer(self, buffer, buffer_size);
+    LEAVE_ZLIB(self);
     PyBuffer_Release(&view);
     if (written_size < 0) {
         return NULL;
@@ -1668,8 +1670,10 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
     if (first_chunk == NULL) {
         return NULL;
     }
+    ENTER_ZLIB(self);
     ssize_t written_size = GzipReader_read_into_buffer(
         self, (uint8_t *)PyBytes_AS_STRING(first_chunk), chunk_size);
+    LEAVE_ZLIB(self);
     if (written_size < 0) {
         Py_DECREF(first_chunk);
         return NULL;
@@ -1692,8 +1696,10 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
             Py_DECREF(chunk_list);
             return NULL;
         }
+        ENTER_ZLIB(self);
         written_size = GzipReader_read_into_buffer(
             self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
+        LEAVE_ZLIB(self);
         if (written_size < 0) {
             Py_DECREF(chunk);
             Py_DECREF(chunk_list);
@@ -1740,7 +1746,9 @@ GzipReader_read(GzipReader *self, PyObject *args)
     if (answer == NULL) {
         return NULL;
     }
+    ENTER_ZLIB(self);
     ssize_t written_bytes = GzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AS_STRING(answer), answer_size);
+    LEAVE_ZLIB(self);
     if (written_bytes < 0) {
         Py_DECREF(answer);
         return NULL;
