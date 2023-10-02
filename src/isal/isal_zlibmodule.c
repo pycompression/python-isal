@@ -1346,7 +1346,6 @@ static inline ssize_t GzipReader_read_from_file(GzipReader *self)
     return 0;
 }
 
-#define EOF_MESSAGE "Compressed file ended before the end-of-stream marker was reached"
 #define FTEXT 1
 #define FHCRC 2
 #define FEXTRA 4
@@ -1523,7 +1522,10 @@ GzipReader_read_header:
                 self->current_pos = current_pos;
                 return bytes_written;
             }
-            PyErr_SetString(PyExc_EOFError, EOF_MESSAGE);
+            PyErr_SetString(
+                PyExc_EOFError, 
+                "Compressed file ended before the end-of-stream marker was reached"
+            );
             return -1;
         }
         self->current_pos = current_pos;
