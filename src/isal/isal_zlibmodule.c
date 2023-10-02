@@ -1402,9 +1402,10 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
         uint8_t *current_pos = self->current_pos;
         uint8_t *buffer_end = self->buffer_end;        
         switch(self->stream_phase) {
+            size_t remaining; // Must be before labels.
             case GzipReader_HEADER:
 GzipReader_read_header:
-                size_t remaining = buffer_end - current_pos;
+                remaining = buffer_end - current_pos;
                 if (remaining == 0 && self->all_bytes_read) {
                     // Reached EOF
                     self->_size = self->_pos;
