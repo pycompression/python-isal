@@ -56,11 +56,7 @@ READ_BUFFER_SIZE = 128 * 1024
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 READ, WRITE = 1, 2
 
-try:
-    BadGzipFile = gzip.BadGzipFile  # type: ignore
-except AttributeError:  # Versions lower than 3.8 do not have BadGzipFile
-    BadGzipFile = OSError  # type: ignore
-
+BadGzipFile = gzip.BadGzipFile  # type: ignore
 
 # The open method was copied from the CPython source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
