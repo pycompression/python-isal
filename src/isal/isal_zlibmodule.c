@@ -1331,7 +1331,8 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     return (PyObject *)self;
 }
 
-static inline ssize_t GzipReader_read_from_file(GzipReader *self) 
+static inline Py_ssize_t 
+GzipReader_read_from_file(GzipReader *self) 
 {
 
     uint8_t *current_pos = self->current_pos;
@@ -1388,7 +1389,7 @@ static inline ssize_t GzipReader_read_from_file(GzipReader *self)
 
 static PyObject *BadGzipFile; // Import BadGzipFile error for consistency
 
-static ssize_t 
+static Py_ssize_t 
 GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
     if (out_buffer_size > UINT32_MAX) {
@@ -1398,7 +1399,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
             "with a too large buffer");
             return -1;
     }
-    ssize_t bytes_written = 0;
+    Py_ssize_t bytes_written = 0;
     while (1) {
         uint8_t *current_pos = self->current_pos;
         uint8_t *buffer_end = self->buffer_end;        
@@ -1580,7 +1581,7 @@ GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
     uint8_t *buffer = view.buf;
     size_t buffer_size = Py_MIN(view.len, UINT32_MAX);
     ENTER_ZLIB(self);
-    ssize_t written_size = GzipReader_read_into_buffer(self, buffer, buffer_size);
+    Py_ssize_t written_size = GzipReader_read_into_buffer(self, buffer, buffer_size);
     LEAVE_ZLIB(self);
     PyBuffer_Release(&view);
     if (written_size < 0) {
@@ -1614,7 +1615,7 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
             }
             while (1) {
                 /* Simply overwrite the tmp buffer over and over */
-                ssize_t written_bytes = GzipReader_read_into_buffer(
+                Py_ssize_t written_bytes = GzipReader_read_into_buffer(
                     self, tmp_buffer, tmp_buffer_size
                 );
                 if (written_bytes < 0) {
@@ -1659,7 +1660,7 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
             return PyErr_NoMemory();
         }
         while (offset > 0) {
-            ssize_t bytes_written = GzipReader_read_into_buffer(
+            Py_ssize_t bytes_written = GzipReader_read_into_buffer(
                 self, tmp_buffer, Py_MIN(tmp_buffer_size, offset));
             if (bytes_written < 0) {
                 PyMem_FREE(tmp_buffer);
@@ -1687,7 +1688,7 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
         return NULL;
     }
     ENTER_ZLIB(self);
-    ssize_t written_size = GzipReader_read_into_buffer(
+    Py_ssize_t written_size = GzipReader_read_into_buffer(
         self, (uint8_t *)PyBytes_AS_STRING(first_chunk), chunk_size);
     LEAVE_ZLIB(self);
     if (written_size < 0) {
@@ -1763,7 +1764,7 @@ GzipReader_read(GzipReader *self, PyObject *args)
         return NULL;
     }
     ENTER_ZLIB(self);
-    ssize_t written_bytes = GzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AS_STRING(answer), answer_size);
+    Py_ssize_t written_bytes = GzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AS_STRING(answer), answer_size);
     LEAVE_ZLIB(self);
     if (written_bytes < 0) {
         Py_DECREF(answer);
