@@ -47,11 +47,11 @@ _COMPRESS_LEVEL_FAST = isal_zlib.ISAL_BEST_SPEED
 _COMPRESS_LEVEL_TRADEOFF = isal_zlib.ISAL_DEFAULT_COMPRESSION
 _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 
-#: The amount of data that is read in at once when decompressing a file.
-#: Increasing this value may increase performance.
-#: 128K is also the size used by pigz and cat to read files from the
-# filesystem.
-READ_BUFFER_SIZE = 128 * 1024
+# The amount of data that is read in at once when decompressing a file.
+# Increasing this value may increase performance.
+# After 512K the performance does not increase anymore on a Ryzen 5 3600 test
+# system.
+READ_BUFFER_SIZE = 512 * 1024
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
 READ, WRITE = 1, 2
