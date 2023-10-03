@@ -1260,7 +1260,7 @@ static PyTypeObject IsalZlibDecompType = {
 #define GzipReader_NULL_BYTES 4
 
 typedef struct _GzipReaderStruct {
-    PyObject_HEAD;
+    PyObject_HEAD
     uint8_t *input_buffer;
     size_t buffer_size;
     uint8_t *current_pos; 
