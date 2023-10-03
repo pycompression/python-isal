@@ -1295,13 +1295,10 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
             args, kwargs, format, keywords, &fp, &buffer_size)) {
         return NULL;
     }
-    if (buffer_size < 16) {
-        // Necessary to distinguish between truncated headers and headers
-        // which are too big. A header is at least 10 bytes, but may contain
-        // more depending on flags.
+    if (buffer_size < 1) {
         PyErr_Format(
             PyExc_ValueError,
-            "buffersize must be at least 16, got %zd", buffer_size
+            "buffersize must be at least 1, got %zd", buffer_size
         );
         return NULL;
     }
@@ -1336,25 +1333,29 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 
 static inline ssize_t GzipReader_read_from_file(GzipReader *self) 
 {
-    uint8_t *input_buffer = self->input_buffer;
+
     uint8_t *current_pos = self->current_pos;
     uint8_t *buffer_end = self->buffer_end;
     size_t remaining = buffer_end - current_pos;
-    if (remaining > 0) {
-        memmove(input_buffer, current_pos, remaining);
+    if (remaining == self->buffer_size) {
+        /* Buffer is full but a new read request was issued. This will be due 
+           to the header being bigger than the header. Enlarge the buffer 
+           to accommodate the hzip header.  */
+        size_t new_buffer_size = self->buffer_size * 2;
+        uint8_t *tmp_buffer = PyMem_Realloc(self->input_buffer, new_buffer_size);
+        if (tmp_buffer == NULL) {
+            PyErr_NoMemory();
+            return -1;
+        }
+        self->input_buffer = tmp_buffer;
+        self->buffer_size = new_buffer_size;
+    } else if (remaining > 0) {
+        memmove(self->input_buffer, current_pos, remaining);
     }
+    uint8_t *input_buffer = self->input_buffer;
     current_pos = input_buffer;
     buffer_end = input_buffer + remaining;
     size_t read_in_size = self->buffer_size - remaining;
-    if (read_in_size == 0) {
-        // The buffer is already full of data but the current position could not
-        // progress. This happens when the header is too large.
-        PyErr_Format(
-            PyExc_OverflowError, 
-            "header does not fit into buffer of size %zu",
-            self->buffer_size);
-        return -1;
-    }
     PyObject *bufview = PyMemoryView_FromMemory(
         (char *)buffer_end, read_in_size, MEMORYVIEW_READINTO_FLAGS);
     if (bufview == NULL) {
