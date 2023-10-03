@@ -461,40 +461,40 @@ def test_concatenated_gzip():
 
 def test_seek():
     from io import SEEK_CUR, SEEK_END, SEEK_SET
-    with tempfile.NamedTemporaryFile("wb") as tmpfile:
+    with tempfile.NamedTemporaryFile("wb", delete=False) as tmpfile:
         tmpfile.write(gzip.compress(b"X" * 500 + b"A" + b"X" * 499))
         tmpfile.write(gzip.compress(b"X" * 500 + b"B" + b"X" * 499))
         tmpfile.write(gzip.compress(b"X" * 500 + b"C" + b"X" * 499))
         tmpfile.write(gzip.compress(b"X" * 500 + b"D" + b"X" * 499))
-        tmpfile.flush()
-        with igzip.open(tmpfile.name, "rb") as gzip_file:
-            # Start testing forward seek
-            gzip_file.seek(500)
-            assert gzip_file.read(1) == b"A"
-            gzip_file.seek(1500)
-            assert gzip_file.read(1) == b"B"
-            # Test reverse
-            gzip_file.seek(500)
-            assert gzip_file.read(1) == b"A"
-            # Again, but with explicit SEEK_SET
-            gzip_file.seek(500, SEEK_SET)
-            assert gzip_file.read(1) == b"A"
-            gzip_file.seek(1500, SEEK_SET)
-            assert gzip_file.read(1) == b"B"
-            gzip_file.seek(500, SEEK_SET)
-            assert gzip_file.read(1) == b"A"
-            # Seeking from current position
-            gzip_file.seek(500)
-            gzip_file.seek(2000, SEEK_CUR)
-            assert gzip_file.read(1) == b"C"
-            gzip_file.seek(-1001, SEEK_CUR)
-            assert gzip_file.read(1) == b"B"
-            # Seeking from end
-            # Any positive number should end up at the end
-            gzip_file.seek(200, SEEK_END)
-            assert gzip_file.read(1) == b""
-            gzip_file.seek(-1500, SEEK_END)
-            assert gzip_file.read(1) == b"C"
+    with igzip.open(tmpfile.name, "rb") as gzip_file:
+        # Start testing forward seek
+        gzip_file.seek(500)
+        assert gzip_file.read(1) == b"A"
+        gzip_file.seek(1500)
+        assert gzip_file.read(1) == b"B"
+        # Test reverse
+        gzip_file.seek(500)
+        assert gzip_file.read(1) == b"A"
+        # Again, but with explicit SEEK_SET
+        gzip_file.seek(500, SEEK_SET)
+        assert gzip_file.read(1) == b"A"
+        gzip_file.seek(1500, SEEK_SET)
+        assert gzip_file.read(1) == b"B"
+        gzip_file.seek(500, SEEK_SET)
+        assert gzip_file.read(1) == b"A"
+        # Seeking from current position
+        gzip_file.seek(500)
+        gzip_file.seek(2000, SEEK_CUR)
+        assert gzip_file.read(1) == b"C"
+        gzip_file.seek(-1001, SEEK_CUR)
+        assert gzip_file.read(1) == b"B"
+        # Seeking from end
+        # Any positive number should end up at the end
+        gzip_file.seek(200, SEEK_END)
+        assert gzip_file.read(1) == b""
+        gzip_file.seek(-1500, SEEK_END)
+        assert gzip_file.read(1) == b"C"
+    os.remove(tmpfile.name)
 
 
 def test_bgzip():
