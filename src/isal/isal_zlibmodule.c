@@ -1268,6 +1268,7 @@ typedef struct _GzipReaderStruct {
     int64_t _pos;
     int64_t _size;
     PyObject *fp;
+    Py_buffer *memview;
     char stream_phase;
     char all_bytes_read;
     char closed;
@@ -1278,7 +1279,12 @@ typedef struct _GzipReaderStruct {
 
 static void GzipReader_dealloc(GzipReader *self) 
 {
-    PyMem_Free(self->input_buffer);
+    if (self->memview == NULL) {
+        PyMem_Free(self->input_buffer);
+    } else {
+        PyBuffer_Release(self->memview);
+        PyMem_Free(self->memview);
+    }
     Py_XDECREF(self->fp);
     PyThread_free_lock(self->lock);
     Py_TYPE(self)->tp_free(self);
@@ -1303,20 +1309,36 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         return NULL;
     }
     GzipReader *self = PyObject_New(GzipReader, type);
-    self->buffer_size = buffer_size;
-    self->input_buffer = PyMem_Malloc(self->buffer_size);
-    if (self->input_buffer == NULL) {
-        Py_DECREF(self);
-        return PyErr_NoMemory();
+    if (PyObject_HasAttrString(fp, "read")) {
+        self->memview = NULL;
+        self->buffer_size = buffer_size;
+        self->input_buffer = PyMem_Malloc(self->buffer_size);
+        if (self->input_buffer == NULL) {
+            Py_DECREF(self);
+            return PyErr_NoMemory();
+        }
+        self->buffer_end = self->input_buffer;
+        self->all_bytes_read = 0;
+    } else {
+        self->memview = PyMem_Malloc(sizeof(Py_buffer));
+        if (self->memview == NULL) {
+            return PyErr_NoMemory();
+        }
+        if (PyObject_GetBuffer(fp, self->memview, PyBUF_SIMPLE) < 0) {
+            Py_DECREF(self);
+            return NULL;
+        }
+        self->buffer_size = self->memview->len;
+        self->input_buffer = self->memview->buf;
+        self->buffer_end = self->input_buffer + self->buffer_size;
+        self->all_bytes_read = 1;
     }
     self->current_pos = self->input_buffer;
-    self->buffer_end = self->current_pos;
     self->_pos = 0;
     self->_size = -1;
     Py_INCREF(fp);
     self->fp = fp;
     self->stream_phase = GzipReader_HEADER;
-    self->all_bytes_read = 0;
     self->closed = 0;
     self->_last_mtime = 0;
     self->lock = PyThread_allocate_lock();

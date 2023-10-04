@@ -260,8 +260,7 @@ def decompress(data):
     isal_zlib.decompress(data, wbits=31) is faster in cases where only one
     gzip member is guaranteed to be present.
     """
-    fp = io.BytesIO(data)
-    reader = _GzipReader(fp, max(len(data), 16))
+    reader = _GzipReader(data)
     return reader.readall()
 
 
