@@ -21,7 +21,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
 class ThreadedGzipReader(io.RawIOBase):
     def __init__(self, fp, queue_size = 8, block_size = 128 * 1024):
         self.raw = fp
-        self.fileobj = igzip._IGzipReader(fp)
+        self.fileobj = igzip._IGzipReader(fp, 512 * 1024)
         self.pos = 0
         self.read_file = False
         self.queue = queue.Queue(queue_size)
