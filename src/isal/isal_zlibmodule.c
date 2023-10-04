@@ -1290,6 +1290,24 @@ static void GzipReader_dealloc(GzipReader *self)
     Py_TYPE(self)->tp_free(self);
 }
 
+PyDoc_STRVAR(GzipReader__new____doc__,
+"_GzipReader(fp, /, buffersize=32*1024)\n"
+"--\n"
+"\n"
+"Return a _GzipReader object.\n"
+"\n"
+"  fp\n"
+"    can be a file-like binary IO object or a bytes-like object.\n"
+"    For file-like objects _GzipReader's internal buffer is filled using \n"
+"    fp's readinto method during reading. For bytes-like objects, the \n"
+"    buffer protocol is used which allows _GzipReader to use the object \n"
+"    itself as read buffer. "
+"  buffersize\n"
+"    Size of the internal buffer. Only used when fp is a file-like object. \n"
+"    The buffer is automatically resized to fit the largest gzip header \n"
+"    upon use of the _GzipReader object.\n"
+);
+
 static PyObject *
 GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
 {
