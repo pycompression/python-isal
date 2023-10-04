@@ -145,6 +145,10 @@ Differences with zlib and gzip modules
   the compression levels are not compatible, a difference in naming was chosen
   to reflect this. ``igzip.GzipFile`` does exist as an alias of
   ``igzip.IGzipFile`` for compatibility reasons.
++ ``igzip._GzipReader`` has been rewritten in C. Since this is a private member
+  it should not affect compatibility, but it may cause some issues for
+  instances where this code is used directly. If such issues should occur,
+  please report them so the compatibility issues can be fixed.
 
 .. differences end
 

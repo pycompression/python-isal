@@ -7,6 +7,14 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.4.0-dev
+-----------------
++ The internal ``igzip._IGzipReader`` has been rewritten in C. As a result the
+  overhead of decompressing files has significantly been reduced and
+  ``python -m isal.igzip`` is now very close to the C ``igzip`` application.
++ The ``igzip._IGZipReader`` in C is now used in ``igzip.decompress``. This
+  has reduced overhead significantly.
+
 version 1.3.0
 -----------------
 + Gzip headers are now actively checked for a BGZF extra field. If found the
