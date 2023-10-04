@@ -1441,6 +1441,11 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
     }
     Py_ssize_t bytes_written = 0;
     while (1) {
+        /* Allow escaping the GIL except when updating the buffer or when
+           throwing errors. This makes a big difference for BGZF format gzip
+           blocks. */
+        PyThreadState *_save;
+        Py_UNBLOCK_THREADS
         uint8_t *current_pos = self->current_pos;
         uint8_t *buffer_end = self->buffer_end;        
         switch(self->stream_phase) {
@@ -1452,6 +1457,7 @@ GzipReader_read_header:
                     // Reached EOF
                     self->_size = self->_pos;
                     self->current_pos = current_pos;
+                    Py_BLOCK_THREADS;
                     return bytes_written;
                 } 
                 if ((remaining) < 10) {
@@ -1461,13 +1467,15 @@ GzipReader_read_header:
                 uint8_t magic2 = current_pos[1];
                 
                 if (!(magic1 == 0x1f && magic2 == 0x8b)) {
-                    PyErr_Format(BadGzipFile, 
+                    Py_BLOCK_THREADS;
+                    PyErr_Format(BadGzipFile,
                         "Not a gzipped file (%R)", 
                         PyBytes_FromStringAndSize((char *)current_pos, 2));
                     return -1;
                 };
                 uint8_t method = current_pos[2];
                 if (method != 8) {
+                    Py_BLOCK_THREADS;
                     PyErr_SetString(BadGzipFile, "Unknown compression method");
                     return -1;
                 }
@@ -1511,6 +1519,7 @@ GzipReader_read_header:
                     uint16_t crc = crc32_gzip_refl(
                         0, current_pos, header_cursor - current_pos) & 0xFFFF;
                     if (header_crc != crc) {
+                        Py_BLOCK_THREADS;
                         PyErr_Format(
                             BadGzipFile,
                             "Corrupted gzip header. Checksums do not "
@@ -1530,10 +1539,9 @@ GzipReader_read_header:
                 self->state.next_out = out_buffer;
                 self->state.avail_out = out_buffer_size;
                 int ret;
-                Py_BEGIN_ALLOW_THREADS
                 ret = isal_inflate(&self->state);
-                Py_END_ALLOW_THREADS
                 if (ret != ISAL_DECOMP_OK) {
+                    Py_BLOCK_THREADS;
                     isal_inflate_error(ret);
                     return -1;
                 }
@@ -1548,6 +1556,7 @@ GzipReader_read_header:
                         break;
                     }
                     self->current_pos = current_pos;
+                    Py_BLOCK_THREADS;
                     return bytes_written;
                 }
                 current_pos -= bitbuffer_size(&self->state);
@@ -1560,6 +1569,7 @@ GzipReader_read_header:
                 uint32_t crc = *(uint32_t *)current_pos;
                 current_pos += 4;
                 if (crc != self->state.crc) {
+                    Py_BLOCK_THREADS;
                     PyErr_Format(
                         BadGzipFile, 
                         "CRC check failed %u != %u", 
@@ -1570,6 +1580,7 @@ GzipReader_read_header:
                 uint32_t length = *(uint32_t *)current_pos;
                 current_pos += 4; 
                 if (length != self->state.total_out) {
+                    Py_BLOCK_THREADS;
                     PyErr_SetString(BadGzipFile, "Incorrect length of data produced");
                     return -1;
                 }
@@ -1590,6 +1601,7 @@ GzipReader_read_header:
             default:
                 Py_UNREACHABLE();
         }
+        Py_BLOCK_THREADS;
         // If buffer_end is reached, nothing was returned and all bytes are 
         // read we have an EOFError.
         if (self->all_bytes_read) {
