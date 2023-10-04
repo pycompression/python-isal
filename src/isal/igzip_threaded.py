@@ -19,9 +19,9 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
 
 
 class ThreadedGzipReader(io.RawIOBase):
-    def __init__(self, fp, queue_size = 8, block_size = 128 * 1024):
+    def __init__(self, fp, queue_size=4, block_size=8 * 1024 * 1024):
         self.raw = fp
-        self.fileobj = igzip._IGzipReader(fp, 512 * 1024)
+        self.fileobj = igzip._IGzipReader(fp, buffersize=8 * 1024 * 1024)
         self.pos = 0
         self.read_file = False
         self.queue = queue.Queue(queue_size)
@@ -46,11 +46,9 @@ class ThreadedGzipReader(io.RawIOBase):
                 return
             block_queue.put(data)
 
-    def read(self, size: int = -1) -> bytes:
-        if size < 0:
-            return self.readall()
-        data = self.buffer.read(size)
-        if not data:
+    def readinto(self, b):
+        result = self.buffer.readinto(b)
+        if result == 0:
             while True:
                 try:
                     data_from_queue = self.queue.get(timeout=0.01)
@@ -60,17 +58,10 @@ class ThreadedGzipReader(io.RawIOBase):
                         if self.exception:
                             raise self.exception
                         # EOF reached
-                        return b""
+                        return 0
             self.buffer = io.BytesIO(data_from_queue)
-            data = self.buffer.read(size)
-        self.pos += len(data)
-        return data
-
-    def readinto(self, b):
-        with memoryview(b) as view, view.cast("B") as byte_view:
-            data = self.read(len(byte_view))
-            byte_view[:len(data)] = data
-        return len(data)
+            result = self.buffer.readinto(b)
+        return result
 
     def readable(self) -> bool:
         return True
