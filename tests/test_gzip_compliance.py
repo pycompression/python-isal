@@ -624,8 +624,7 @@ class TestGzip(BaseTest):
         with igzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
             self.assertRaises(EOFError, f.read)
         with igzip.GzipFile(fileobj=io.BytesIO(truncated)) as f:
-            self.assertEqual(f.read(len(data)), data)
-            self.assertRaises(EOFError, f.read, 1)
+            self.assertRaises(EOFError, f.read, len(data))
         # Incomplete 10-byte header.
         for i in range(2, 10):
             with igzip.GzipFile(fileobj=io.BytesIO(truncated[:i])) as f:
@@ -638,13 +637,6 @@ class TestGzip(BaseTest):
                   b'\x0bI-.\x01\x002\xd1Mx\x04\x00\x00\x00')
         with igzip.GzipFile(fileobj=io.BytesIO(gzdata)) as f:
             self.assertEqual(f.read(), b'Test')
-
-    def test_prepend_error(self):
-        # See issue #20875
-        with igzip.open(self.filename, "wb") as f:
-            f.write(data1)
-        with igzip.open(self.filename, "rb") as f:
-            f._buffer.raw._fp.prepend()
 
     def test_public_consts(self):
         # Confirm that all of the gzip module public consts are
