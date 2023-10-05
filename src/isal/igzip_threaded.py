@@ -1,7 +1,6 @@
 import io
 import queue
 import threading
-from time import perf_counter_ns
 
 from . import igzip
 
@@ -44,7 +43,11 @@ class ThreadedGzipReader(io.RawIOBase):
                 return
             if not data:
                 return
-            block_queue.put(data)
+            while self.running:
+                try:
+                    block_queue.put(data, timeout=0.05)
+                except queue.Full:
+                    pass
 
     def readinto(self, b):
         result = self.buffer.readinto(b)
@@ -61,6 +64,7 @@ class ThreadedGzipReader(io.RawIOBase):
                         return 0
             self.buffer = io.BytesIO(data_from_queue)
             result = self.buffer.readinto(b)
+        self.pos += result
         return result
 
     def readable(self) -> bool:
@@ -73,4 +77,6 @@ class ThreadedGzipReader(io.RawIOBase):
         return self.pos
 
     def close(self) -> None:
+        self.running = False
+        self.worker.join()
         self.fileobj.close()
