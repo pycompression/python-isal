@@ -1,9 +1,11 @@
 import io
 import queue
 import threading
+import typing
 
-from . import igzip
+from . import igzip, isal_zlib
 
+DEFLATE_WINDOW_SIZE = 2 ** 15
 
 def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
          encoding=None, errors=None, newline=None, *, threads=-1):
@@ -81,3 +83,72 @@ class ThreadedGzipReader(io.RawIOBase):
         self.running = False
         self.worker.join()
         self.fileobj.close()
+
+
+class ThreadedWriter(io.RawIOBase):
+    def __init__(self, fp, level: int=isal_zlib.ISAL_DEFAULT_COMPRESSION,
+                 threads: int=1,
+                 queue_size=2):
+        self.raw = fp
+        self.level = level
+        self.previous_block = b""
+        self.crc_queue = queue.Queue(maxsize=threads * queue_size)
+        self.input_queues = [queue.Queue(queue_size) for _ in range(threads)]
+        self.output_queues = [queue.Queue(queue_size) for _ in range(threads)]
+        self.index = 0
+        self.threads = threads
+        self._crc = None
+        self.running = False
+        self._size = None
+
+    def write(self, b) -> int:
+        index = self.index
+        data = bytes(b)
+        zdict = memoryview(self.previous_block)[:-DEFLATE_WINDOW_SIZE]
+        self.previous_block = data
+        self.index += 1
+        worker_index = index % self.threads
+        self.crc_queue.put(data)
+        self.input_queues[worker_index].put((data, zdict))
+        return len(data)
+
+    def _calculate_crc(self):
+        crc = isal_zlib.crc32(b"")
+        size = 0
+        while self.running:
+            try:
+                data = self.crc_queue.get(timeout=0.05)
+            except queue.Empty:
+                continue
+            crc = isal_zlib.crc32(data, crc)
+            size += len(data)
+            self.crc_queue.task_done()
+        self._crc = crc
+        self._size = size
+
+    def _compress(self, index: int):
+        in_queue = self.input_queues[index]
+        out_queue = self.output_queues[index]
+        while self.running:
+            try:
+                data, zdict = in_queue.get(timeout=0.05)
+            except queue.Empty:
+                continue
+            compressor = isal_zlib.compressobj(self.level, wbits=-15, zdict=zdict)
+            compressed = compressor.compress(data) + compressor.flush(isal_zlib.Z_SYNC_FLUSH)
+            out_queue.put(compressed)
+            in_queue.task_done()
+
+    def _write(self):
+        index = 0
+        output_queues = self.output_queues
+        fp = self.raw
+        while self.running:
+            output_queue = output_queues[index]
+            try:
+                data = output_queue.get(timeout=0.05)
+            except queue.Empty:
+                continue
+            fp.write(data)
+            output_queue.task_done()
+            index += 1
