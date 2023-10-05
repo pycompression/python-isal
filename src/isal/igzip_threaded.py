@@ -46,6 +46,7 @@ class ThreadedGzipReader(io.RawIOBase):
             while self.running:
                 try:
                     block_queue.put(data, timeout=0.05)
+                    break
                 except queue.Full:
                     pass
 
