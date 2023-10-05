@@ -1,5 +1,6 @@
 import io
 import queue
+import struct
 import threading
 import typing
 
@@ -86,7 +87,7 @@ class ThreadedGzipReader(io.RawIOBase):
 
 
 class ThreadedWriter(io.RawIOBase):
-    def __init__(self, fp, level: int=isal_zlib.ISAL_DEFAULT_COMPRESSION,
+    def __init__(self, fp: typing.BinaryIO, level: int=isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int=1,
                  queue_size=2):
         self.raw = fp
@@ -100,8 +101,46 @@ class ThreadedWriter(io.RawIOBase):
         self._crc = None
         self.running = False
         self._size = None
+        self.crc_worker = threading.Thread(target=self._calculate_crc)
+        self.output_worker = threading.Thread(target=self.write)
+        self.compression_workers = [
+            threading.Thread(target=self._compress, args=(i,))
+            for i in range(threads)
+        ]
+        self._closed = False
+        self._write_gzip_header()
+        self.start()
+
+    def _write_gzip_header(self):
+        """Simple gzip header. Only xfl flag is set according to level."""
+        magic1 = 0x1f
+        magic2 = 0x8b
+        method = 0x08
+        flags = 0
+        mtime = 0
+        os = 0xff
+        xfl = 4 if self.level == 0 else 0
+        self.raw.write(struct.pack(
+            "BBBBIBB", magic1,magic2, method, flags, mtime, os, xfl))
+
+    def start(self):
+        self.running = True
+        self.crc_worker.start()
+        self.output_worker.start()
+        for worker in self.compression_workers:
+            worker.start()
+
+    def stop_immediately(self):
+        """Stop, but do not care for remaining work"""
+        self.running = False
+        self.crc_worker.join()
+        self.output_worker.join()
+        for worker in self.compression_workers:
+            worker.join()
 
     def write(self, b) -> int:
+        if self._closed:
+            raise IOError("Can not write closed file")
         index = self.index
         data = bytes(b)
         zdict = memoryview(self.previous_block)[:-DEFLATE_WINDOW_SIZE]
@@ -111,6 +150,30 @@ class ThreadedWriter(io.RawIOBase):
         self.crc_queue.put(data)
         self.input_queues[worker_index].put((data, zdict))
         return len(data)
+
+    def flush(self):
+        if self._closed:
+            raise IOError("Can not write closed file")
+        # Wait for all data to be compressed
+        for in_q in self.input_queues:
+            in_q.join()
+        # Wait for all data to be written
+        for out_q in self.output_queues:
+            out_q.join()
+        self.raw.flush()
+
+    def close(self) -> None:
+        self.flush()
+        self.crc_queue.join()
+        self.stop_immediately()
+        trailer = struct.pack("<II", self._crc, self._size & 0xFFFFFFFF)
+        self.raw.write(trailer)
+        self.raw.flush()
+        self.raw.close()
+        self._closed = True
+
+    def closed(self) -> bool:
+        return self._closed
 
     def _calculate_crc(self):
         crc = isal_zlib.crc32(b"")
