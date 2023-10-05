@@ -177,7 +177,7 @@ class ThreadedGzipWriter(io.RawIOBase):
             raise IOError("Can not write closed file")
         index = self.index
         data = bytes(b)
-        zdict = memoryview(self.previous_block)[:-DEFLATE_WINDOW_SIZE]
+        zdict = memoryview(self.previous_block)[-DEFLATE_WINDOW_SIZE:]
         self.previous_block = data
         self.index += 1
         worker_index = index % self.threads
