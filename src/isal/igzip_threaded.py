@@ -108,6 +108,12 @@ class ThreadedGzipReader(io.RawIOBase):
         self.worker.join()
         self.fileobj.close()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
 
 class ThreadedGzipWriter(io.RawIOBase):
     def __init__(self,
@@ -130,7 +136,7 @@ class ThreadedGzipWriter(io.RawIOBase):
         self.running = False
         self._size = 0
         self.crc_worker = threading.Thread(target=self._calculate_crc)
-        self.output_worker = threading.Thread(target=self.write)
+        self.output_worker = threading.Thread(target=self._write)
         self.compression_workers = [
             threading.Thread(target=self._compress, args=(i,))
             for i in range(threads)
@@ -194,6 +200,8 @@ class ThreadedGzipWriter(io.RawIOBase):
         self.flush()
         self.crc_queue.join()
         self.stop_immediately()
+        # Write an empty deflate block with a lost block marker.
+        self.raw.write(isal_zlib.compress(b"", wbits=-15))
         trailer = struct.pack("<II", self._crc, self._size & 0xFFFFFFFF)
         self.raw.write(trailer)
         self.raw.flush()
@@ -238,7 +246,8 @@ class ThreadedGzipWriter(io.RawIOBase):
         output_queues = self.output_queues
         fp = self.raw
         while self.running:
-            output_queue = output_queues[index]
+            out_index = index % self.threads
+            output_queue = output_queues[out_index]
             try:
                 data = output_queue.get(timeout=0.05)
             except queue.Empty:
@@ -246,3 +255,12 @@ class ThreadedGzipWriter(io.RawIOBase):
             fp.write(data)
             output_queue.task_done()
             index += 1
+
+    def writable(self) -> bool:
+        return True
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
