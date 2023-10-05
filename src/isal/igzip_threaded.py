@@ -1,23 +1,46 @@
 import io
+import multiprocessing
+import os
 import queue
 import struct
 import threading
-import typing
+from typing import BinaryIO, List, Tuple
 
 from . import igzip, isal_zlib
 
 DEFLATE_WINDOW_SIZE = 2 ** 15
 
+
 def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
          encoding=None, errors=None, newline=None, *, threads=-1):
-    if threads == 0 or "w" in mode:
+    if threads == 0:
         return igzip.open(filename, mode, compresslevel, encoding, errors,
                           newline)
-    if hasattr(filename, "read"):
-        fp = filename
+    elif threads < 0:
+        try:
+            threads = len(os.sched_getaffinity(0))
+        except:  # noqa: E722
+            try:
+                threads = multiprocessing.cpu_count()
+            except:  # noqa: E722
+                threads = 1
+    open_mode = mode.replace("t", "b")
+    if isinstance(filename, (str, bytes)) or hasattr(filename, "__fspath__"):
+        binary_file = io.open(filename, open_mode)
+    elif hasattr(filename, "read") or hasattr(filename, "write"):
+        binary_file = filename
     else:
-        fp = io.open(filename, "rb")
-    return io.BufferedReader(ThreadedGzipReader(fp))
+        raise TypeError("filename must be a str or bytes object, or a file")
+    if "r" in mode:
+        gzip_file = io.BufferedReader(ThreadedGzipReader(binary_file))
+    else:
+        gzip_file = io.BufferedWriter(
+            ThreadedGzipWriter(binary_file, compresslevel, threads),
+            buffer_size=128 * 1024
+        )
+    if "t" in mode:
+        return io.TextIOWrapper(gzip_file, encoding, errors, newline)
+    return gzip_file
 
 
 class ThreadedGzipReader(io.RawIOBase):
@@ -86,21 +109,26 @@ class ThreadedGzipReader(io.RawIOBase):
         self.fileobj.close()
 
 
-class ThreadedWriter(io.RawIOBase):
-    def __init__(self, fp: typing.BinaryIO, level: int=isal_zlib.ISAL_DEFAULT_COMPRESSION,
-                 threads: int=1,
-                 queue_size=2):
+class ThreadedGzipWriter(io.RawIOBase):
+    def __init__(self,
+                 fp: BinaryIO,
+                 level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
+                 threads: int = 1,
+                 queue_size: int = 2):
         self.raw = fp
         self.level = level
         self.previous_block = b""
-        self.crc_queue = queue.Queue(maxsize=threads * queue_size)
-        self.input_queues = [queue.Queue(queue_size) for _ in range(threads)]
-        self.output_queues = [queue.Queue(queue_size) for _ in range(threads)]
+        self.crc_queue: queue.Queue[bytes] = queue.Queue(
+            maxsize=threads * queue_size)
+        self.input_queues: List[queue.Queue[Tuple[bytes, memoryview]]] = [
+            queue.Queue(queue_size) for _ in range(threads)]
+        self.output_queues: List[queue.Queue[bytes]] = [
+            queue.Queue(queue_size) for _ in range(threads)]
         self.index = 0
         self.threads = threads
-        self._crc = None
+        self._crc = 0
         self.running = False
-        self._size = None
+        self._size = 0
         self.crc_worker = threading.Thread(target=self._calculate_crc)
         self.output_worker = threading.Thread(target=self.write)
         self.compression_workers = [
@@ -121,7 +149,7 @@ class ThreadedWriter(io.RawIOBase):
         os = 0xff
         xfl = 4 if self.level == 0 else 0
         self.raw.write(struct.pack(
-            "BBBBIBB", magic1,magic2, method, flags, mtime, os, xfl))
+            "BBBBIBB", magic1, magic2, method, flags, mtime, os, xfl))
 
     def start(self):
         self.running = True
@@ -172,6 +200,7 @@ class ThreadedWriter(io.RawIOBase):
         self.raw.close()
         self._closed = True
 
+    @property
     def closed(self) -> bool:
         return self._closed
 
@@ -197,8 +226,10 @@ class ThreadedWriter(io.RawIOBase):
                 data, zdict = in_queue.get(timeout=0.05)
             except queue.Empty:
                 continue
-            compressor = isal_zlib.compressobj(self.level, wbits=-15, zdict=zdict)
-            compressed = compressor.compress(data) + compressor.flush(isal_zlib.Z_SYNC_FLUSH)
+            compressor = isal_zlib.compressobj(
+                self.level, wbits=-15, zdict=zdict)
+            compressed = compressor.compress(data) + compressor.flush(
+                isal_zlib.Z_SYNC_FLUSH)
             out_queue.put(compressed)
             in_queue.task_done()
 

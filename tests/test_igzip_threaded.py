@@ -9,9 +9,9 @@ import gzip
 import io
 from pathlib import Path
 
-import pytest
-
 from isal import igzip_threaded
+
+import pytest
 
 TEST_FILE = str((Path(__file__).parent / "data" / "test.fastq.gz"))
 
