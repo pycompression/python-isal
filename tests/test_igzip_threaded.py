@@ -6,7 +6,10 @@
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
 import gzip
+import io
 from pathlib import Path
+
+import pytest
 
 from isal import igzip_threaded
 
@@ -19,3 +22,12 @@ def test_threaded_read():
     with gzip.open(TEST_FILE, "rb") as f:
         data = f.read()
     assert thread_data == data
+
+
+def test_threaded_error():
+    with open(TEST_FILE, "rb") as f:
+        data = f.read()
+    truncated_data = data[:-8]
+    with igzip_threaded.open(io.BytesIO(truncated_data), "rb") as tr_f:
+        with pytest.raises(EOFError):
+            tr_f.read()
