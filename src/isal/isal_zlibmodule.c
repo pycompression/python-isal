@@ -254,6 +254,40 @@ isal_zlib_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
     PyBuffer_Release(&data);
     return return_value;
 }
+
+PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
+"crc32_combine($module, crc1, crc2, crc2_length /)\n"
+"--\n"
+"\n"
+"Combine crc1 and crc2 into a new crc that is accurate for the combined data \n"
+"blocks that crc1 and crc2 where calculated from.\n"
+"\n"
+"  crc1\n"
+"    the first crc32 checksum\n"
+"  crc2\n"
+"    the second crc32 checksum\n"
+"  crc2_length\n"
+"    the lenght of the data block crc2 was calculated from\n"
+);
+
+
+#define ISAL_ZLIB_CRC32_COMBINE_METHODDEF    \
+    {"crc32_combine", (PyCFunction)(void(*)(void))isal_zlib_crc32_combine, \
+     METH_VARARGS, isal_zlib_crc32_combine__doc__}
+
+static PyObject *
+isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
+    uint32_t crc1 = 0;
+    uint32_t crc2 = 0;
+    Py_ssize_t crc2_length = 0;
+    static char *format = "IIn:crc32combine";
+    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
+        return NULL;
+    }
+    return PyLong_FromUnsignedLong(
+        crc32_comb(crc1, crc2, crc2_length) & 0xFFFFFFFF);
+}
+
 PyDoc_STRVAR(zlib_compress__doc__,
 "compress($module, data, /, level=ISAL_DEFAULT_COMPRESSION, wbits=MAX_WBITS)\n"
 "--\n"
@@ -1188,56 +1222,6 @@ isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t
     return isal_zlib_Decompress_flush_impl(self, length);
 }
 
-PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
-"crc32_combine($module, crc1, crc2, crc2_length /)\n"
-"--\n"
-"\n"
-"Combine crc1 and crc2 into a new crc that is accurate for the combined data \n"
-"blocks that crc1 and crc2 where calculated from.\n"
-"\n"
-"  crc1\n"
-"    the first crc32 checksum\n"
-"  crc2\n"
-"    the second crc32 checksum\n"
-"  crc2_length\n"
-"    the lenght of the data block crc2 was calculated from\n"
-);
-
-
-#define ISAL_ZLIB_CRC32_COMBINE_METHODDEF    \
-    {"crc32_combine", (PyCFunction)(void(*)(void))isal_zlib_crc32_combine, \
-     METH_VARARGS, isal_zlib_crc32_combine__doc__}
-
-static PyObject *
-isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
-    uint32_t crc1 = 0;
-    uint32_t crc2 = 0;
-    Py_ssize_t crc2_length = 0;
-    static char *format = "IIn:crc32combine";
-    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
-        return NULL;
-    }
-    return PyLong_FromUnsignedLong(
-        crc32_comb(crc1, crc2, crc2_length) & 0xFFFFFFFF);
-}
-
-
-typedef struct {
-    PyTypeObject *Comptype;
-    PyTypeObject *Decomptype;
-    PyObject *IsalError;
-} isal_zlib_state;
-
-static PyMethodDef IsalZlibMethods[] = {
-    ISAL_ZLIB_ADLER32_METHODDEF,
-    ISAL_ZLIB_CRC32_METHODDEF,
-    ISAL_ZLIB_CRC32_COMBINE_METHODDEF,
-    ISAL_ZLIB_COMPRESS_METHODDEF,
-    ISAL_ZLIB_DECOMPRESS_METHODDEF,
-    ISAL_ZLIB_COMPRESSOBJ_METHODDEF,
-    ISAL_ZLIB_DECOMPRESSOBJ_METHODDEF,
-    {NULL, NULL, 0, NULL}        /* Sentinel */
-};
 
 static PyMethodDef comp_methods[] = {
     ISAL_ZLIB_COMPRESS_COMPRESS_METHODDEF,
@@ -1464,16 +1448,27 @@ GzipReader_read_from_file(GzipReader *self)
 
 static PyObject *BadGzipFile; // Import BadGzipFile error for consistency
 
+static inline uint32_t load_u32_le(void *address) {    
+    #if PY_BIG_ENDIAN
+    uint8_t *mem = address;
+    return mem[0] | (mem[1] << 8) | (mem[2] << 16) | (mem[3] << 24);
+    #else
+    return *(uint32_t *)address;
+    #endif
+}
+
+static inline uint16_t load_u16_le(void *address) {
+    #if PY_BIG_ENDIAN
+    uint8_t *mem = address;
+    return mem[0] | (mem[1] << 8) | (mem[2] << 16) | (mem[3] << 24);
+    #else
+    return *(uint16_t *)address;
+    #endif
+}
+
 static Py_ssize_t 
 GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
-    if (out_buffer_size > UINT32_MAX) {
-        PyErr_SetString(
-            PyExc_RuntimeError, 
-            "Internal function GzipReader_read_into_buffer called "
-            "with a too large buffer");
-            return -1;
-    }
     Py_ssize_t bytes_written = 0;
     /* Outer loop is the file read in loop */
     while (1) {
@@ -1517,7 +1512,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         return -1;
                     }
                     uint8_t flags = current_pos[3];
-                    self->_last_mtime = *(uint32_t *)(current_pos + 4);
+                    self->_last_mtime = load_u32_le(current_pos + 4);
                     // Skip XFL and header flag
                     uint8_t *header_cursor = current_pos + 10;
                     if (flags & FEXTRA) {
@@ -1525,7 +1520,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         if (header_cursor + 2 >= buffer_end) {
                             break;
                         }
-                        uint16_t flength = *(uint16_t *)header_cursor;
+                        uint16_t flength = load_u16_le(header_cursor);
                         header_cursor += 2;
                         if (header_cursor + flength >= buffer_end) {
                             break;
@@ -1552,7 +1547,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         if (header_cursor + 2 >= buffer_end) {
                             break;
                         }
-                        uint16_t header_crc = *(uint16_t *)header_cursor;
+                        uint16_t header_crc = load_u16_le(header_cursor);
                         uint16_t crc = crc32_gzip_refl(
                             0, current_pos, header_cursor - current_pos) & 0xFFFF;
                         if (header_crc != crc) {
@@ -1572,9 +1567,9 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     self->stream_phase = GzipReader_DEFLATE_BLOCK;
                 case GzipReader_DEFLATE_BLOCK:
                     self->state.next_in = current_pos;
-                    self->state.avail_in = buffer_end - current_pos;
+                    self->state.avail_in = Py_MIN((buffer_end -current_pos), UINT32_MAX);
                     self->state.next_out = out_buffer;
-                    self->state.avail_out = out_buffer_size;
+                    self->state.avail_out = Py_MIN(out_buffer_size, UINT32_MAX);
                     int ret;
                     ret = isal_inflate(&self->state);
                     if (ret != ISAL_DECOMP_OK) {
@@ -1586,11 +1581,16 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     bytes_written += current_bytes_written;
                     self->_pos += current_bytes_written;
                     out_buffer = self->state.next_out;
-                    out_buffer_size = self->state.avail_out;
+                    out_buffer_size -= current_bytes_written;
                     current_pos = self->state.next_in;
                     if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
-                        if (self->state.avail_out > 0) {
-                            break;
+                        if (out_buffer_size > 0) {
+                            if (current_pos == buffer_end) {
+                                // Need fresh bytes
+                                break;
+                            }
+                            // Not all input data decompressed.
+                            continue;
                         }
                         self->current_pos = current_pos;
                         Py_BLOCK_THREADS;
@@ -1603,7 +1603,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     if (buffer_end - current_pos < 8) {
                         break;
                     }
-                    uint32_t crc = *(uint32_t *)current_pos;
+                    uint32_t crc = load_u32_le(current_pos);
                     current_pos += 4;
                     if (crc != self->state.crc) {
                         Py_BLOCK_THREADS;
@@ -1614,7 +1614,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         );
                         return -1;
                     }
-                    uint32_t length = *(uint32_t *)current_pos;
+                    uint32_t length = load_u32_le(current_pos);
                     current_pos += 4; 
                     if (length != self->state.total_out) {
                         Py_BLOCK_THREADS;
@@ -1624,17 +1624,14 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     self->stream_phase = GzipReader_NULL_BYTES;
                 case GzipReader_NULL_BYTES:
                     // There maybe NULL bytes between gzip members
-                    while (current_pos < buffer_end) {
-                        if (*current_pos != 0) {
-                            self->stream_phase = GzipReader_HEADER;
-                            break;
-                        }
+                    while (current_pos < buffer_end && *current_pos == 0) {
                         current_pos += 1;
                     }
-                    if (current_pos >= buffer_end) {
+                    if (current_pos == buffer_end) {
+                        /* Not all NULL bytes may have been read, refresh the buffer.*/
                         break;
                     }
-                    // Continue to prevent refreshing the buffer for each block.
+                    self->stream_phase = GzipReader_HEADER;
                     continue;
                 default:
                     Py_UNREACHABLE();
@@ -1671,7 +1668,7 @@ GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
         return NULL;
     }
     uint8_t *buffer = view.buf;
-    size_t buffer_size = Py_MIN(view.len, UINT32_MAX);
+    size_t buffer_size = view.len;
     ENTER_ZLIB(self);
     Py_ssize_t written_size = GzipReader_read_into_buffer(self, buffer, buffer_size);
     LEAVE_ZLIB(self);
@@ -1944,6 +1941,7 @@ static PyTypeObject GzipReader_Type = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor)GzipReader_dealloc,
     .tp_new = (newfunc)(GzipReader__new__),
+    .tp_doc = GzipReader__new____doc__,
     .tp_methods = GzipReader_methods,
     .tp_getset = GzipReader_properties,
 };
@@ -1963,6 +1961,23 @@ PyDoc_STRVAR(isal_zlib_module_documentation,
 "\n"
 "Compressor objects support compress() and flush() methods; decompressor\n"
 "objects support decompress() and flush().");
+
+typedef struct {
+    PyTypeObject *Comptype;
+    PyTypeObject *Decomptype;
+    PyObject *IsalError;
+} isal_zlib_state;
+
+static PyMethodDef IsalZlibMethods[] = {
+    ISAL_ZLIB_ADLER32_METHODDEF,
+    ISAL_ZLIB_CRC32_METHODDEF,
+    ISAL_ZLIB_CRC32_COMBINE_METHODDEF,
+    ISAL_ZLIB_COMPRESS_METHODDEF,
+    ISAL_ZLIB_DECOMPRESS_METHODDEF,
+    ISAL_ZLIB_COMPRESSOBJ_METHODDEF,
+    ISAL_ZLIB_DECOMPRESSOBJ_METHODDEF,
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
 
 static struct PyModuleDef isal_zlib_module = {
     PyModuleDef_HEAD_INIT,
