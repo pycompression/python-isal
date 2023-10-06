@@ -254,6 +254,40 @@ isal_zlib_crc32(PyObject *module, PyObject *const *args, Py_ssize_t nargs)
     PyBuffer_Release(&data);
     return return_value;
 }
+
+PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
+"crc32_combine($module, crc1, crc2, crc2_length /)\n"
+"--\n"
+"\n"
+"Combine crc1 and crc2 into a new crc that is accurate for the combined data \n"
+"blocks that crc1 and crc2 where calculated from.\n"
+"\n"
+"  crc1\n"
+"    the first crc32 checksum\n"
+"  crc2\n"
+"    the second crc32 checksum\n"
+"  crc2_length\n"
+"    the lenght of the data block crc2 was calculated from\n"
+);
+
+
+#define ISAL_ZLIB_CRC32_COMBINE_METHODDEF    \
+    {"crc32_combine", (PyCFunction)(void(*)(void))isal_zlib_crc32_combine, \
+     METH_VARARGS, isal_zlib_crc32_combine__doc__}
+
+static PyObject *
+isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
+    uint32_t crc1 = 0;
+    uint32_t crc2 = 0;
+    Py_ssize_t crc2_length = 0;
+    static char *format = "IIn:crc32combine";
+    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
+        return NULL;
+    }
+    return PyLong_FromUnsignedLong(
+        crc32_comb(crc1, crc2, crc2_length) & 0xFFFFFFFF);
+}
+
 PyDoc_STRVAR(zlib_compress__doc__,
 "compress($module, data, /, level=ISAL_DEFAULT_COMPRESSION, wbits=MAX_WBITS)\n"
 "--\n"
@@ -1186,39 +1220,6 @@ isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t
         return NULL;
     }
     return isal_zlib_Decompress_flush_impl(self, length);
-}
-
-PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
-"crc32_combine($module, crc1, crc2, crc2_length /)\n"
-"--\n"
-"\n"
-"Combine crc1 and crc2 into a new crc that is accurate for the combined data \n"
-"blocks that crc1 and crc2 where calculated from.\n"
-"\n"
-"  crc1\n"
-"    the first crc32 checksum\n"
-"  crc2\n"
-"    the second crc32 checksum\n"
-"  crc2_length\n"
-"    the lenght of the data block crc2 was calculated from\n"
-);
-
-
-#define ISAL_ZLIB_CRC32_COMBINE_METHODDEF    \
-    {"crc32_combine", (PyCFunction)(void(*)(void))isal_zlib_crc32_combine, \
-     METH_VARARGS, isal_zlib_crc32_combine__doc__}
-
-static PyObject *
-isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
-    uint32_t crc1 = 0;
-    uint32_t crc2 = 0;
-    Py_ssize_t crc2_length = 0;
-    static char *format = "IIn:crc32combine";
-    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
-        return NULL;
-    }
-    return PyLong_FromUnsignedLong(
-        crc32_comb(crc1, crc2, crc2_length) & 0xFFFFFFFF);
 }
 
 
