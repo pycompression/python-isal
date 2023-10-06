@@ -1448,6 +1448,24 @@ GzipReader_read_from_file(GzipReader *self)
 
 static PyObject *BadGzipFile; // Import BadGzipFile error for consistency
 
+static inline uint32_t load_u32_le(void *address) {    
+    #if PY_BIG_ENDIAN
+    uint8_t *mem = address;
+    return mem[0] | (mem[1] << 8) | (mem[2] << 16) | (mem[3] << 24);
+    #else
+    return *(uint32_t *)address;
+    #endif
+}
+
+static inline uint16_t load_u16_le(void *address) {
+    #if PY_BIG_ENDIAN
+    uint8_t *mem = address;
+    return mem[0] | (mem[1] << 8) | (mem[2] << 16) | (mem[3] << 24);
+    #else
+    return *(uint16_t *)address;
+    #endif
+}
+
 static Py_ssize_t 
 GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
@@ -1494,7 +1512,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         return -1;
                     }
                     uint8_t flags = current_pos[3];
-                    self->_last_mtime = *(uint32_t *)(current_pos + 4);
+                    self->_last_mtime = load_u32_le(current_pos + 4);
                     // Skip XFL and header flag
                     uint8_t *header_cursor = current_pos + 10;
                     if (flags & FEXTRA) {
@@ -1502,7 +1520,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         if (header_cursor + 2 >= buffer_end) {
                             break;
                         }
-                        uint16_t flength = *(uint16_t *)header_cursor;
+                        uint16_t flength = load_u16_le(header_cursor);
                         header_cursor += 2;
                         if (header_cursor + flength >= buffer_end) {
                             break;
@@ -1529,7 +1547,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         if (header_cursor + 2 >= buffer_end) {
                             break;
                         }
-                        uint16_t header_crc = *(uint16_t *)header_cursor;
+                        uint16_t header_crc = load_u16_le(header_cursor);
                         uint16_t crc = crc32_gzip_refl(
                             0, current_pos, header_cursor - current_pos) & 0xFFFF;
                         if (header_crc != crc) {
@@ -1585,7 +1603,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     if (buffer_end - current_pos < 8) {
                         break;
                     }
-                    uint32_t crc = *(uint32_t *)current_pos;
+                    uint32_t crc = load_u32_le(current_pos);
                     current_pos += 4;
                     if (crc != self->state.crc) {
                         Py_BLOCK_THREADS;
@@ -1596,7 +1614,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                         );
                         return -1;
                     }
-                    uint32_t length = *(uint32_t *)current_pos;
+                    uint32_t length = load_u32_le(current_pos);
                     current_pos += 4; 
                     if (length != self->state.total_out) {
                         Py_BLOCK_THREADS;
