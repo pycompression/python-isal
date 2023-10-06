@@ -108,12 +108,6 @@ class ThreadedGzipReader(io.RawIOBase):
         self.worker.join()
         self.fileobj.close()
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-
 
 class ThreadedGzipWriter(io.RawIOBase):
     """
@@ -298,9 +292,3 @@ class ThreadedGzipWriter(io.RawIOBase):
 
     def writable(self) -> bool:
         return True
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
