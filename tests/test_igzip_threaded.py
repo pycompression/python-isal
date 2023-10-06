@@ -7,6 +7,7 @@
 
 import gzip
 import io
+import tempfile
 from pathlib import Path
 
 from isal import igzip_threaded
@@ -24,10 +25,22 @@ def test_threaded_read():
     assert thread_data == data
 
 
-def test_threaded_error():
+# Test whether threaded readers and writers throw an error rather than hang
+# indefinitely.
+
+@pytest.mark.timeout(5)
+def test_threaded_read_error():
     with open(TEST_FILE, "rb") as f:
         data = f.read()
     truncated_data = data[:-8]
     with igzip_threaded.open(io.BytesIO(truncated_data), "rb") as tr_f:
         with pytest.raises(EOFError):
             tr_f.read()
+
+
+@pytest.mark.timeout(5)
+def test_threaded_write_error():
+    tmp = tempfile.mktemp()
+    with pytest.raises(ValueError) as error:
+        with igzip_threaded.open(tmp, "wb", compresslevel=43) as writer:
+            writer.write(b"x")
