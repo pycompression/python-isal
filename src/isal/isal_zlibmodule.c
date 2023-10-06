@@ -1944,6 +1944,7 @@ static PyTypeObject GzipReader_Type = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor)GzipReader_dealloc,
     .tp_new = (newfunc)(GzipReader__new__),
+    .tp_doc = GzipReader__new____doc__,
     .tp_methods = GzipReader_methods,
     .tp_getset = GzipReader_properties,
 };
