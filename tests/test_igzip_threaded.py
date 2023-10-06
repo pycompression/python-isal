@@ -28,8 +28,9 @@ def test_threaded_read():
 @pytest.mark.parametrize("mode", ["wb", "wt"])
 def test_threaded_write(mode):
     with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
-        with igzip_threaded.open(tmp, mode, threads=3) as out_file:
-            with gzip.open(TEST_FILE, "rb" if "b" in mode else "rt") as in_file:
+        with igzip_threaded.open(tmp, mode, threads=-1) as out_file:
+            gzip_open_mode = "rb" if "b" in mode else "rt"
+            with gzip.open(TEST_FILE, gzip_open_mode) as in_file:
                 while True:
                     block = in_file.read(128 * 1024)
                     if not block:
@@ -77,3 +78,4 @@ def test_threaded_write_error():
     with pytest.raises(ValueError) as error:
         with igzip_threaded.open(tmp, "wb", compresslevel=43) as writer:
             writer.write(b"x")
+    error.match("compression level")
