@@ -1451,13 +1451,6 @@ static PyObject *BadGzipFile; // Import BadGzipFile error for consistency
 static Py_ssize_t 
 GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_buffer_size)
 {
-    if (out_buffer_size > UINT32_MAX) {
-        PyErr_SetString(
-            PyExc_RuntimeError, 
-            "Internal function GzipReader_read_into_buffer called "
-            "with a too large buffer");
-            return -1;
-    }
     Py_ssize_t bytes_written = 0;
     /* Outer loop is the file read in loop */
     while (1) {
@@ -1558,7 +1551,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     self->state.next_in = current_pos;
                     self->state.avail_in = buffer_end - current_pos;
                     self->state.next_out = out_buffer;
-                    self->state.avail_out = out_buffer_size;
+                    self->state.avail_out = Py_MIN(out_buffer_size, UINT32_MAX);
                     int ret;
                     ret = isal_inflate(&self->state);
                     if (ret != ISAL_DECOMP_OK) {
@@ -1570,10 +1563,10 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     bytes_written += current_bytes_written;
                     self->_pos += current_bytes_written;
                     out_buffer = self->state.next_out;
-                    out_buffer_size = self->state.avail_out;
+                    out_buffer_size -= current_bytes_written;
                     current_pos = self->state.next_in;
                     if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
-                        if (self->state.avail_out > 0) {
+                        if (out_buffer_size > 0) {
                             break;
                         }
                         self->current_pos = current_pos;
