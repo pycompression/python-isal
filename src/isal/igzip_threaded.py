@@ -116,6 +116,35 @@ class ThreadedGzipReader(io.RawIOBase):
 
 
 class ThreadedGzipWriter(io.RawIOBase):
+    """
+    Write a gzip file using multiple threads.
+
+    This class is heavily inspired by pigz from Mark Adler
+    (https://github.com/madler/pigz). It works similarly.
+
+    Each thread gets its own input and output queue. The program performs a
+    round robin using an index. The writer thread reads from the output
+    queues in a round robin using an index. This way all the blocks will be
+    written to the output stream in order while still allowing independent
+    compression for each thread.
+
+    Writing to the ThreadedGzipWriter happens on the main thread in a
+    io.BufferedWriter. The BufferedWriter will offer a memoryview of its
+    buffer. Using the bytes constructor this is made into an immutable block of
+    data.
+
+    A reference to the previous block is used to create a memoryview of the
+    last 32k of that block. This is used as a dictionary for the compression
+    allowing for better compression rates.
+
+    The current block and the dictionary are pushed into an input queue. They
+    are picked up by a compression worker that calculates the crc32, the
+    length of the data and compresses the block. The compressed block, checksum
+    and length are pushed into an output queue.
+
+    The writer thread reads from output queues and uses the crc32_combine
+    function to calculate the total crc. It also writes the compressed block.
+    """
     def __init__(self,
                  fp: BinaryIO,
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
