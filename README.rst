@@ -45,13 +45,17 @@ Acceleration Library (ISA-L) implements several key algorithms in `assembly
 language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
 a variety of functions to provide zlib/gzip-compatible compression.
 
-``python-isal`` provides the bindings by offering three modules:
+``python-isal`` provides the bindings by offering four modules:
 
 + ``isal_zlib``: A drop-in replacement for the zlib module that uses ISA-L to
   accelerate its performance.
 + ``igzip``: A drop-in replacement for the gzip module that uses ``isal_zlib``
   instead of ``zlib`` to perform its compression and checksum tasks, which
   improves performance.
++ ``igzip_threaded`` offers an ``open`` function which returns buffered read
+  or write streams that can be used to read and write large files while
+  escaping the GIL using one or multiple threads. This functionality only
+  works for streaming, seeking is not supported.
 + ``igzip_lib``: Provides compression functions which have full access to the
   API of ISA-L's compression functions.
 
