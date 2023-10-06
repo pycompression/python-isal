@@ -1608,17 +1608,14 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     self->stream_phase = GzipReader_NULL_BYTES;
                 case GzipReader_NULL_BYTES:
                     // There maybe NULL bytes between gzip members
-                    while (current_pos < buffer_end) {
-                        if (*current_pos != 0) {
-                            self->stream_phase = GzipReader_HEADER;
-                            break;
-                        }
+                    while (current_pos < buffer_end && *current_pos == 0) {
                         current_pos += 1;
                     }
-                    if (current_pos >= buffer_end) {
+                    if (current_pos == buffer_end) {
+                        /* Not all NULL bytes may have been read, refresh the buffer.*/
                         break;
                     }
-                    // Continue to prevent refreshing the buffer for each block.
+                    self->stream_phase = GzipReader_HEADER;
                     continue;
                 default:
                     Py_UNREACHABLE();
