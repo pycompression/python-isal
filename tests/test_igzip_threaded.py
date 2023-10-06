@@ -25,6 +25,22 @@ def test_threaded_read():
     assert thread_data == data
 
 
+def test_threaded_write():
+    with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
+        with igzip_threaded.open(tmp, "wb", threads=3) as out_file:
+            with gzip.open(TEST_FILE) as in_file:
+                while True:
+                    block = in_file.read(128 * 1024)
+                    if not block:
+                        break
+                    out_file.write(block)
+    with gzip.open(TEST_FILE, "rt") as test_file:
+        test_data = test_file.read()
+    with gzip.open(tmp.name, "rt") as test_out:
+        out_data = test_out.read()
+    assert test_data == out_data
+
+
 # Test whether threaded readers and writers throw an error rather than hang
 # indefinitely.
 
