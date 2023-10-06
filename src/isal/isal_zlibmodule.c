@@ -1549,7 +1549,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     self->stream_phase = GzipReader_DEFLATE_BLOCK;
                 case GzipReader_DEFLATE_BLOCK:
                     self->state.next_in = current_pos;
-                    self->state.avail_in = buffer_end - current_pos;
+                    self->state.avail_in = Py_MIN((buffer_end -current_pos), UINT32_MAX);
                     self->state.next_out = out_buffer;
                     self->state.avail_out = Py_MIN(out_buffer_size, UINT32_MAX);
                     int ret;
@@ -1567,7 +1567,12 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     current_pos = self->state.next_in;
                     if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
                         if (out_buffer_size > 0) {
-                            break;
+                            if (current_pos == buffer_end) {
+                                // Need fresh bytes
+                                break;
+                            }
+                            // Not all input data decompressed.
+                            continue;
                         }
                         self->current_pos = current_pos;
                         Py_BLOCK_THREADS;
@@ -1645,7 +1650,7 @@ GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
         return NULL;
     }
     uint8_t *buffer = view.buf;
-    size_t buffer_size = Py_MIN(view.len, UINT32_MAX);
+    size_t buffer_size = view.len;
     ENTER_ZLIB(self);
     Py_ssize_t written_size = GzipReader_read_into_buffer(self, buffer, buffer_size);
     LEAVE_ZLIB(self);
