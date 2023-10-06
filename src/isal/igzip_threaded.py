@@ -124,18 +124,15 @@ class ThreadedGzipWriter(io.RawIOBase):
         self.raw = fp
         self.level = level
         self.previous_block = b""
-        self.crc_queue: queue.Queue[bytes] = queue.Queue(
-            maxsize=threads * queue_size)
         self.input_queues: List[queue.Queue[Tuple[bytes, memoryview]]] = [
             queue.Queue(queue_size) for _ in range(threads)]
-        self.output_queues: List[queue.Queue[bytes]] = [
+        self.output_queues: List[queue.Queue[Tuple[bytes, int, int]]] = [
             queue.Queue(queue_size) for _ in range(threads)]
         self.index = 0
         self.threads = threads
         self._crc = 0
         self.running = False
         self._size = 0
-        self.crc_worker = threading.Thread(target=self._calculate_crc)
         self.output_worker = threading.Thread(target=self._write)
         self.compression_workers = [
             threading.Thread(target=self._compress, args=(i,))
@@ -159,7 +156,6 @@ class ThreadedGzipWriter(io.RawIOBase):
 
     def start(self):
         self.running = True
-        self.crc_worker.start()
         self.output_worker.start()
         for worker in self.compression_workers:
             worker.start()
@@ -167,7 +163,6 @@ class ThreadedGzipWriter(io.RawIOBase):
     def stop_immediately(self):
         """Stop, but do not care for remaining work"""
         self.running = False
-        self.crc_worker.join()
         self.output_worker.join()
         for worker in self.compression_workers:
             worker.join()
@@ -181,7 +176,6 @@ class ThreadedGzipWriter(io.RawIOBase):
         self.previous_block = data
         self.index += 1
         worker_index = index % self.threads
-        self.crc_queue.put(data)
         self.input_queues[worker_index].put((data, zdict))
         return len(data)
 
@@ -198,7 +192,6 @@ class ThreadedGzipWriter(io.RawIOBase):
 
     def close(self) -> None:
         self.flush()
-        self.crc_queue.join()
         self.stop_immediately()
         # Write an empty deflate block with a lost block marker.
         self.raw.write(isal_zlib.compress(b"", wbits=-15))
@@ -212,20 +205,6 @@ class ThreadedGzipWriter(io.RawIOBase):
     def closed(self) -> bool:
         return self._closed
 
-    def _calculate_crc(self):
-        crc = isal_zlib.crc32(b"")
-        size = 0
-        while self.running:
-            try:
-                data = self.crc_queue.get(timeout=0.05)
-            except queue.Empty:
-                continue
-            crc = isal_zlib.crc32(data, crc)
-            size += len(data)
-            self.crc_queue.task_done()
-        self._crc = crc
-        self._size = size
-
     def _compress(self, index: int):
         in_queue = self.input_queues[index]
         out_queue = self.output_queues[index]
@@ -238,23 +217,31 @@ class ThreadedGzipWriter(io.RawIOBase):
                 self.level, wbits=-15, zdict=zdict)
             compressed = compressor.compress(data) + compressor.flush(
                 isal_zlib.Z_SYNC_FLUSH)
-            out_queue.put(compressed)
+            crc = isal_zlib.crc32(data)
+            data_length = len(data)
+            out_queue.put((compressed, crc, data_length))
             in_queue.task_done()
 
     def _write(self):
         index = 0
         output_queues = self.output_queues
         fp = self.raw
+        total_crc = 0
+        size = 0
         while self.running:
             out_index = index % self.threads
             output_queue = output_queues[out_index]
             try:
-                data = output_queue.get(timeout=0.05)
+                compressed, crc, data_length = output_queue.get(timeout=0.05)
             except queue.Empty:
                 continue
-            fp.write(data)
+            total_crc = isal_zlib.crc32_combine(total_crc, crc, data_length)
+            size += data_length
+            fp.write(compressed)
             output_queue.task_done()
             index += 1
+        self._crc = total_crc
+        self._size = size
 
     def writable(self) -> bool:
         return True
