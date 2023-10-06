@@ -17,7 +17,7 @@ version 1.4.0-dev
   overhead of decompressing files has significantly been reduced and
   ``python -m isal.igzip`` is now very close to the C ``igzip`` application.
 + The ``igzip._IGZipReader`` in C is now used in ``igzip.decompress``. The
-  ``_GzipReader`` also can read from objects that support the buffer protocol
+  ``_GzipReader`` also can read from objects that support the buffer protocol.
   This has reduced overhead significantly.
 
 version 1.3.0
