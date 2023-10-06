@@ -27,6 +27,7 @@ Changes compared to CPython:
 #include "isal_shared.h"
 
 #include <isa-l/crc.h>
+#include "crc32_combine.h"
 
 #define Z_DEFAULT_STRATEGY    0
 #define Z_FILTERED            1
@@ -1187,6 +1188,39 @@ isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t
     return isal_zlib_Decompress_flush_impl(self, length);
 }
 
+PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
+"crc32_combine($module, crc1, crc2, crc2_length /)\n"
+"--\n"
+"\n"
+"Combine crc1 and crc2 into a new crc that is accurate for the combined data \n"
+"blocks that crc1 and crc2 where calculated from.\n"
+"\n"
+"  crc1\n"
+"    the first crc32 checksum\n"
+"  crc2\n"
+"    the second crc32 checksum\n"
+"  crc2_length\n"
+"    the lenght of the data block crc2 was calculated from\n"
+);
+
+
+#define ISAL_ZLIB_CRC32_COMBINE_METHODDEF    \
+    {"crc32_combine", (PyCFunction)(void(*)(void))isal_zlib_crc32_combine, \
+     METH_VARARGS, isal_zlib_crc32_combine__doc__}
+
+static PyObject *
+isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
+    uint32_t crc1 = 0;
+    uint32_t crc2 = 0;
+    Py_ssize_t crc2_length = 0;
+    static char *format = "IIn:crc32combine";
+    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
+        return NULL;
+    }
+    return PyLong_FromUnsignedLong(
+        crc32_comb(crc1, crc2, crc2_length) & 0xFFFFFFFF);
+}
+
 
 typedef struct {
     PyTypeObject *Comptype;
@@ -1197,6 +1231,7 @@ typedef struct {
 static PyMethodDef IsalZlibMethods[] = {
     ISAL_ZLIB_ADLER32_METHODDEF,
     ISAL_ZLIB_CRC32_METHODDEF,
+    ISAL_ZLIB_CRC32_COMBINE_METHODDEF,
     ISAL_ZLIB_COMPRESS_METHODDEF,
     ISAL_ZLIB_DECOMPRESS_METHODDEF,
     ISAL_ZLIB_COMPRESSOBJ_METHODDEF,
@@ -1440,156 +1475,173 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
             return -1;
     }
     Py_ssize_t bytes_written = 0;
+    /* Outer loop is the file read in loop */
     while (1) {
         uint8_t *current_pos = self->current_pos;
-        uint8_t *buffer_end = self->buffer_end;        
-        switch(self->stream_phase) {
-            size_t remaining; // Must be before labels.
-            case GzipReader_HEADER:
-GzipReader_read_header:
-                remaining = buffer_end - current_pos;
-                if (remaining == 0 && self->all_bytes_read) {
-                    // Reached EOF
-                    self->_size = self->_pos;
-                    self->current_pos = current_pos;
-                    return bytes_written;
-                } 
-                if ((remaining) < 10) {
-                    break;
-                }
-                uint8_t magic1 = current_pos[0];
-                uint8_t magic2 = current_pos[1];
-                
-                if (!(magic1 == 0x1f && magic2 == 0x8b)) {
-                    PyErr_Format(BadGzipFile, 
-                        "Not a gzipped file (%R)", 
-                        PyBytes_FromStringAndSize((char *)current_pos, 2));
-                    return -1;
-                };
-                uint8_t method = current_pos[2];
-                if (method != 8) {
-                    PyErr_SetString(BadGzipFile, "Unknown compression method");
-                    return -1;
-                }
-                uint8_t flags = current_pos[3];
-                self->_last_mtime = *(uint32_t *)(current_pos + 4);
-                // Skip XFL and header flag
-                uint8_t *header_cursor = current_pos + 10;
-                if (flags & FEXTRA) {
-                    // Read the extra field and discard it.
-                    if (header_cursor + 2 >= buffer_end) {
+        uint8_t *buffer_end = self->buffer_end;
+        /* Inner loop fills the out buffer, with multiple gzip blocks if 
+           necessary. Allow escaping the GIL except when throwing errors. 
+           This makes a big difference for BGZF format gzip blocks. 
+           Threads are blocked when the loop is exited. */
+        PyThreadState *_save;
+        Py_UNBLOCK_THREADS
+        while(1) {     
+            switch(self->stream_phase) {
+                size_t remaining; // Must be before labels.
+                case GzipReader_HEADER:
+                    remaining = buffer_end - current_pos;
+                    if (remaining == 0 && self->all_bytes_read) {
+                        // Reached EOF
+                        self->_size = self->_pos;
+                        self->current_pos = current_pos;
+                        Py_BLOCK_THREADS;
+                        return bytes_written;
+                    } 
+                    if ((remaining) < 10) {
                         break;
                     }
-                    uint16_t flength = *(uint16_t *)header_cursor;
-                    header_cursor += 2;
-                    if (header_cursor + flength >= buffer_end) {
+                    uint8_t magic1 = current_pos[0];
+                    uint8_t magic2 = current_pos[1];
+                    
+                    if (!(magic1 == 0x1f && magic2 == 0x8b)) {
+                        Py_BLOCK_THREADS;
+                        PyErr_Format(BadGzipFile,
+                            "Not a gzipped file (%R)", 
+                            PyBytes_FromStringAndSize((char *)current_pos, 2));
+                        return -1;
+                    };
+                    uint8_t method = current_pos[2];
+                    if (method != 8) {
+                        Py_BLOCK_THREADS;
+                        PyErr_SetString(BadGzipFile, "Unknown compression method");
+                        return -1;
+                    }
+                    uint8_t flags = current_pos[3];
+                    self->_last_mtime = *(uint32_t *)(current_pos + 4);
+                    // Skip XFL and header flag
+                    uint8_t *header_cursor = current_pos + 10;
+                    if (flags & FEXTRA) {
+                        // Read the extra field and discard it.
+                        if (header_cursor + 2 >= buffer_end) {
+                            break;
+                        }
+                        uint16_t flength = *(uint16_t *)header_cursor;
+                        header_cursor += 2;
+                        if (header_cursor + flength >= buffer_end) {
+                            break;
+                        }
+                        header_cursor += flength;
+                    }
+                    if (flags & FNAME) {
+                        header_cursor = memchr(header_cursor, 0, buffer_end - header_cursor);
+                        if (header_cursor == NULL) {
+                            break;
+                        }
+                        // skip over the 0 value;
+                        header_cursor +=1;
+                    }                 
+                    if (flags & FCOMMENT) {
+                        header_cursor = memchr(header_cursor, 0, buffer_end - header_cursor);
+                        if (header_cursor == NULL) {
+                            break;
+                        }
+                        // skip over the 0 value;
+                        header_cursor +=1;
+                    }
+                    if (flags & FHCRC) {
+                        if (header_cursor + 2 >= buffer_end) {
+                            break;
+                        }
+                        uint16_t header_crc = *(uint16_t *)header_cursor;
+                        uint16_t crc = crc32_gzip_refl(
+                            0, current_pos, header_cursor - current_pos) & 0xFFFF;
+                        if (header_crc != crc) {
+                            Py_BLOCK_THREADS;
+                            PyErr_Format(
+                                BadGzipFile,
+                                "Corrupted gzip header. Checksums do not "
+                                "match: %04x != %04x",
+                                crc, header_crc
+                            );
+                            return -1;
+                        }
+                        header_cursor += 2;
+                    }
+                    current_pos = header_cursor;
+                    isal_inflate_reset(&self->state);
+                    self->stream_phase = GzipReader_DEFLATE_BLOCK;
+                case GzipReader_DEFLATE_BLOCK:
+                    self->state.next_in = current_pos;
+                    self->state.avail_in = buffer_end - current_pos;
+                    self->state.next_out = out_buffer;
+                    self->state.avail_out = out_buffer_size;
+                    int ret;
+                    ret = isal_inflate(&self->state);
+                    if (ret != ISAL_DECOMP_OK) {
+                        Py_BLOCK_THREADS;
+                        isal_inflate_error(ret);
+                        return -1;
+                    }
+                    size_t current_bytes_written = self->state.next_out - out_buffer;
+                    bytes_written += current_bytes_written;
+                    self->_pos += current_bytes_written;
+                    out_buffer = self->state.next_out;
+                    out_buffer_size = self->state.avail_out;
+                    current_pos = self->state.next_in;
+                    if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
+                        if (self->state.avail_out > 0) {
+                            break;
+                        }
+                        self->current_pos = current_pos;
+                        Py_BLOCK_THREADS;
+                        return bytes_written;
+                    }
+                    current_pos -= bitbuffer_size(&self->state);
+                    // Block done check trailer.
+                    self->stream_phase = GzipReader_TRAILER;
+                case GzipReader_TRAILER:
+                    if (buffer_end - current_pos < 8) {
                         break;
                     }
-                    header_cursor += flength;
-                }
-                if (flags & FNAME) {
-                    header_cursor = memchr(header_cursor, 0, buffer_end - header_cursor);
-                    if (header_cursor == NULL) {
-                        break;
-                    }
-                    // skip over the 0 value;
-                    header_cursor +=1;
-                }                 
-                if (flags & FCOMMENT) {
-                    header_cursor = memchr(header_cursor, 0, buffer_end - header_cursor);
-                    if (header_cursor == NULL) {
-                        break;
-                    }
-                    // skip over the 0 value;
-                    header_cursor +=1;
-                }
-                if (flags & FHCRC) {
-                    if (header_cursor + 2 >= buffer_end) {
-                        break;
-                    }
-                    uint16_t header_crc = *(uint16_t *)header_cursor;
-                    uint16_t crc = crc32_gzip_refl(
-                        0, current_pos, header_cursor - current_pos) & 0xFFFF;
-                    if (header_crc != crc) {
+                    uint32_t crc = *(uint32_t *)current_pos;
+                    current_pos += 4;
+                    if (crc != self->state.crc) {
+                        Py_BLOCK_THREADS;
                         PyErr_Format(
-                            BadGzipFile,
-                            "Corrupted gzip header. Checksums do not "
-                            "match: %04x != %04x",
-                            crc, header_crc
+                            BadGzipFile, 
+                            "CRC check failed %u != %u", 
+                            crc, self->state.crc
                         );
                         return -1;
                     }
-                    header_cursor += 2;
-                }
-                current_pos = header_cursor;
-                isal_inflate_reset(&self->state);
-                self->stream_phase = GzipReader_DEFLATE_BLOCK;
-            case GzipReader_DEFLATE_BLOCK:
-                self->state.next_in = current_pos;
-                self->state.avail_in = buffer_end - current_pos;
-                self->state.next_out = out_buffer;
-                self->state.avail_out = out_buffer_size;
-                int ret;
-                Py_BEGIN_ALLOW_THREADS
-                ret = isal_inflate(&self->state);
-                Py_END_ALLOW_THREADS
-                if (ret != ISAL_DECOMP_OK) {
-                    isal_inflate_error(ret);
-                    return -1;
-                }
-                size_t current_bytes_written = self->state.next_out - out_buffer;
-                bytes_written += current_bytes_written;
-                self->_pos += current_bytes_written;
-                out_buffer = self->state.next_out;
-                out_buffer_size = self->state.avail_out;
-                current_pos = self->state.next_in;
-                if (!(self->state.block_state == ISAL_BLOCK_FINISH)) {
-                    if (self->state.avail_out > 0) {
+                    uint32_t length = *(uint32_t *)current_pos;
+                    current_pos += 4; 
+                    if (length != self->state.total_out) {
+                        Py_BLOCK_THREADS;
+                        PyErr_SetString(BadGzipFile, "Incorrect length of data produced");
+                        return -1;
+                    }
+                    self->stream_phase = GzipReader_NULL_BYTES;
+                case GzipReader_NULL_BYTES:
+                    // There maybe NULL bytes between gzip members
+                    while (current_pos < buffer_end) {
+                        if (*current_pos != 0) {
+                            self->stream_phase = GzipReader_HEADER;
+                            break;
+                        }
+                        current_pos += 1;
+                    }
+                    if (current_pos >= buffer_end) {
                         break;
                     }
-                    self->current_pos = current_pos;
-                    return bytes_written;
-                }
-                current_pos -= bitbuffer_size(&self->state);
-                // Block done check trailer.
-                self->stream_phase = GzipReader_TRAILER;
-            case GzipReader_TRAILER:
-                if (buffer_end - current_pos < 8) {
-                    break;
-                }
-                uint32_t crc = *(uint32_t *)current_pos;
-                current_pos += 4;
-                if (crc != self->state.crc) {
-                    PyErr_Format(
-                        BadGzipFile, 
-                        "CRC check failed %u != %u", 
-                        crc, self->state.crc
-                    );
-                    return -1;
-                }
-                uint32_t length = *(uint32_t *)current_pos;
-                current_pos += 4; 
-                if (length != self->state.total_out) {
-                    PyErr_SetString(BadGzipFile, "Incorrect length of data produced");
-                    return -1;
-                }
-                self->stream_phase = GzipReader_NULL_BYTES;
-            case GzipReader_NULL_BYTES:
-                // There maybe NULL bytes between gzip members
-                while (current_pos < buffer_end) {
-                    if (*current_pos != 0) {
-                        self->stream_phase = GzipReader_HEADER;
-                        // Use goto to prevent unnecessarily refreshing the buffer;
-                        goto GzipReader_read_header;
-                    }
-                    current_pos += 1;
-                }
-                if (current_pos >= buffer_end) {
-                    break;
-                }
-            default:
-                Py_UNREACHABLE();
+                    // Continue to prevent refreshing the buffer for each block.
+                    continue;
+                default:
+                    Py_UNREACHABLE();
+            }
+            break;
         }
+        Py_BLOCK_THREADS;
         // If buffer_end is reached, nothing was returned and all bytes are 
         // read we have an EOFError.
         if (self->all_bytes_read) {

@@ -92,6 +92,17 @@ class ChecksumTestCase(unittest.TestCase):
         self.assertEqual(isal_zlib.adler32(foo + foo), 3573550353)
         self.assertEqual(isal_zlib.adler32(b'spam'), 72286642)
 
+    def test_crc32_combine(self):
+        foo = b'abcdefghijklmnop'
+        self.assertEqual(isal_zlib.crc32_combine(0, 0, 0), 0)
+        self.assertEqual(isal_zlib.crc32_combine(1, 0, 0), 1)
+        self.assertEqual(isal_zlib.crc32_combine(432, 0, 0), 432)
+        self.assertEqual(
+            isal_zlib.crc32_combine(
+                isal_zlib.crc32(foo), isal_zlib.crc32(foo), len(foo)),
+            isal_zlib.crc32(foo + foo)
+        )
+
     def test_same_as_binascii_crc32(self):
         foo = b'abcdefghijklmnop'
         crc = 2486878355

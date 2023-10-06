@@ -9,6 +9,10 @@ Changelog
 
 version 1.4.0-dev
 -----------------
++ Added an experimental ``isal.igzip_threaded`` module which has an
+  ``open`` function.
+  This can be used to read and write large files in a streaming fashion
+  while escaping the GIL.
 + The internal ``igzip._IGzipReader`` has been rewritten in C. As a result the
   overhead of decompressing files has significantly been reduced and
   ``python -m isal.igzip`` is now very close to the C ``igzip`` application.

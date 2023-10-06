@@ -45,13 +45,17 @@ Acceleration Library (ISA-L) implements several key algorithms in `assembly
 language <https://en.wikipedia.org/wiki/Assembly_language>`_. This includes
 a variety of functions to provide zlib/gzip-compatible compression.
 
-``python-isal`` provides the bindings by offering three modules:
+``python-isal`` provides the bindings by offering four modules:
 
 + ``isal_zlib``: A drop-in replacement for the zlib module that uses ISA-L to
   accelerate its performance.
 + ``igzip``: A drop-in replacement for the gzip module that uses ``isal_zlib``
   instead of ``zlib`` to perform its compression and checksum tasks, which
   improves performance.
++ ``igzip_threaded`` offers an ``open`` function which returns buffered read
+  or write streams that can be used to read and write large files while
+  escaping the GIL using one or multiple threads. This functionality only
+  works for streaming, seeking is not supported.
 + ``igzip_lib``: Provides compression functions which have full access to the
   API of ISA-L's compression functions.
 
@@ -185,6 +189,15 @@ This project builds upon the software and experience of many.  Many thanks to:
   <https://github.com/pycompression/xopen>`_ and by extension `cutadapt
   <https://github.com/marcelm/cutadapt>`_ projects. This gave python-isal its
   first users who used python-isal in production.
++ Mark Adler (@madler) for the excellent comments in his pigz code which made
+  it very easy to replicate the behaviour for writing gzip with multiple
+  threads using the ``threading`` and ``isal_zlib`` modules. Another thanks
+  for his permissive license, which allowed the crc32_combine code to be
+  included in the project. (ISA-L does not provide a crc32_combine function,
+  unlike zlib.) And yet another thanks to Mark Adler and also for
+  Jean-loup Gailly for creating the gzip format which is very heavily used
+  in bioinformatics. Without that, I would have never written this library
+  from which I have learned so much.
 + The `github actions team <https://github.com/orgs/actions/people>`_ for
   creating the actions CI service that enables building and testing on all
   three major operating systems.
