@@ -27,6 +27,7 @@ Changes compared to CPython:
 #include "isal_shared.h"
 
 #include <isa-l/crc.h>
+#include "crc32_combine.h"
 
 #define Z_DEFAULT_STRATEGY    0
 #define Z_FILTERED            1
@@ -1187,6 +1188,39 @@ isal_zlib_Decompress_flush(decompobject *self, PyObject *const *args, Py_ssize_t
     return isal_zlib_Decompress_flush_impl(self, length);
 }
 
+PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
+"crc32_combine($module, crc1, crc2, crc2_length /)\n"
+"--\n"
+"\n"
+"Combine crc1 and crc2 into a new crc that is accurate for the combined data \n"
+"blocks that crc1 and crc2 where calculated from.\n"
+"\n"
+"  crc1\n"
+"    the first crc32 checksum\n"
+"  crc2\n"
+"    the second crc32 checksum\n"
+"  crc2_length\n"
+"    the lenght of the data block crc2 was calculated from\n"
+);
+
+
+#define ISAL_ZLIB_CRC32_COMBINE_METHODDEF    \
+    {"crc32_combine", (PyCFunction)(void(*)(void))isal_zlib_crc32_combine, \
+     METH_VARARGS, isal_zlib_crc32_combine__doc__}
+
+static PyObject *
+isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
+    uint32_t crc1 = 0;
+    uint32_t crc2 = 0;
+    Py_ssize_t crc2_length = 0;
+    static char *format = "IIn:crc32combine";
+    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
+        return NULL;
+    }
+    return PyLong_FromUnsignedLong(
+        crc32_comb(crc1, crc2, crc2_length) & 0xFFFFFFFF);
+}
+
 
 typedef struct {
     PyTypeObject *Comptype;
@@ -1197,6 +1231,7 @@ typedef struct {
 static PyMethodDef IsalZlibMethods[] = {
     ISAL_ZLIB_ADLER32_METHODDEF,
     ISAL_ZLIB_CRC32_METHODDEF,
+    ISAL_ZLIB_CRC32_COMBINE_METHODDEF,
     ISAL_ZLIB_COMPRESS_METHODDEF,
     ISAL_ZLIB_DECOMPRESS_METHODDEF,
     ISAL_ZLIB_COMPRESSOBJ_METHODDEF,

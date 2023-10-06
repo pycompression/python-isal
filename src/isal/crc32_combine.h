@@ -58,7 +58,7 @@ static inline crc_t multmodp(crc_t a, crc_t b) {
 }
 
 // Table of x^2^n modulo p(x).
-static inline const crc_t x2n_table[] = {
+static const crc_t x2n_table[] = {
     0x40000000, 0x20000000, 0x08000000, 0x00800000, 0x00008000,
     0xedb88320, 0xb1e6b092, 0xa06a2517, 0xed627dae, 0x88d14467,
     0xd7bbfe6a, 0xec447f11, 0x8e7ea170, 0x6427800e, 0x4d47bae0,
