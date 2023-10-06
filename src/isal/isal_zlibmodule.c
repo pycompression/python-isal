@@ -1222,23 +1222,6 @@ isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
 }
 
 
-typedef struct {
-    PyTypeObject *Comptype;
-    PyTypeObject *Decomptype;
-    PyObject *IsalError;
-} isal_zlib_state;
-
-static PyMethodDef IsalZlibMethods[] = {
-    ISAL_ZLIB_ADLER32_METHODDEF,
-    ISAL_ZLIB_CRC32_METHODDEF,
-    ISAL_ZLIB_CRC32_COMBINE_METHODDEF,
-    ISAL_ZLIB_COMPRESS_METHODDEF,
-    ISAL_ZLIB_DECOMPRESS_METHODDEF,
-    ISAL_ZLIB_COMPRESSOBJ_METHODDEF,
-    ISAL_ZLIB_DECOMPRESSOBJ_METHODDEF,
-    {NULL, NULL, 0, NULL}        /* Sentinel */
-};
-
 static PyMethodDef comp_methods[] = {
     ISAL_ZLIB_COMPRESS_COMPRESS_METHODDEF,
     ISAL_ZLIB_COMPRESS_FLUSH_METHODDEF,
@@ -1964,6 +1947,23 @@ PyDoc_STRVAR(isal_zlib_module_documentation,
 "\n"
 "Compressor objects support compress() and flush() methods; decompressor\n"
 "objects support decompress() and flush().");
+
+typedef struct {
+    PyTypeObject *Comptype;
+    PyTypeObject *Decomptype;
+    PyObject *IsalError;
+} isal_zlib_state;
+
+static PyMethodDef IsalZlibMethods[] = {
+    ISAL_ZLIB_ADLER32_METHODDEF,
+    ISAL_ZLIB_CRC32_METHODDEF,
+    ISAL_ZLIB_CRC32_COMBINE_METHODDEF,
+    ISAL_ZLIB_COMPRESS_METHODDEF,
+    ISAL_ZLIB_DECOMPRESS_METHODDEF,
+    ISAL_ZLIB_COMPRESSOBJ_METHODDEF,
+    ISAL_ZLIB_DECOMPRESSOBJ_METHODDEF,
+    {NULL, NULL, 0, NULL}        /* Sentinel */
+};
 
 static struct PyModuleDef isal_zlib_module = {
     PyModuleDef_HEAD_INIT,
