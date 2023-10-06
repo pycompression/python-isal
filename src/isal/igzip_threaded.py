@@ -1,10 +1,17 @@
+# Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
+# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022
+# Python Software Foundation; All Rights Reserved
+
+# This file is part of python-isal which is distributed under the
+# PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
+
 import io
 import multiprocessing
 import os
 import queue
 import struct
 import threading
-from typing import BinaryIO, List, Tuple
+from typing import BinaryIO, List, Optional, Tuple
 
 from . import igzip, isal_zlib
 
@@ -12,7 +19,28 @@ DEFLATE_WINDOW_SIZE = 2 ** 15
 
 
 def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
-         encoding=None, errors=None, newline=None, *, threads=-1):
+         encoding=None, errors=None, newline=None, *, threads=1):
+    """
+    Utilize threads to read and write gzip objects and escape the GIL.
+    Comparable to gzip.open. This method is only usable for streamed reading
+    and writing of objects. Seeking is not supported.
+
+    threads == 0 will defer to igzip.open. A threads < 0 will attempt to use
+    the number of threads in the system.
+
+    :param filename: str, bytes or file-like object (supporting read or write
+                    method)
+    :param mode: the mode with which the file should be opened.
+    :param compresslevel: Compression level, only used for gzip writers.
+    :param encoding: Passed through to the io.TextIOWrapper, if applicable.
+    :param errors: Passed through to the io.TextIOWrapper, if applicable.
+    :param newline: Passed through to the io.TextIOWrapper, if applicable.
+    :param threads: If 0 will defer to igzip.open, if < 0 will use all threads
+                    available to the system. Reading gzip can only
+                    use one thread.
+    :return: An io.BufferedReader, io.BufferedWriter, or io.TextIOWrapper,
+             depending on the mode.
+    """
     if threads == 0:
         return igzip.open(filename, mode, compresslevel, encoding, errors,
                           newline)
@@ -32,10 +60,10 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
     else:
         raise TypeError("filename must be a str or bytes object, or a file")
     if "r" in mode:
-        gzip_file = io.BufferedReader(ThreadedGzipReader(binary_file))
+        gzip_file = io.BufferedReader(_ThreadedGzipReader(binary_file))
     else:
         gzip_file = io.BufferedWriter(
-            ThreadedGzipWriter(binary_file, compresslevel, threads),
+            _ThreadedGzipWriter(binary_file, compresslevel, threads),
             buffer_size=1024 * 1024
         )
     if "t" in mode:
@@ -43,7 +71,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
     return gzip_file
 
 
-class ThreadedGzipReader(io.RawIOBase):
+class _ThreadedGzipReader(io.RawIOBase):
     def __init__(self, fp, queue_size=4, block_size=8 * 1024 * 1024):
         self.raw = fp
         self.fileobj = igzip._IGzipReader(fp, buffersize=8 * 1024 * 1024)
@@ -109,7 +137,7 @@ class ThreadedGzipReader(io.RawIOBase):
         self.fileobj.close()
 
 
-class ThreadedGzipWriter(io.RawIOBase):
+class _ThreadedGzipWriter(io.RawIOBase):
     """
     Write a gzip file using multiple threads.
 
@@ -145,7 +173,7 @@ class ThreadedGzipWriter(io.RawIOBase):
                  threads: int = 1,
                  queue_size: int = 2):
         self.lock = threading.Lock()
-        self.exception = None
+        self.exception: Optional[Exception] = None
         self.raw = fp
         self.level = level
         self.previous_block = b""
