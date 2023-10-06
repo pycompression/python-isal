@@ -25,10 +25,11 @@ def test_threaded_read():
     assert thread_data == data
 
 
-def test_threaded_write():
+@pytest.mark.parametrize("mode", ["wb", "wt"])
+def test_threaded_write(mode):
     with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
-        with igzip_threaded.open(tmp, "wb", threads=3) as out_file:
-            with gzip.open(TEST_FILE) as in_file:
+        with igzip_threaded.open(tmp, mode, threads=3) as out_file:
+            with gzip.open(TEST_FILE, "rb" if "b" in mode else "rt") as in_file:
                 while True:
                     block = in_file.read(128 * 1024)
                     if not block:
@@ -39,6 +40,22 @@ def test_threaded_write():
     with gzip.open(tmp.name, "rt") as test_out:
         out_data = test_out.read()
     assert test_data == out_data
+
+
+def test_threaded_open_no_threads():
+    with tempfile.TemporaryFile("rb") as tmp:
+        klass = igzip_threaded.open(tmp, "rb", threads=0)
+        # igzip.IGzipFile inherits gzip.Gzipfile
+        assert isinstance(klass, gzip.GzipFile)
+
+
+def test_threaded_open_not_a_file_or_pathlike():
+    i_am_a_tuple = (1, 2, 3)
+    with pytest.raises(TypeError) as error:
+        igzip_threaded.open(i_am_a_tuple)
+    error.match("str")
+    error.match("bytes")
+    error.match("file")
 
 
 # Test whether threaded readers and writers throw an error rather than hang
