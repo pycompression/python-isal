@@ -189,6 +189,15 @@ This project builds upon the software and experience of many.  Many thanks to:
   <https://github.com/pycompression/xopen>`_ and by extension `cutadapt
   <https://github.com/marcelm/cutadapt>`_ projects. This gave python-isal its
   first users who used python-isal in production.
++ Mark Adler (@madler) for the excellent comments in his pigz code which made
+  it very easy to replicate the behaviour for writing gzip with multiple
+  threads using the ``threading`` and ``isal_zlib`` modules. Another thanks
+  for his permissive license, which allowed the crc32_combine code to be
+  included in the project. (ISA-L does not provide a crc32_combine function,
+  unlike zlib.) And yet another thanks to Mark Adler and also for
+  Jean-loup Gailly for creating the gzip format which is very heavily used
+  in bioinformatics. Without that, I would have never written this library
+  from which I have learned so much.
 + The `github actions team <https://github.com/orgs/actions/people>`_ for
   creating the actions CI service that enables building and testing on all
   three major operating systems.
