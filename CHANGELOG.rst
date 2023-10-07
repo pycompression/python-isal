@@ -9,6 +9,8 @@ Changelog
 
 version 1.4.0-dev
 -----------------
++ Drop support for python 3.7 and PyPy 3.8 as these are no longer supported.
+  Add testing and support for python 3.12 and PyPy 3.10.
 + Added an experimental ``isal.igzip_threaded`` module which has an
   ``open`` function.
   This can be used to read and write large files in a streaming fashion
