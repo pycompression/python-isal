@@ -135,7 +135,7 @@ def build_isa_l():
 
 setup(
     name="isal",
-    version="1.3.0",
+    version="1.4.0",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",
@@ -158,11 +158,11 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3 :: Only",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Programming Language :: C",
@@ -173,6 +173,6 @@ setup(
         "Operating System :: MacOS",
         "Operating System :: Microsoft :: Windows",
     ],
-    python_requires=">=3.7",  # We use METH_FASTCALL
+    python_requires=">=3.8",  # BadGzipFile imported
     ext_modules=EXTENSIONS
 )

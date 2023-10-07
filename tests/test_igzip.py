@@ -391,13 +391,6 @@ def headers():
     yield header + crc.to_bytes(2, "little")
 
 
-@pytest.mark.parametrize("header", list(headers()))
-def test_read_gzip_header_position(header):
-    fp = io.BytesIO(header)
-    igzip._read_gzip_header(fp)
-    assert fp.tell() == len(header)
-
-
 def test_header_too_short():
     with pytest.raises(igzip.BadGzipFile):
         gzip.decompress(b"00")
@@ -439,12 +432,69 @@ def test_truncated_header(trunc):
         igzip.decompress(trunc)
 
 
+def test_very_long_header_in_data():
+    # header with a very long filename.
+    header = (b"\x1f\x8b\x08\x08\x00\x00\x00\x00\x00\xff" + 256 * 1024 * b"A" +
+              b"\x00")
+    compressed = header + isal_zlib.compress(b"", 3, -15) + 8 * b"\00"
+    assert igzip.decompress(compressed) == b""
+
+
+def test_very_long_header_in_file():
+    # header with a very long filename.
+    header = (b"\x1f\x8b\x08\x08\x00\x00\x00\x00\x00\xff" +
+              igzip.READ_BUFFER_SIZE * 2 * b"A" +
+              b"\x00")
+    compressed = header + isal_zlib.compress(b"", 3, -15) + 8 * b"\00"
+    f = io.BytesIO(compressed)
+    with igzip.open(f) as gzip_file:
+        assert gzip_file.read() == b""
+
+
 def test_concatenated_gzip():
     concat = Path(__file__).parent / "data" / "concatenated.fastq.gz"
     data = gzip.decompress(concat.read_bytes())
     with igzip.open(concat, "rb") as igzip_h:
         result = igzip_h.read()
     assert data == result
+
+
+def test_seek():
+    from io import SEEK_CUR, SEEK_END, SEEK_SET
+    with tempfile.NamedTemporaryFile("wb", delete=False) as tmpfile:
+        tmpfile.write(gzip.compress(b"X" * 500 + b"A" + b"X" * 499))
+        tmpfile.write(gzip.compress(b"X" * 500 + b"B" + b"X" * 499))
+        tmpfile.write(gzip.compress(b"X" * 500 + b"C" + b"X" * 499))
+        tmpfile.write(gzip.compress(b"X" * 500 + b"D" + b"X" * 499))
+    with igzip.open(tmpfile.name, "rb") as gzip_file:
+        # Start testing forward seek
+        gzip_file.seek(500)
+        assert gzip_file.read(1) == b"A"
+        gzip_file.seek(1500)
+        assert gzip_file.read(1) == b"B"
+        # Test reverse
+        gzip_file.seek(500)
+        assert gzip_file.read(1) == b"A"
+        # Again, but with explicit SEEK_SET
+        gzip_file.seek(500, SEEK_SET)
+        assert gzip_file.read(1) == b"A"
+        gzip_file.seek(1500, SEEK_SET)
+        assert gzip_file.read(1) == b"B"
+        gzip_file.seek(500, SEEK_SET)
+        assert gzip_file.read(1) == b"A"
+        # Seeking from current position
+        gzip_file.seek(500)
+        gzip_file.seek(2000, SEEK_CUR)
+        assert gzip_file.read(1) == b"C"
+        gzip_file.seek(-1001, SEEK_CUR)
+        assert gzip_file.read(1) == b"B"
+        # Seeking from end
+        # Any positive number should end up at the end
+        gzip_file.seek(200, SEEK_END)
+        assert gzip_file.read(1) == b""
+        gzip_file.seek(-1500, SEEK_END)
+        assert gzip_file.read(1) == b"C"
+    os.remove(tmpfile.name)
 
 
 def test_bgzip():

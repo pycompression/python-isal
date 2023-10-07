@@ -7,6 +7,21 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.4.0
+-----------------
++ Drop support for python 3.7 and PyPy 3.8 as these are no longer supported.
+  Add testing and support for python 3.12 and PyPy 3.10.
++ Added an experimental ``isal.igzip_threaded`` module which has an
+  ``open`` function.
+  This can be used to read and write large files in a streaming fashion
+  while escaping the GIL.
++ The internal ``igzip._IGzipReader`` has been rewritten in C. As a result the
+  overhead of decompressing files has significantly been reduced and
+  ``python -m isal.igzip`` is now very close to the C ``igzip`` application.
++ The ``igzip._IGZipReader`` in C is now used in ``igzip.decompress``. The
+  ``_GzipReader`` also can read from objects that support the buffer protocol.
+  This has reduced overhead significantly.
+
 version 1.3.0
 -----------------
 + Gzip headers are now actively checked for a BGZF extra field. If found the

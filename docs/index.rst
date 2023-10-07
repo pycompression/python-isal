@@ -124,6 +124,13 @@ API-documentation: igzip
       :members:
       :special-members: __init__
 
+=================================
+API-documentation: igzip_threaded
+=================================
+
+.. automodule:: isal.igzip_threaded
+   :members: open
+
 ============================
 API Documentation: igzip_lib
 ============================
