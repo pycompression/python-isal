@@ -7,7 +7,7 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 1.4.0-dev
+version 1.4.0
 -----------------
 + Drop support for python 3.7 and PyPy 3.8 as these are no longer supported.
   Add testing and support for python 3.12 and PyPy 3.10.
