@@ -73,9 +73,11 @@ def test_threaded_read_error():
 
 
 @pytest.mark.timeout(5)
-def test_threaded_write_error():
+def test_threaded_write_error(monkeypatch):
     tmp = tempfile.mktemp()
-    with pytest.raises(ValueError) as error:
-        with igzip_threaded.open(tmp, "wb", compresslevel=43) as writer:
+    # Compressobj method is called in a worker thread.
+    monkeypatch.delattr(igzip_threaded.isal_zlib, "compressobj")
+    with pytest.raises(AttributeError) as error:
+        with igzip_threaded.open(tmp, "wb", compresslevel=3) as writer:
             writer.write(b"x")
-    error.match("compression level")
+    error.match("no attribute 'compressobj'")

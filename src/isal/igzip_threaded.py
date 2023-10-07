@@ -172,6 +172,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int = 1,
                  queue_size: int = 2):
+        if level < 0 or level > 3:
+            raise ValueError(
+                f"Invalid compression level, "
+                f"level should be between 0 and 3: {level}")
         self.lock = threading.Lock()
         self.exception: Optional[Exception] = None
         self.raw = fp
