@@ -155,7 +155,6 @@ jobs:
 #          PYTHON_ISAL_LINK_DYNAMIC: True
 
   deploy:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
 #    needs:
 #      - lint
