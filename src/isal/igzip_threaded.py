@@ -268,6 +268,8 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.flush()
         self.stop()
         if self.exception:
+            self.raw.close()
+            self._closed = True
             raise self.exception
         # Write an empty deflate block with a lost block marker.
         self.raw.write(isal_zlib.compress(b"", wbits=-15))
