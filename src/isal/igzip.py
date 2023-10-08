@@ -337,6 +337,7 @@ def main():
             if yes_or_no not in {"y", "Y", "yes"}:
                 sys.exit("not overwritten")
 
+    out_buffer = None
     if args.compress:
         if args.file is None:
             in_file = sys.stdin.buffer
@@ -374,6 +375,8 @@ def main():
             in_file.close()
         if out_file is not sys.stdout.buffer:
             out_file.close()
+        if out_buffer is not None and out_buffer is not sys.stdout.buffer:
+            out_buffer.close()
 
 
 if __name__ == "__main__":  # pragma: no cover
