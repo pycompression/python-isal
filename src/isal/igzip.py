@@ -29,6 +29,7 @@
 Library to speed up its methods."""
 
 import argparse
+import builtins
 import gzip
 import io
 import os
@@ -342,9 +343,9 @@ def main():
         if args.file is None:
             in_file = sys.stdin.buffer
         else:
-            in_file = io.open(args.file, mode="rb")
+            in_file = builtins.open(args.file, mode="rb")
         if out_filepath is not None:
-            out_buffer = io.open(out_filepath, "wb")
+            out_buffer = builtins.open(out_filepath, "wb")
         else:
             out_buffer = sys.stdout.buffer
 
@@ -360,7 +361,7 @@ def main():
         else:
             in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
         if out_filepath is not None:
-            out_file = io.open(out_filepath, mode="wb")
+            out_file = builtins.open(out_filepath, mode="wb")
         else:
             out_file = sys.stdout.buffer
 

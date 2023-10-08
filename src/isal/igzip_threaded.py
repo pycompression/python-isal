@@ -5,6 +5,7 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
+import builtins
 import io
 import multiprocessing
 import os
@@ -54,7 +55,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
                 threads = 1
     open_mode = mode.replace("t", "b")
     if isinstance(filename, (str, bytes)) or hasattr(filename, "__fspath__"):
-        binary_file = io.open(filename, open_mode)
+        binary_file = builtins.open(filename, open_mode)
     elif hasattr(filename, "read") or hasattr(filename, "write"):
         binary_file = filename
     else:
@@ -261,6 +262,8 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.raw.flush()
 
     def close(self) -> None:
+        if self._closed:
+            return
         self.flush()
         self.stop()
         if self.exception:
