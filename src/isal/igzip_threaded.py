@@ -141,6 +141,7 @@ class _ThreadedGzipReader(io.RawIOBase):
         self.running = False
         self.worker.join()
         self.fileobj.close()
+        self.raw.close()
         self._closed = True
 
     @property
