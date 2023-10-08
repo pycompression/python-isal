@@ -15,7 +15,6 @@ import os
 import re
 import shutil
 import struct
-import subprocess
 import sys
 import tempfile
 import zlib
@@ -251,7 +250,6 @@ def test_compress_infile_out_file_no_name(tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
-    args = ['-n', '-o', str(out_file), str(test)]
     sys.argv = ['', '-n', '-o', str(out_file), str(test)]
     igzip.main()
     out, err = capsysbinary.readouterr()
