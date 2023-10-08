@@ -81,3 +81,16 @@ def test_threaded_write_error(monkeypatch):
         with igzip_threaded.open(tmp, "wb", compresslevel=3) as writer:
             writer.write(b"x")
     error.match("no attribute 'compressobj'")
+
+
+def test_close_reader():
+    f = igzip_threaded.open(TEST_FILE, "rb")
+    f.close()
+    assert f.closed
+
+
+def test_close_writer():
+    raw = tempfile.TemporaryFile()
+    f = igzip_threaded.open(raw, "wb")
+    f.close()
+    assert f.closed
