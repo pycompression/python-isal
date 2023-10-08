@@ -87,6 +87,8 @@ def test_close_reader():
     f = igzip_threaded.open(TEST_FILE, "rb")
     f.close()
     assert f.closed
+    # Make sure double closing does not raise errors
+    f.close()
 
 
 def test_close_writer():
@@ -94,3 +96,23 @@ def test_close_writer():
     f = igzip_threaded.open(raw, "wb")
     f.close()
     assert f.closed
+    # Make sure double closing does not raise errors
+    f.close()
+
+
+def test_reader_not_writable():
+    with igzip_threaded.open(TEST_FILE, "rb") as f:
+        assert not f.writable()
+
+
+def test_writer_not_readable():
+    with tempfile.TemporaryFile(mode="wb") as tmp:
+        with igzip_threaded.open(tmp, "wb") as f:
+            assert not f.readable()
+
+
+def test_writer_wrong_level():
+    with pytest.raises(ValueError) as error:
+        igzip_threaded.open("test", mode="wb", compresslevel=42)
+    error.match("Invalid compression level")
+    error.match("42")

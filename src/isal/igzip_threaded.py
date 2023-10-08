@@ -129,9 +129,6 @@ class _ThreadedGzipReader(io.RawIOBase):
     def readable(self) -> bool:
         return True
 
-    def writable(self) -> bool:
-        return False
-
     def tell(self) -> int:
         if self._closed:
             raise ValueError("I/O operation on closed file")
