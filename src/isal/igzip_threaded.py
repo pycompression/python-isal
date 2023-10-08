@@ -83,6 +83,7 @@ class _ThreadedGzipReader(io.RawIOBase):
         self.buffer = io.BytesIO()
         self.block_size = block_size
         self.worker = threading.Thread(target=self._decompress)
+        self._closed = False
         self.running = True
         self.worker.start()
 
@@ -105,6 +106,8 @@ class _ThreadedGzipReader(io.RawIOBase):
                     pass
 
     def readinto(self, b):
+        if self._closed:
+            raise ValueError("I/O operation on closed file")
         result = self.buffer.readinto(b)
         if result == 0:
             while True:
@@ -129,12 +132,19 @@ class _ThreadedGzipReader(io.RawIOBase):
         return False
 
     def tell(self) -> int:
+        if self._closed:
+            raise ValueError("I/O operation on closed file")
         return self.pos
 
     def close(self) -> None:
         self.running = False
         self.worker.join()
         self.fileobj.close()
+        self._closed = True
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
 
 
 class _ThreadedGzipWriter(io.RawIOBase):
