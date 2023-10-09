@@ -297,11 +297,8 @@ class _ThreadedGzipWriter(io.RawIOBase):
                     return
                 continue
             try:
-                compressor = isal_zlib.compressobj(
-                    self.level, wbits=-15, zdict=zdict)
-                compressed = compressor.compress(data) + compressor.flush(
-                    isal_zlib.Z_SYNC_FLUSH)
-                crc = isal_zlib.crc32(data)
+                compressed, crc = isal_zlib._parallel_deflate_and_crc(
+                    data, zdict, self.level)
             except Exception as e:
                 with self.lock:
                     self.exception = e

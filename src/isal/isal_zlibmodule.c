@@ -288,6 +288,128 @@ isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
         crc32_comb(crc1, crc2, crc2_length) & 0xFFFFFFFF);
 }
 
+PyDoc_STRVAR(isal_zlib_parallel_deflate_and_crc__doc__,
+"parallel_deflate_and_crc($module, data, zdict, /, level)\n"
+"--\n"
+"\n"
+"Function specifically designed for use in parallel compression. Data is \n"
+"compressed using deflate and Z_SYNC_FLUSH is used to ensure the block aligns\n"
+"to a byte boundary. Also the CRC is calculated. This function is designed to \n"
+"maximize the time spent outside the GIL\n"
+"\n"
+"  data\n"
+"    bytes-like object containing the to be compressed data\n"
+"  zdict\n"
+"    last 32 bytes of the previous block\n"
+"  level\n"
+"    the compression level to use.\n"
+);
+#define ISAL_ZLIB_PARALLEL_DEFLATE_AND_CRC_METHODDEF                                      \
+    {                                                                                  \
+        "_parallel_deflate_and_crc", (PyCFunction)(void (*)(void))isal_zlib_parallel_deflate_and_crc, \
+            METH_VARARGS | METH_KEYWORDS, isal_zlib_parallel_deflate_and_crc__doc__                               \
+    }
+
+static PyObject *
+isal_zlib_parallel_deflate_and_crc(PyObject *module, PyObject *args, PyObject *kwargs)
+{
+    Py_buffer data;
+    Py_buffer zdict;
+    int level = ISAL_DEFAULT_COMPRESSION;
+    static char *keywords[] = {"", "", "level"};
+    static char *format = "y*y*|i:isal_zlib.parallel_deflate_and_crc";
+    PyObject *out_bytes = NULL;
+    uint8_t *level_buf = NULL;
+
+    if (PyArg_ParseTupleAndKeywords(
+            args, kwargs, format, keywords, &data, &zdict, &level) < 0) {
+        return NULL;
+    }
+
+    if (data.len > UINT32_MAX) {
+        PyErr_Format(PyExc_OverflowError, 
+                     "Can only compress %d bytes of data", UINT32_MAX);
+        goto error;
+    }
+
+    uint32_t level_buf_size;
+    if (mem_level_to_bufsize(level, MEM_LEVEL_DEFAULT, &level_buf_size) != 0) {
+        PyErr_SetString(IsalError, "Invalid compression level");
+        goto error;
+    }
+
+    level_buf = (uint8_t *)PyMem_Malloc(level_buf_size);
+    if (level_buf == NULL) {
+        PyErr_NoMemory();
+        goto error;
+    }
+    // Assume output size < input_size. But just to be sure add 350 safety 
+    // bytes per 64K of input.
+    Py_ssize_t output_size =  data.len + (((data.len >> 16) + 1) * 350);
+    if (output_size > UINT32_MAX) {
+        PyErr_SetNone(PyExc_OverflowError);
+        goto error;
+    }
+    out_bytes = PyBytes_FromStringAndSize(NULL, output_size);
+    if (out_bytes == NULL) {
+        PyErr_NoMemory();
+        goto error;
+    }
+    uint8_t *out_ptr = (uint8_t *)PyBytes_AS_STRING(out_bytes);
+    int err;
+    struct isal_zstream zst;
+    isal_deflate_init(&zst);
+    zst.level = (uint32_t)level;
+    zst.level_buf = level_buf;
+    zst.level_buf_size = level_buf_size;
+    zst.hist_bits = ISAL_DEF_MAX_HIST_BITS;
+    zst.gzip_flag = IGZIP_DEFLATE;
+    zst.avail_in = data.len;
+    zst.next_in = data.buf;
+    zst.next_out = out_ptr;
+    zst.avail_out = output_size;
+    zst.flush = SYNC_FLUSH;
+    err = isal_deflate_set_dict(&zst, zdict.buf, zdict.len);
+    if (err != 0){
+        isal_deflate_error(err);
+        return NULL;
+    }
+    uint32_t crc;
+    Py_BEGIN_ALLOW_THREADS
+    err = isal_deflate(&zst);
+    crc = crc32_gzip_refl(0, data.buf, data.len);
+    Py_END_ALLOW_THREADS
+
+    if (err != COMP_OK) {
+        isal_deflate_error(err);
+        goto error;
+    }
+    if (zst.avail_in != 0) {
+        PyErr_Format(
+            PyExc_RuntimeError, 
+            "Developer error input bytes are still available: %u. "
+            "Please contact the developers by creating an issue at "
+            "https://github.com/pycompression/python-isal/issues", 
+            zst.avail_in);
+        goto error;
+    }
+
+    if (_PyBytes_Resize(&out_bytes, zst.next_out - out_ptr) < 0) {
+        goto error;
+    }
+    PyBuffer_Release(&data);
+    PyBuffer_Release(&zdict);
+    PyMem_Free(level_buf);
+    return Py_BuildValue("(OI)", out_bytes, crc);
+error:
+    PyMem_Free(level_buf);
+    Py_XDECREF(out_bytes);
+    PyBuffer_Release(&data);
+    PyBuffer_Release(&zdict); 
+    return NULL;
+}
+
+
 PyDoc_STRVAR(zlib_compress__doc__,
 "compress($module, data, /, level=ISAL_DEFAULT_COMPRESSION, wbits=MAX_WBITS)\n"
 "--\n"
@@ -1972,6 +2094,7 @@ static PyMethodDef IsalZlibMethods[] = {
     ISAL_ZLIB_ADLER32_METHODDEF,
     ISAL_ZLIB_CRC32_METHODDEF,
     ISAL_ZLIB_CRC32_COMBINE_METHODDEF,
+    ISAL_ZLIB_PARALLEL_DEFLATE_AND_CRC_METHODDEF,
     ISAL_ZLIB_COMPRESS_METHODDEF,
     ISAL_ZLIB_DECOMPRESS_METHODDEF,
     ISAL_ZLIB_COMPRESSOBJ_METHODDEF,
