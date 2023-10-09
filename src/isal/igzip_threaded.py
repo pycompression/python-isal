@@ -5,6 +5,7 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
+import builtins
 import io
 import multiprocessing
 import os
@@ -54,7 +55,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
                 threads = 1
     open_mode = mode.replace("t", "b")
     if isinstance(filename, (str, bytes)) or hasattr(filename, "__fspath__"):
-        binary_file = io.open(filename, open_mode)
+        binary_file = builtins.open(filename, open_mode)
     elif hasattr(filename, "read") or hasattr(filename, "write"):
         binary_file = filename
     else:
@@ -83,8 +84,13 @@ class _ThreadedGzipReader(io.RawIOBase):
         self.buffer = io.BytesIO()
         self.block_size = block_size
         self.worker = threading.Thread(target=self._decompress)
+        self._closed = False
         self.running = True
         self.worker.start()
+
+    def _check_closed(self, msg=None):
+        if self._closed:
+            raise ValueError("I/O operation on closed file")
 
     def _decompress(self):
         block_size = self.block_size
@@ -105,6 +111,7 @@ class _ThreadedGzipReader(io.RawIOBase):
                     pass
 
     def readinto(self, b):
+        self._check_closed()
         result = self.buffer.readinto(b)
         if result == 0:
             while True:
@@ -125,16 +132,22 @@ class _ThreadedGzipReader(io.RawIOBase):
     def readable(self) -> bool:
         return True
 
-    def writable(self) -> bool:
-        return False
-
     def tell(self) -> int:
+        self._check_closed()
         return self.pos
 
     def close(self) -> None:
+        if self._closed:
+            return
         self.running = False
         self.worker.join()
         self.fileobj.close()
+        self.raw.close()
+        self._closed = True
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
 
 
 class _ThreadedGzipWriter(io.RawIOBase):
@@ -199,6 +212,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self._write_gzip_header()
         self.start()
 
+    def _check_closed(self, msg=None):
+        if self._closed:
+            raise ValueError("I/O operation on closed file")
+
     def _write_gzip_header(self):
         """Simple gzip header. Only xfl flag is set according to level."""
         magic1 = 0x1f
@@ -225,11 +242,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.output_worker.join()
 
     def write(self, b) -> int:
+        self._check_closed()
         with self.lock:
             if self.exception:
                 raise self.exception
-        if self._closed:
-            raise IOError("Can not write closed file")
         index = self.index
         data = bytes(b)
         zdict = memoryview(self.previous_block)[-DEFLATE_WINDOW_SIZE:]
@@ -240,8 +256,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         return len(data)
 
     def flush(self):
-        if self._closed:
-            raise IOError("Can not write closed file")
+        self._check_closed()
         # Wait for all data to be compressed
         for in_q in self.input_queues:
             in_q.join()
@@ -251,9 +266,13 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.raw.flush()
 
     def close(self) -> None:
+        if self._closed:
+            return
         self.flush()
         self.stop()
         if self.exception:
+            self.raw.close()
+            self._closed = True
             raise self.exception
         # Write an empty deflate block with a lost block marker.
         self.raw.write(isal_zlib.compress(b"", wbits=-15))

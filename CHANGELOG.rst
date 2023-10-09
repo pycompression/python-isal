@@ -7,6 +7,10 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.4.1
+-----------------
++ Fix several errors related to unclosed files and buffers.
+
 version 1.4.0
 -----------------
 + Drop support for python 3.7 and PyPy 3.8 as these are no longer supported.

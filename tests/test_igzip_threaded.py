@@ -81,3 +81,54 @@ def test_threaded_write_error(monkeypatch):
         with igzip_threaded.open(tmp, "wb", compresslevel=3) as writer:
             writer.write(b"x")
     error.match("no attribute 'compressobj'")
+
+
+def test_close_reader():
+    tmp = io.BytesIO(Path(TEST_FILE).read_bytes())
+    f = igzip_threaded._ThreadedGzipReader(tmp, "rb")
+    f.close()
+    assert f.closed
+    # Make sure double closing does not raise errors
+    f.close()
+
+
+def test_close_writer():
+    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO())
+    f.close()
+    assert f.closed
+    # Make sure double closing does not raise errors
+    f.close()
+
+
+def test_reader_not_writable():
+    with igzip_threaded.open(TEST_FILE, "rb") as f:
+        assert not f.writable()
+
+
+def test_writer_not_readable():
+    with igzip_threaded.open(io.BytesIO(), "wb") as f:
+        assert not f.readable()
+
+
+def test_writer_wrong_level():
+    with pytest.raises(ValueError) as error:
+        igzip_threaded._ThreadedGzipWriter(io.BytesIO(), level=42)
+    error.match("Invalid compression level")
+    error.match("42")
+
+
+def test_reader_read_after_close():
+    with open(TEST_FILE, "rb") as test_f:
+        f = igzip_threaded._ThreadedGzipReader(test_f)
+        f.close()
+        with pytest.raises(ValueError) as error:
+            f.read(1024)
+        error.match("closed")
+
+
+def test_writer_write_after_close():
+    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO())
+    f.close()
+    with pytest.raises(ValueError) as error:
+        f.write(b"abc")
+    error.match("closed")
