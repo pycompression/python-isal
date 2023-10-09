@@ -93,7 +93,7 @@ def test_close_reader():
 
 
 def test_close_writer():
-    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO(), "wb")
+    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO())
     f.close()
     assert f.closed
     # Make sure double closing does not raise errors
