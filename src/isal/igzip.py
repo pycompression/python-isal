@@ -29,6 +29,7 @@
 Library to speed up its methods."""
 
 import argparse
+import builtins
 import gzip
 import io
 import os
@@ -337,13 +338,14 @@ def main():
             if yes_or_no not in {"y", "Y", "yes"}:
                 sys.exit("not overwritten")
 
+    out_buffer = None
     if args.compress:
         if args.file is None:
             in_file = sys.stdin.buffer
         else:
-            in_file = io.open(args.file, mode="rb")
+            in_file = builtins.open(args.file, mode="rb")
         if out_filepath is not None:
-            out_buffer = io.open(out_filepath, "wb")
+            out_buffer = builtins.open(out_filepath, "wb")
         else:
             out_buffer = sys.stdout.buffer
 
@@ -359,7 +361,7 @@ def main():
         else:
             in_file = IGzipFile(mode="rb", fileobj=sys.stdin.buffer)
         if out_filepath is not None:
-            out_file = io.open(out_filepath, mode="wb")
+            out_file = builtins.open(out_filepath, mode="wb")
         else:
             out_file = sys.stdout.buffer
 
@@ -374,6 +376,8 @@ def main():
             in_file.close()
         if out_file is not sys.stdout.buffer:
             out_file.close()
+        if out_buffer is not None and out_buffer is not sys.stdout.buffer:
+            out_buffer.close()
 
 
 if __name__ == "__main__":  # pragma: no cover
