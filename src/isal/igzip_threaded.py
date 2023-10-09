@@ -88,7 +88,7 @@ class _ThreadedGzipReader(io.RawIOBase):
         self.running = True
         self.worker.start()
 
-    def _check_closed(self, msg = None):
+    def _check_closed(self, msg=None):
         if self._closed:
             raise ValueError("I/O operation on closed file")
 
@@ -212,7 +212,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self._write_gzip_header()
         self.start()
 
-    def _check_closed(self, msg = None):
+    def _check_closed(self, msg=None):
         if self._closed:
             raise ValueError("I/O operation on closed file")
 

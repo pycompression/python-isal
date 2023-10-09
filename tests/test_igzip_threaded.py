@@ -84,7 +84,8 @@ def test_threaded_write_error(monkeypatch):
 
 
 def test_close_reader():
-    f = igzip_threaded.open(TEST_FILE, "rb")
+    tmp = io.BytesIO(Path(TEST_FILE).read_bytes())
+    f = igzip_threaded._ThreadedGzipReader(tmp, "rb")
     f.close()
     assert f.closed
     # Make sure double closing does not raise errors
@@ -92,8 +93,7 @@ def test_close_reader():
 
 
 def test_close_writer():
-    raw = tempfile.TemporaryFile()
-    f = igzip_threaded.open(raw, "wb")
+    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO(), "wb")
     f.close()
     assert f.closed
     # Make sure double closing does not raise errors
