@@ -88,6 +88,10 @@ class _ThreadedGzipReader(io.RawIOBase):
         self.running = True
         self.worker.start()
 
+    def _check_closed(self, msg = None):
+        if self._closed:
+            raise ValueError("I/O operation on closed file")
+
     def _decompress(self):
         block_size = self.block_size
         block_queue = self.queue
@@ -107,8 +111,7 @@ class _ThreadedGzipReader(io.RawIOBase):
                     pass
 
     def readinto(self, b):
-        if self._closed:
-            raise ValueError("I/O operation on closed file")
+        self._check_closed()
         result = self.buffer.readinto(b)
         if result == 0:
             while True:
@@ -130,11 +133,12 @@ class _ThreadedGzipReader(io.RawIOBase):
         return True
 
     def tell(self) -> int:
-        if self._closed:
-            raise ValueError("I/O operation on closed file")
+        self._check_closed()
         return self.pos
 
     def close(self) -> None:
+        if self._closed:
+            return
         self.running = False
         self.worker.join()
         self.fileobj.close()
@@ -208,6 +212,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self._write_gzip_header()
         self.start()
 
+    def _check_closed(self, msg = None):
+        if self._closed:
+            raise ValueError("I/O operation on closed file")
+
     def _write_gzip_header(self):
         """Simple gzip header. Only xfl flag is set according to level."""
         magic1 = 0x1f
@@ -234,11 +242,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.output_worker.join()
 
     def write(self, b) -> int:
+        self._check_closed()
         with self.lock:
             if self.exception:
                 raise self.exception
-        if self._closed:
-            raise IOError("Can not write closed file")
         index = self.index
         data = bytes(b)
         zdict = memoryview(self.previous_block)[-DEFLATE_WINDOW_SIZE:]
@@ -249,8 +256,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         return len(data)
 
     def flush(self):
-        if self._closed:
-            raise IOError("Can not write closed file")
+        self._check_closed()
         # Wait for all data to be compressed
         for in_q in self.input_queues:
             in_q.join()
