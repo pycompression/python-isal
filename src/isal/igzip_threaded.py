@@ -82,7 +82,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
 
 
 class _ThreadedGzipReader(io.RawIOBase):
-    def __init__(self, fp, queue_size=4, block_size=8 * 1024 * 1024):
+    def __init__(self, fp, queue_size=2, block_size=1024 * 1024):
         self.raw = fp
         self.fileobj = igzip._IGzipReader(fp, buffersize=8 * 1024 * 1024)
         self.pos = 0
