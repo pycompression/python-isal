@@ -20,7 +20,8 @@ DEFLATE_WINDOW_SIZE = 2 ** 15
 
 
 def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
-         encoding=None, errors=None, newline=None, *, threads=1):
+         encoding=None, errors=None, newline=None, *, threads=1,
+         block_size=1024 * 1024):
     """
     Utilize threads to read and write gzip objects and escape the GIL.
     Comparable to gzip.open. This method is only usable for streamed reading
@@ -39,6 +40,8 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
     :param threads: If 0 will defer to igzip.open, if < 0 will use all threads
                     available to the system. Reading gzip can only
                     use one thread.
+    :param block_size: Determines how large the blocks in the read/write
+                       queues are for threaded reading and writing.
     :return: An io.BufferedReader, io.BufferedWriter, or io.TextIOWrapper,
              depending on the mode.
     """
@@ -61,20 +64,21 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
     else:
         raise TypeError("filename must be a str or bytes object, or a file")
     if "r" in mode:
-        gzip_file = io.BufferedReader(_ThreadedGzipReader(binary_file))
+        gzip_file = io.BufferedReader(
+            _ThreadedGzipReader(binary_file, block_size=block_size))
     else:
-        write_buffer_size = 1024 * 1024
         # Deflating random data results in an output a little larger than the
         # input. Making the output buffer 10% larger is sufficient overkill.
-        compress_buffer_size = write_buffer_size + max(
-            write_buffer_size // 10, 500)
+        compress_buffer_size = block_size + max(
+            block_size // 10, 500)
         gzip_file = io.BufferedWriter(
             _ThreadedGzipWriter(
                 fp=binary_file,
                 buffer_size=compress_buffer_size,
                 level=compresslevel,
-                threads=threads),
-            buffer_size=write_buffer_size
+                threads=threads
+            ),
+            buffer_size=block_size
         )
     if "t" in mode:
         return io.TextIOWrapper(gzip_file, encoding, errors, newline)
@@ -84,7 +88,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
 class _ThreadedGzipReader(io.RawIOBase):
     def __init__(self, fp, queue_size=2, block_size=1024 * 1024):
         self.raw = fp
-        self.fileobj = igzip._IGzipReader(fp, buffersize=8 * 1024 * 1024)
+        self.fileobj = igzip._IGzipReader(fp, buffersize=8 * block_size)
         self.pos = 0
         self.read_file = False
         self.queue = queue.Queue(queue_size)
