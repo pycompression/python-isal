@@ -63,8 +63,17 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
     if "r" in mode:
         gzip_file = io.BufferedReader(_ThreadedGzipReader(binary_file))
     else:
+        write_buffer_size = 1024 * 1024
+        # Deflating random data results in an output a little larger than the
+        # input. Making the output buffer 10% larger is sufficient overkill.
+        compress_buffer_size = write_buffer_size + max(
+            write_buffer_size // 10, 500)
         gzip_file = io.BufferedWriter(
-            _ThreadedGzipWriter(binary_file, compresslevel, threads),
+            _ThreadedGzipWriter(
+                fp=binary_file,
+                buffer_size=compress_buffer_size,
+                level=compresslevel,
+                threads=threads),
             buffer_size=1024 * 1024
         )
     if "t" in mode:
@@ -182,18 +191,19 @@ class _ThreadedGzipWriter(io.RawIOBase):
     """
     def __init__(self,
                  fp: BinaryIO,
+                 buffer_size: int = 1024 * 1024,
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int = 1,
                  queue_size: int = 2):
-        if level < 0 or level > 3:
-            raise ValueError(
-                f"Invalid compression level, "
-                f"level should be between 0 and 3: {level}")
         self.lock = threading.Lock()
         self.exception: Optional[Exception] = None
         self.raw = fp
         self.level = level
         self.previous_block = b""
+        self.compressors: List[isal_zlib._ParallelCompress] = [
+            isal_zlib._ParallelCompress(buffersize=buffer_size,
+                                        level=level) for _ in range(threads)
+        ]
         self.input_queues: List[queue.Queue[Tuple[bytes, memoryview]]] = [
             queue.Queue(queue_size) for _ in range(threads)]
         self.output_queues: List[queue.Queue[Tuple[bytes, int, int]]] = [
@@ -289,6 +299,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
     def _compress(self, index: int):
         in_queue = self.input_queues[index]
         out_queue = self.output_queues[index]
+        compressor: isal_zlib._ParallelCompress = self.compressors[index]
         while True:
             try:
                 data, zdict = in_queue.get(timeout=0.05)
@@ -297,8 +308,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
                     return
                 continue
             try:
-                compressed, crc = isal_zlib._parallel_deflate_and_crc(
-                    data, zdict, self.level)
+                compressed, crc = compressor.compress_and_crc(data, zdict)
             except Exception as e:
                 with self.lock:
                     self.exception = e

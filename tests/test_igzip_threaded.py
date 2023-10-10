@@ -7,6 +7,7 @@
 
 import gzip
 import io
+import random
 import tempfile
 from pathlib import Path
 
@@ -73,15 +74,13 @@ def test_threaded_read_error():
 
 
 @pytest.mark.timeout(5)
-def test_threaded_write_error(monkeypatch):
-    tmp = tempfile.mktemp()
+def test_threaded_write_error():
     # parallel_deflate_and_crc method is called in a worker thread.
-    monkeypatch.delattr(igzip_threaded.isal_zlib,
-                        "_parallel_deflate_and_crc")
-    with pytest.raises(AttributeError) as error:
-        with igzip_threaded.open(tmp, "wb", compresslevel=3) as writer:
-            writer.write(b"x")
-    error.match("no attribute '_parallel_deflate_and_crc'")
+    with pytest.raises(OverflowError) as error:
+        with igzip_threaded.open(
+                io.BytesIO(), "wb", compresslevel=3) as writer:
+            writer.write(random.randbytes(1024 * 1024 * 50))
+    error.match("Compressed output exceeds buffer size")
 
 
 def test_close_reader():
