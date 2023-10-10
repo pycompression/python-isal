@@ -432,7 +432,11 @@ ParallelCompress_compress_and_crc(ParallelCompress *self, PyObject *args)
     if (out_bytes == NULL) {
         goto error;
     }
-    return Py_BuildValue("(OI)", out_bytes, crc);
+    PyBuffer_Release(&data);
+    PyBuffer_Release(&zdict); 
+    PyObject *ret= Py_BuildValue("(OI)", out_bytes, crc);
+    Py_DECREF(out_bytes);
+    return ret;
 error:
     PyBuffer_Release(&data);
     PyBuffer_Release(&zdict); 
