@@ -347,7 +347,7 @@ ParallelCompress__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->buffer_size = buffer_size;
     self->zst.level_buf = level_buf;
     self->zst.level_buf_size = level_buf_size;
-    self->zst.gzip_flag = IGZIP_DEFLATE;
+    self->zst.gzip_flag = IGZIP_GZIP_NO_HDR;
     self->zst.hist_bits = ISAL_DEF_MAX_HIST_BITS;
     self->zst.level = (uint32_t)level;
     self->zst.flush = SYNC_FLUSH;
@@ -404,7 +404,6 @@ ParallelCompress_compress_and_crc(ParallelCompress *self, PyObject *args)
         goto error;
     }
     err = isal_deflate(&self->zst);
-    uint32_t crc = crc32_gzip_refl(0, data.buf, data.len);
     Py_BLOCK_THREADS;
 
     if (err != COMP_OK) {
@@ -434,7 +433,7 @@ ParallelCompress_compress_and_crc(ParallelCompress *self, PyObject *args)
     }
     PyBuffer_Release(&data);
     PyBuffer_Release(&zdict); 
-    PyObject *ret= Py_BuildValue("(OI)", out_bytes, crc);
+    PyObject *ret= Py_BuildValue("(OI)", out_bytes, self->zst.internal_state.crc);
     Py_DECREF(out_bytes);
     return ret;
 error:
