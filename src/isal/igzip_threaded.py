@@ -198,7 +198,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
                  buffer_size: int = 1024 * 1024,
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int = 1,
-                 queue_size: int = 2):
+                 queue_size: int = 1):
         self.lock = threading.Lock()
         self.exception: Optional[Exception] = None
         self.raw = fp
