@@ -74,7 +74,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
                 buffer_size=compress_buffer_size,
                 level=compresslevel,
                 threads=threads),
-            buffer_size=1024 * 1024
+            buffer_size=write_buffer_size
         )
     if "t" in mode:
         return io.TextIOWrapper(gzip_file, encoding, errors, newline)
