@@ -12,8 +12,8 @@ version 1.5.0-dev
 + Make a special case for threads==1 in ``igzip_threaded.open`` for writing
   files. This now combines the writing and compression thread for less
   overhead.
-+ Write a specialized function for compressing blocks in a threaded fashion.
-  This function maximizes time spent outside the GIL.
++ Maximize time spent outside the GIL for ``igzip_threaded.open`` writing.
+  This has decreased wallclock time significantly.
 
 version 1.4.1
 -----------------
