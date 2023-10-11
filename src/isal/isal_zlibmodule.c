@@ -396,7 +396,7 @@ ParallelCompress_compress_and_crc(ParallelCompress *self,
         return NULL;
     }
 
-    if (data.len > UINT32_MAX) {
+    if (data.len + zdict.len > UINT32_MAX) {
         PyErr_Format(PyExc_OverflowError, 
                      "Can only compress %d bytes of data", UINT32_MAX);
         goto error;
