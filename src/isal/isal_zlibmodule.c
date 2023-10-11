@@ -426,16 +426,19 @@ ParallelCompress_compress_and_crc(ParallelCompress *self, PyObject *args)
             self->zst.avail_in);
         goto error;
     }
+    PyObject *out_tup = PyTuple_New(2);
+    PyObject *crc_obj = PyLong_FromUnsignedLong(self->zst.internal_state.crc);
     PyObject *out_bytes = PyBytes_FromStringAndSize(
         (char *)self->buffer, self->zst.next_out - self->buffer);
-    if (out_bytes == NULL) {
+    if (out_bytes == NULL || out_tup == NULL || crc_obj == NULL) {
+        Py_XDECREF(out_bytes); Py_XDECREF(out_tup); Py_XDECREF(crc_obj);
         goto error;
     }
     PyBuffer_Release(&data);
     PyBuffer_Release(&zdict); 
-    PyObject *ret= Py_BuildValue("(OI)", out_bytes, self->zst.internal_state.crc);
-    Py_DECREF(out_bytes);
-    return ret;
+    PyTuple_SET_ITEM(out_tup, 0, out_bytes);
+    PyTuple_SET_ITEM(out_tup, 1, crc_obj);
+    return out_tup;
 error:
     PyBuffer_Release(&data);
     PyBuffer_Release(&zdict); 
