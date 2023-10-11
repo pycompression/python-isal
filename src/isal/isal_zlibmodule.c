@@ -372,16 +372,27 @@ PyDoc_STRVAR(ParallelCompress_compress_and_crc__doc__,
 #define PARALLELCOMPRESS_COMPRESS_AND_CRC_METHODDEF \
     { \
         "compress_and_crc", (PyCFunction)ParallelCompress_compress_and_crc, \
-            METH_VARARGS, ParallelCompress_compress_and_crc__doc__}
+            METH_FASTCALL, ParallelCompress_compress_and_crc__doc__}
 
 static PyObject *
-ParallelCompress_compress_and_crc(ParallelCompress *self, PyObject *args)
+ParallelCompress_compress_and_crc(ParallelCompress *self, 
+                                  PyObject *const *args,
+                                  Py_ssize_t nargs)
 {
+    if (nargs != 2) {
+        PyErr_Format(
+            PyExc_TypeError, 
+            "compress_and_crc takes exactly 2 arguments, got %zd", 
+            nargs);
+        return NULL;
+    }
     Py_buffer data;
     Py_buffer zdict;
-    static char *format = "y*y*:compress_and_crc";
-
-    if (PyArg_ParseTuple(args, format, &data, &zdict) < 0) {
+    if (PyObject_GetBuffer(args[0], &data, PyBUF_SIMPLE) == -1) {
+        return NULL;
+    }
+    if (PyObject_GetBuffer(args[1], &zdict, PyBUF_SIMPLE) == -1) {
+        PyBuffer_Release(&data);
         return NULL;
     }
 
