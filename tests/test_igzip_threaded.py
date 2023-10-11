@@ -77,13 +77,24 @@ def test_threaded_read_error():
 
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize("threads", [1, 3])
+def test_threaded_write_oversized_block_no_error(threads):
+    with igzip_threaded.open(
+            io.BytesIO(), "wb", compresslevel=3, threads=threads,
+            block_size=8 * 1024
+    ) as writer:
+        writer.write(os.urandom(1024 * 64))
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize("threads", [1, 3])
 def test_threaded_write_error(threads):
-    # parallel_deflate_and_crc method is called in a worker thread.
+    f = igzip_threaded._ThreadedGzipWriter(
+        fp=io.BytesIO(), level=3,
+        threads=threads, buffer_size=8 * 1024)
+    # Bypass the write method which should not allow this.
+    f.input_queues[0].put((os.urandom(1024 * 64), b""))
     with pytest.raises(OverflowError) as error:
-        with igzip_threaded.open(
-                io.BytesIO(), "wb", compresslevel=3, threads=threads
-        ) as writer:
-            writer.write(os.urandom(1024 * 1024 * 50))
+        f.close()
     error.match("Compressed output exceeds buffer size")
 
 
