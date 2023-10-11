@@ -192,6 +192,9 @@ class _ThreadedGzipWriter(io.RawIOBase):
 
     The writer thread reads from output queues and uses the crc32_combine
     function to calculate the total crc. It also writes the compressed block.
+
+    When only one thread is requested, only the input queue is used and
+    compressing and output is handled in one thread.
     """
     def __init__(self,
                  fp: BinaryIO,
@@ -208,20 +211,29 @@ class _ThreadedGzipWriter(io.RawIOBase):
             isal_zlib._ParallelCompress(buffersize=buffer_size,
                                         level=level) for _ in range(threads)
         ]
-        self.input_queues: List[queue.Queue[Tuple[bytes, memoryview]]] = [
-            queue.Queue(queue_size) for _ in range(threads)]
-        self.output_queues: List[queue.Queue[Tuple[bytes, int, int]]] = [
-            queue.Queue(queue_size) for _ in range(threads)]
-        self.index = 0
+        if threads > 1:
+            self.input_queues: List[queue.Queue[Tuple[bytes, memoryview]]] = [
+                queue.Queue(queue_size) for _ in range(threads)]
+            self.output_queues: List[queue.Queue[Tuple[bytes, int, int]]] = [
+                queue.Queue(queue_size) for _ in range(threads)]
+            self.output_worker = threading.Thread(target=self._write)
+            self.compression_workers = [
+                threading.Thread(target=self._compress, args=(i,))
+                for i in range(threads)
+            ]
+        elif threads == 1:
+            self.input_queues = [queue.Queue(queue_size)]
+            self.output_queues = []
+            self.compression_workers = []
+            self.output_worker = threading.Thread(
+                target=self._compress_and_write)
+        else:
+            raise ValueError(f"threads should be 1 or greater, got {threads}")
         self.threads = threads
+        self.index = 0
         self._crc = 0
         self.running = False
         self._size = 0
-        self.output_worker = threading.Thread(target=self._write)
-        self.compression_workers = [
-            threading.Thread(target=self._compress, args=(i,))
-            for i in range(threads)
-        ]
         self._closed = False
         self._write_gzip_header()
         self.start()
@@ -314,17 +326,9 @@ class _ThreadedGzipWriter(io.RawIOBase):
             try:
                 compressed, crc = compressor.compress_and_crc(data, zdict)
             except Exception as e:
-                with self.lock:
-                    self.exception = e
-                    # Abort everything and empty the queue
-                    in_queue.task_done()
-                    self.running = False
-                    while True:
-                        try:
-                            _ = in_queue.get(timeout=0.05)
-                            in_queue.task_done()
-                        except queue.Empty:
-                            return
+                in_queue.task_done()
+                self._set_error_and_empty_queue(e, in_queue)
+                return
             data_length = len(data)
             out_queue.put((compressed, crc, data_length))
             in_queue.task_done()
@@ -351,6 +355,45 @@ class _ThreadedGzipWriter(io.RawIOBase):
             fp.write(compressed)
             output_queue.task_done()
             index += 1
+
+    def _compress_and_write(self):
+        if not self.threads == 1:
+            raise SystemError("Compress_and_write is for one thread only")
+        fp = self.raw
+        total_crc = 0
+        size = 0
+        in_queue = self.input_queues[0]
+        compressor = self.compressors[0]
+        while True:
+            try:
+                data, zdict = in_queue.get(timeout=0.05)
+            except queue.Empty:
+                if not self.running:
+                    return
+                continue
+            try:
+                compressed, crc = compressor.compress_and_crc(data, zdict)
+            except Exception as e:
+                in_queue.task_done()
+                self._set_error_and_empty_queue(e, in_queue)
+                return
+            data_length = len(data)
+            total_crc = isal_zlib.crc32_combine(total_crc, crc, data_length)
+            size += data_length
+            fp.write(compressed)
+            in_queue.task_done()
+
+    def _set_error_and_empty_queue(self, error, q):
+        with self.lock:
+            self.exception = error
+            # Abort everything and empty the queue
+            self.running = False
+            while True:
+                try:
+                    _ = q.get(timeout=0.05)
+                    q.task_done()
+                except queue.Empty:
+                    return
 
     def writable(self) -> bool:
         return True
