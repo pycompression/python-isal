@@ -228,7 +228,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
             self.output_worker = threading.Thread(
                 target=self._compress_and_write)
         else:
-            raise ValueError(f"threads should be 1 or greater, got {threads}")
+            raise ValueError(f"threads should be at least 1, got {threads}")
         self.threads = threads
         self.index = 0
         self._crc = 0
@@ -369,6 +369,8 @@ class _ThreadedGzipWriter(io.RawIOBase):
                 data, zdict = in_queue.get(timeout=0.05)
             except queue.Empty:
                 if not self.running:
+                    self._crc = total_crc
+                    self._size = size
                     return
                 continue
             try:
