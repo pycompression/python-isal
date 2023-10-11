@@ -198,10 +198,11 @@ class _ThreadedGzipWriter(io.RawIOBase):
     """
     def __init__(self,
                  fp: BinaryIO,
-                 buffer_size: int = 1024 * 1024,
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int = 1,
-                 queue_size: int = 1):
+                 queue_size: int = 1,
+                 buffer_size: int = 1024 * 1024,
+                 ):
         self.lock = threading.Lock()
         self.exception: Optional[Exception] = None
         self.raw = fp
