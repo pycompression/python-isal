@@ -8,7 +8,7 @@
 import gzip
 import io
 import itertools
-import random
+import os
 import tempfile
 from pathlib import Path
 
@@ -83,7 +83,7 @@ def test_threaded_write_error(threads):
         with igzip_threaded.open(
                 io.BytesIO(), "wb", compresslevel=3, threads=threads
         ) as writer:
-            writer.write(random.randbytes(1024 * 1024 * 50))
+            writer.write(os.urandom(1024 * 1024 * 50))
     error.match("Compressed output exceeds buffer size")
 
 
