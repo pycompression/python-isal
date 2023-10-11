@@ -7,6 +7,8 @@
 
 import gzip
 import io
+import itertools
+import os
 import tempfile
 from pathlib import Path
 
@@ -25,10 +27,11 @@ def test_threaded_read():
     assert thread_data == data
 
 
-@pytest.mark.parametrize("mode", ["wb", "wt"])
-def test_threaded_write(mode):
+@pytest.mark.parametrize(["mode", "threads"],
+                         itertools.product(["wb", "wt"], [1, 3]))
+def test_threaded_write(mode, threads):
     with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
-        with igzip_threaded.open(tmp, mode, threads=-1) as out_file:
+        with igzip_threaded.open(tmp, mode, threads=threads) as out_file:
             gzip_open_mode = "rb" if "b" in mode else "rt"
             with gzip.open(TEST_FILE, gzip_open_mode) as in_file:
                 while True:
@@ -73,14 +76,15 @@ def test_threaded_read_error():
 
 
 @pytest.mark.timeout(5)
-def test_threaded_write_error(monkeypatch):
-    tmp = tempfile.mktemp()
-    # Compressobj method is called in a worker thread.
-    monkeypatch.delattr(igzip_threaded.isal_zlib, "compressobj")
-    with pytest.raises(AttributeError) as error:
-        with igzip_threaded.open(tmp, "wb", compresslevel=3) as writer:
-            writer.write(b"x")
-    error.match("no attribute 'compressobj'")
+@pytest.mark.parametrize("threads", [1, 3])
+def test_threaded_write_error(threads):
+    # parallel_deflate_and_crc method is called in a worker thread.
+    with pytest.raises(OverflowError) as error:
+        with igzip_threaded.open(
+                io.BytesIO(), "wb", compresslevel=3, threads=threads
+        ) as writer:
+            writer.write(os.urandom(1024 * 1024 * 50))
+    error.match("Compressed output exceeds buffer size")
 
 
 def test_close_reader():
@@ -92,8 +96,10 @@ def test_close_reader():
     f.close()
 
 
-def test_close_writer():
-    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO())
+@pytest.mark.parametrize("threads", [1, 3])
+def test_close_writer(threads):
+    f = igzip_threaded._ThreadedGzipWriter(
+        io.BytesIO(), threads=threads)
     f.close()
     assert f.closed
     # Make sure double closing does not raise errors
@@ -117,6 +123,13 @@ def test_writer_wrong_level():
     error.match("42")
 
 
+def test_writer_too_low_threads():
+    with pytest.raises(ValueError) as error:
+        igzip_threaded._ThreadedGzipWriter(io.BytesIO(), threads=0)
+    error.match("threads")
+    error.match("at least 1")
+
+
 def test_reader_read_after_close():
     with open(TEST_FILE, "rb") as test_f:
         f = igzip_threaded._ThreadedGzipReader(test_f)
@@ -126,8 +139,9 @@ def test_reader_read_after_close():
         error.match("closed")
 
 
-def test_writer_write_after_close():
-    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO())
+@pytest.mark.parametrize("threads", [1, 3])
+def test_writer_write_after_close(threads):
+    f = igzip_threaded._ThreadedGzipWriter(io.BytesIO(), threads=threads)
     f.close()
     with pytest.raises(ValueError) as error:
         f.write(b"abc")
