@@ -401,13 +401,13 @@ ParallelCompress_compress_and_crc(ParallelCompress *self,
                      "Can only compress %d bytes of data", UINT32_MAX);
         goto error;
     }
+    PyThreadState *_save;
+    Py_UNBLOCK_THREADS
     isal_deflate_reset(&self->zst);
     self->zst.avail_in = data.len;
     self->zst.next_in = data.buf;
     self->zst.next_out = self->buffer;
     self->zst.avail_out = self->buffer_size;
-    PyThreadState *_save;
-    Py_UNBLOCK_THREADS
     int err = isal_deflate_set_dict(&self->zst, zdict.buf, zdict.len);
     if (err != 0){
         Py_BLOCK_THREADS;
