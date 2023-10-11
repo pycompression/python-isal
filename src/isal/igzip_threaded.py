@@ -67,14 +67,10 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
         gzip_file = io.BufferedReader(
             _ThreadedGzipReader(binary_file, block_size=block_size))
     else:
-        # Deflating random data results in an output a little larger than the
-        # input. Making the output buffer 10% larger is sufficient overkill.
-        compress_buffer_size = block_size + max(
-            block_size // 10, 500)
         gzip_file = io.BufferedWriter(
             _ThreadedGzipWriter(
                 fp=binary_file,
-                buffer_size=compress_buffer_size,
+                block_size=block_size,
                 level=compresslevel,
                 threads=threads
             ),
@@ -201,15 +197,19 @@ class _ThreadedGzipWriter(io.RawIOBase):
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int = 1,
                  queue_size: int = 1,
-                 buffer_size: int = 1024 * 1024,
+                 block_size: int = 1024 * 1024,
                  ):
         self.lock = threading.Lock()
         self.exception: Optional[Exception] = None
         self.raw = fp
         self.level = level
         self.previous_block = b""
+        # Deflating random data results in an output a little larger than the
+        # input. Making the output buffer 10% larger is sufficient overkill.
+        compress_buffer_size = block_size + max(block_size // 10, 500)
+        self.block_size = block_size
         self.compressors: List[isal_zlib._ParallelCompress] = [
-            isal_zlib._ParallelCompress(buffersize=buffer_size,
+            isal_zlib._ParallelCompress(buffersize=compress_buffer_size,
                                         level=level) for _ in range(threads)
         ]
         if threads > 1:
@@ -273,8 +273,19 @@ class _ThreadedGzipWriter(io.RawIOBase):
         with self.lock:
             if self.exception:
                 raise self.exception
-        index = self.index
+        length = b.nbytes if isinstance(b, memoryview) else len(b)
+        if length > self.block_size:
+            # write smaller chunks and return the result
+            memview = memoryview(b)
+            start = 0
+            total_written = 0
+            while start < length:
+                total_written += self.write(
+                    memview[start:start+self.block_size])
+                start += self.block_size
+            return total_written
         data = bytes(b)
+        index = self.index
         zdict = memoryview(self.previous_block)[-DEFLATE_WINDOW_SIZE:]
         self.previous_block = data
         self.index += 1
