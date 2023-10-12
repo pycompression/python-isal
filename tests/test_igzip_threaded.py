@@ -28,7 +28,7 @@ def test_threaded_read():
 
 
 @pytest.mark.parametrize(["mode", "threads"],
-                         itertools.product(["wb", "wt"], [1, 3, 12]))
+                         itertools.product(["wb", "wt"], [1, 3, -1]))
 def test_threaded_write(mode, threads):
     with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
         # Use a small block size to simulate many writes.
