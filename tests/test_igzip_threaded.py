@@ -28,10 +28,12 @@ def test_threaded_read():
 
 
 @pytest.mark.parametrize(["mode", "threads"],
-                         itertools.product(["wb", "wt"], [1, 3]))
+                         itertools.product(["wb", "wt"], [1, 3, 12]))
 def test_threaded_write(mode, threads):
     with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
-        with igzip_threaded.open(tmp, mode, threads=threads) as out_file:
+        # Use a small block size to simulate many writes.
+        with igzip_threaded.open(tmp, mode, threads=threads,
+                                 block_size=8*1024) as out_file:
             gzip_open_mode = "rb" if "b" in mode else "rt"
             with gzip.open(TEST_FILE, gzip_open_mode) as in_file:
                 while True:
