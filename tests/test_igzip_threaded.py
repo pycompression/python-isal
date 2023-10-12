@@ -28,10 +28,12 @@ def test_threaded_read():
 
 
 @pytest.mark.parametrize(["mode", "threads"],
-                         itertools.product(["wb", "wt"], [1, 3]))
+                         itertools.product(["wb", "wt"], [1, 3, -1]))
 def test_threaded_write(mode, threads):
     with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
-        with igzip_threaded.open(tmp, mode, threads=threads) as out_file:
+        # Use a small block size to simulate many writes.
+        with igzip_threaded.open(tmp, mode, threads=threads,
+                                 block_size=8*1024) as out_file:
             gzip_open_mode = "rb" if "b" in mode else "rt"
             with gzip.open(TEST_FILE, gzip_open_mode) as in_file:
                 while True:
@@ -77,13 +79,33 @@ def test_threaded_read_error():
 
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize("threads", [1, 3])
-def test_threaded_write_error(threads):
-    # parallel_deflate_and_crc method is called in a worker thread.
-    with pytest.raises(OverflowError) as error:
+def test_threaded_write_oversized_block_no_error(threads):
+    # Random bytes are incompressible, and therefore are guaranteed to
+    # trigger a buffer overflow when larger than block size unless handled
+    # correctly.
+    data = os.urandom(1024 * 63)  # not a multiple of block_size
+    with tempfile.NamedTemporaryFile(mode="wb", delete=False) as tmp:
         with igzip_threaded.open(
-                io.BytesIO(), "wb", compresslevel=3, threads=threads
+                tmp, "wb", compresslevel=3, threads=threads,
+                block_size=8 * 1024
         ) as writer:
-            writer.write(os.urandom(1024 * 1024 * 50))
+            writer.write(data)
+    with gzip.open(tmp.name, "rb") as gzipped:
+        decompressed = gzipped.read()
+    assert data == decompressed
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize("threads", [1, 3])
+def test_threaded_write_error(threads):
+    f = igzip_threaded._ThreadedGzipWriter(
+        fp=io.BytesIO(), level=3,
+        threads=threads, block_size=8 * 1024)
+    # Bypass the write method which should not allow blocks larger than
+    # block_size.
+    f.input_queues[0].put((os.urandom(1024 * 64), b""))
+    with pytest.raises(OverflowError) as error:
+        f.close()
     error.match("Compressed output exceeds buffer size")
 
 
