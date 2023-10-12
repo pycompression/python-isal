@@ -7,6 +7,14 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.5.0
+-----------------
++ Make a special case for threads==1 in ``igzip_threaded.open`` for writing
+  files. This now combines the writing and compression thread for less
+  overhead.
++ Maximize time spent outside the GIL for ``igzip_threaded.open`` writing.
+  This has decreased wallclock time significantly.
+
 version 1.4.1
 -----------------
 + Fix several errors related to unclosed files and buffers.
