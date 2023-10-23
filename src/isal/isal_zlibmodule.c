@@ -1948,75 +1948,66 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
     return PyLong_FromLongLong(self->_pos);
 }
 
+#define READALL_MAX_BLOCKS 48
 static PyObject *
 GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
 {
-    /* Try to consume the entire buffer without too much overallocation */
-    Py_ssize_t chunk_size = self->buffer_size * 4;
-    /* Rather than immediately creating a list, read one chunk first and
-       only create a list when more read operations are necessary. */
-    PyObject *first_chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
-    if (first_chunk == NULL) {
-        return NULL;
-    }
-    ENTER_ZLIB(self);
-    Py_ssize_t written_size = GzipReader_read_into_buffer(
-        self, (uint8_t *)PyBytes_AS_STRING(first_chunk), chunk_size);
-    LEAVE_ZLIB(self);
-    if (written_size < 0) {
-        Py_DECREF(first_chunk);
-        return NULL;
-    }
-    if (written_size < chunk_size) {
-        if (_PyBytes_Resize(&first_chunk, written_size) < 0) {
-            return NULL;
-        }
-        return first_chunk;
-    }
-
-    PyObject *chunk_list = PyList_New(1);
-    if (chunk_list == NULL) {
-        return NULL;
-    }
-    PyList_SET_ITEM(chunk_list, 0, first_chunk);
+    Py_ssize_t bufsize = DEF_BUF_SIZE;
+    PyObject *read_in_blocks[READALL_MAX_BLOCKS];
+    size_t blocks_read = 0;
+    Py_ssize_t total_read_size = 0;
+    PyObject *ret = NULL;
     while (1) {
-        PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
-        if (chunk == NULL) {
-            Py_DECREF(chunk_list);
-            return NULL;
+        if (blocks_read >= READALL_MAX_BLOCKS) {
+            PyErr_Format(
+                PyExc_OverflowError,
+                "Total size exceeds %zd bytes", total_read_size
+            );
         }
-        ENTER_ZLIB(self);
-        written_size = GzipReader_read_into_buffer(
-            self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
-        LEAVE_ZLIB(self);
-        if (written_size < 0) {
-            Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
+        PyObject *block = PyBytes_FromStringAndSize(NULL, bufsize);
+        if (block == NULL) {
+            PyErr_NoMemory();
+            goto readall_end;
         }
-        if (written_size == 0) {
-            Py_DECREF(chunk);
+
+        Py_ssize_t read_size = GzipReader_read_into_buffer(
+            self, (uint8_t *)PyBytes_AS_STRING(block), bufsize);
+        if (read_size < 0) {
+            Py_DECREF(block);
+            goto readall_end;
+        }
+        total_read_size += read_size;
+        if (read_size < bufsize) {
+            if (_PyBytes_Resize(&block, read_size) < 0) {
+                goto readall_end;
+            }
+            read_in_blocks[blocks_read] = block;
+            blocks_read += 1;
             break;
         }
-        if (_PyBytes_Resize(&chunk, written_size) < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        int ret = PyList_Append(chunk_list, chunk);
-        Py_DECREF(chunk);
-        if (ret < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
+        read_in_blocks[blocks_read] = block;
+        blocks_read += 1;
+        bufsize *= 2;
     }
-    PyObject *empty_bytes = PyBytes_FromStringAndSize(NULL, 0);
-    if (empty_bytes == NULL) {
-        Py_DECREF(chunk_list);
-        return NULL;
+    if (blocks_read == 1) {
+        return read_in_blocks[0];
     }
-    PyObject *ret = _PyBytes_Join(empty_bytes, chunk_list);
-    Py_DECREF(empty_bytes);
-    Py_DECREF(chunk_list);
+    ret = PyBytes_FromStringAndSize(NULL, total_read_size);
+    if (ret == NULL) {
+        PyErr_NoMemory();
+        goto readall_end;
+    }
+    char *ret_ptr = PyBytes_AS_STRING(ret);
+    for (size_t i=0; i<blocks_read; i++) {
+        PyObject *block = read_in_blocks[i];
+        Py_ssize_t block_size = PyBytes_GET_SIZE(block);
+        memcpy(ret_ptr, PyBytes_AS_STRING(block), block_size);
+        ret_ptr += block_size;
+    }
+readall_end:
+    for (size_t i=0; i<blocks_read; i++) {
+        Py_DECREF(read_in_blocks[i]);
+    }
     return ret;
 }
 
