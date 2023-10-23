@@ -7,6 +7,10 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.5.1
+-----------------
++ Fix a memory leak in the GzipReader.readall implementation.
+
 version 1.5.0
 -----------------
 + Make a special case for threads==1 in ``igzip_threaded.open`` for writing
