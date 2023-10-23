@@ -1952,7 +1952,7 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
 static PyObject *
 GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
 {
-    Py_ssize_t bufsize = DEF_BUF_SIZE;
+    Py_ssize_t bufsize = Py_MIN(DEF_BUF_SIZE, self->buffer_size * 4);
     PyObject *read_in_blocks[READALL_MAX_BLOCKS];
     size_t blocks_read = 0;
     Py_ssize_t total_read_size = 0;
