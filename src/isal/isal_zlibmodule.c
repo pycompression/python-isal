@@ -1995,14 +1995,16 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
             return NULL;
         }
         if (written_size == 0) {
+            Py_DECREF(chunk);
             break;
         }
         if (_PyBytes_Resize(&chunk, written_size) < 0) {
             Py_DECREF(chunk_list);
             return NULL;
         }
-        if (PyList_Append(chunk_list, chunk) < 0) {
-            Py_DECREF(chunk);
+        int ret = PyList_Append(chunk_list, chunk);
+        Py_DECREF(chunk);
+        if (ret < 0) {
             Py_DECREF(chunk_list);
             return NULL;
         }
@@ -2014,6 +2016,7 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
     }
     PyObject *ret = _PyBytes_Join(empty_bytes, chunk_list);
     Py_DECREF(empty_bytes);
+    Py_DECREF(chunk_list);
     return ret;
 }
 
