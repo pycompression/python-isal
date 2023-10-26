@@ -793,6 +793,7 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
     err = wbits_to_flag_and_hist_bits_inflate(wbits, &hist_bits, &flag);
     if (err < 0) {
         PyErr_Format(PyExc_ValueError, "Invalid wbits value: %d", wbits);
+        Py_DECREF(self);
         return NULL;
     }
     else if (err == 0) {
