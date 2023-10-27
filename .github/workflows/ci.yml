@@ -45,7 +45,7 @@ jobs:
         with:
           python-version: 3.8
       - name: Install isal
-        run: sudo apt-get install libisal-dev
+        run: sudo apt-get install libisal-dev libasan8
       - name: Install tox and upgrade setuptools and pip
         run: pip install --upgrade tox setuptools pip
       - name: Run tox -e ${{ matrix.tox_env }}
