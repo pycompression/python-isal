@@ -7,6 +7,13 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.6.0-dev
+-----------------
++ Fix a memory leak that occurred when an error was thrown for a gzip header
+  with the wrong magic numbers.
++ Fix a memory leak that occurred when isal_zlib.decompressobj was given a
+  wrong wbits value.
+
 version 1.5.1
 -----------------
 + Fix a memory leak in the GzipReader.readall implementation.
