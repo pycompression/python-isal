@@ -1684,9 +1684,11 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     
                     if (!(magic1 == 0x1f && magic2 == 0x8b)) {
                         Py_BLOCK_THREADS;
+                        PyObject *magic_obj = PyBytes_FromStringAndSize((char *)current_pos, 2);
                         PyErr_Format(BadGzipFile,
                             "Not a gzipped file (%R)", 
-                            PyBytes_FromStringAndSize((char *)current_pos, 2));
+                            magic_obj);
+                        Py_DECREF(magic_obj);
                         return -1;
                     };
                     uint8_t method = current_pos[2];
