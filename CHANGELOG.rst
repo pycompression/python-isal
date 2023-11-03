@@ -7,7 +7,7 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-version 1.6.0-dev
+version 1.5.2
 -----------------
 + Fix a bug where a filehandle remained opened when ``igzip_threaded.open``
   was used for writing with a wrong compression level.
