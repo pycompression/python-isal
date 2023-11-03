@@ -99,7 +99,7 @@ def test_threaded_write_oversized_block_no_error(threads):
 @pytest.mark.parametrize("threads", [1, 3])
 def test_threaded_write_error(threads):
     f = igzip_threaded._ThreadedGzipWriter(
-        fp=io.BytesIO(), level=3,
+        io.BytesIO(), level=3,
         threads=threads, block_size=8 * 1024)
     # Bypass the write method which should not allow blocks larger than
     # block_size.
@@ -139,10 +139,11 @@ def test_writer_not_readable():
 
 
 def test_writer_wrong_level():
-    with pytest.raises(ValueError) as error:
-        igzip_threaded._ThreadedGzipWriter(io.BytesIO(), level=42)
-    error.match("Invalid compression level")
-    error.match("42")
+    with tempfile.NamedTemporaryFile("wb") as tmp:
+        with pytest.raises(ValueError) as error:
+            igzip_threaded.open(tmp.name, mode="wb", compresslevel=42)
+        error.match("Invalid compression level")
+        error.match("42")
 
 
 def test_writer_too_low_threads():
