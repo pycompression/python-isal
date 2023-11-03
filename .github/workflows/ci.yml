@@ -179,10 +179,10 @@ jobs:
             make nasm &&
             install -c nasm /usr/bin/nasm
         build_sdist: [true]
-        include:
-          - os: "ubuntu-latest"
-            cibw_archs_linux: "aarch64"
-            cibw_before_all_linux: "true"  # The true command exits with 0
+#        include:
+#          - os: "ubuntu-latest"
+#            cibw_archs_linux: "aarch64"
+#            cibw_before_all_linux: "true"  # The true command exits with 0
     steps:
       - uses: actions/checkout@v2.3.4
         with:
