@@ -99,7 +99,7 @@ def test_threaded_write_oversized_block_no_error(threads):
 @pytest.mark.parametrize("threads", [1, 3])
 def test_threaded_write_error(threads):
     f = igzip_threaded._ThreadedGzipWriter(
-        fp=io.BytesIO(), level=3,
+        io.BytesIO(), level=3,
         threads=threads, block_size=8 * 1024)
     # Bypass the write method which should not allow blocks larger than
     # block_size.

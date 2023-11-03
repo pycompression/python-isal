@@ -57,19 +57,13 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
             except:  # noqa: E722
                 threads = 1
     open_mode = mode.replace("t", "b")
-    if isinstance(filename, (str, bytes)) or hasattr(filename, "__fspath__"):
-        binary_file = builtins.open(filename, open_mode)
-    elif hasattr(filename, "read") or hasattr(filename, "write"):
-        binary_file = filename
-    else:
-        raise TypeError("filename must be a str or bytes object, or a file")
     if "r" in mode:
         gzip_file = io.BufferedReader(
-            _ThreadedGzipReader(binary_file, block_size=block_size))
+            _ThreadedGzipReader(filename, block_size=block_size))
     else:
         gzip_file = io.BufferedWriter(
             _ThreadedGzipWriter(
-                fp=binary_file,
+                filename,
                 block_size=block_size,
                 level=compresslevel,
                 threads=threads
@@ -81,10 +75,20 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
     return gzip_file
 
 
+def open_as_binary_stream(filename, open_mode):
+    if isinstance(filename, (str, bytes)) or hasattr(filename, "__fspath__"):
+        binary_file = builtins.open(filename, open_mode)
+    elif hasattr(filename, "read") or hasattr(filename, "write"):
+        binary_file = filename
+    else:
+        raise TypeError("filename must be a str or bytes object, or a file")
+    return binary_file
+
+
 class _ThreadedGzipReader(io.RawIOBase):
-    def __init__(self, fp, queue_size=2, block_size=1024 * 1024):
-        self.raw = fp
-        self.fileobj = igzip._IGzipReader(fp, buffersize=8 * block_size)
+    def __init__(self, filename, queue_size=2, block_size=1024 * 1024):
+        self.raw = open_as_binary_stream(filename, "rb")
+        self.fileobj = igzip._IGzipReader(self.raw, buffersize=8 * block_size)
         self.pos = 0
         self.read_file = False
         self.queue = queue.Queue(queue_size)
@@ -193,7 +197,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
     compressing and output is handled in one thread.
     """
     def __init__(self,
-                 fp: BinaryIO,
+                 filename,
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int = 1,
                  queue_size: int = 1,
@@ -201,7 +205,6 @@ class _ThreadedGzipWriter(io.RawIOBase):
                  ):
         self.lock = threading.Lock()
         self.exception: Optional[Exception] = None
-        self.raw = fp
         self.level = level
         self.previous_block = b""
         # Deflating random data results in an output a little larger than the
@@ -236,6 +239,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.running = False
         self._size = 0
         self._closed = False
+        self.raw = open_as_binary_stream(filename, "wb")
         self._write_gzip_header()
         self.start()
 
