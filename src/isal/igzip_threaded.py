@@ -12,7 +12,7 @@ import os
 import queue
 import struct
 import threading
-from typing import BinaryIO, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from . import igzip, isal_zlib
 
@@ -56,7 +56,6 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
                 threads = multiprocessing.cpu_count()
             except:  # noqa: E722
                 threads = 1
-    open_mode = mode.replace("t", "b")
     if "r" in mode:
         gzip_file = io.BufferedReader(
             _ThreadedGzipReader(filename, block_size=block_size))
