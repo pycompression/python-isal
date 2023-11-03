@@ -139,10 +139,11 @@ def test_writer_not_readable():
 
 
 def test_writer_wrong_level():
-    with pytest.raises(ValueError) as error:
-        igzip_threaded._ThreadedGzipWriter(io.BytesIO(), level=42)
-    error.match("Invalid compression level")
-    error.match("42")
+    with tempfile.NamedTemporaryFile("wb") as tmp:
+        with pytest.raises(ValueError) as error:
+            igzip_threaded.open(tmp.name, mode="wb", compresslevel=42)
+        error.match("Invalid compression level")
+        error.match("42")
 
 
 def test_writer_too_low_threads():
