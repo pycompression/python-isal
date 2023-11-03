@@ -3,7 +3,16 @@ formats: []  # Do not build epub and pdf
 
 python:
   install:
-    - method: pip
-      path: .
-conda:
-  environment: docs/conda-environment.yml
+    - requirements: "requirements-docs.txt"
+    - method: "pip"
+      path: "."
+
+sphinx:
+  configuration: docs/conf.py
+
+build:
+  os: "ubuntu-22.04"
+  tools:
+    python: "3"
+  apt_packages:
+    - libisal-dev
