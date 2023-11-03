@@ -9,6 +9,8 @@ Changelog
 
 version 1.6.0-dev
 -----------------
++ Fix a bug where a filehandle remained opened when ``igzip_threaded.open``
+  was used for writing with a wrong compression level.
 + Fix a memory leak that occurred when an error was thrown for a gzip header
   with the wrong magic numbers.
 + Fix a memory leak that occurred when isal_zlib.decompressobj was given a
