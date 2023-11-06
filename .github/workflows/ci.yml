@@ -100,7 +100,7 @@ jobs:
         uses: codecov/codecov-action@v1
 
   test-arch:
-    if: startsWith(github.ref, 'refs/tags') || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+#    if: startsWith(github.ref, 'refs/tags') || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
     runs-on: "ubuntu-latest"
     strategy:
       matrix:
