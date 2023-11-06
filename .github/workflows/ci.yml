@@ -118,7 +118,7 @@ jobs:
           base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
           run: |-
             python${{ matrix.python_version }} -m pip install tox
-            python${{ matrix.python_version }} -m tox -e asan 
+            python${{ matrix.python_version }} -m tox -vv -e asan 
             CFLAGS=-g0 -DNDEBUG python${{ matrix.python_version }} -m tox
 
   # Test if the python-isal conda package can be build. Which is linked
