@@ -119,9 +119,9 @@ jobs:
           run: |-
             yum install -y devtoolset-10-libasan-devel.aarch64
             CFLAGS="-lasan -fsanitize=address -fno-omit-frame-pointer" python${{ matrix.python_version }} -m pip install .
-            PYTHONDEVMODE=1 PYTHONMALLOC=malloc LD_PRELOAD=$(gcc -print-file-name=libasan.so) pytest tests
+            PYTHONDEVMODE=1 PYTHONMALLOC=malloc LD_PRELOAD=$(gcc -print-file-name=libasan.so) python${{ matrix.python_version }} -m pytest tests
             CFLAGS="-g0 -DNDEBUG" python${{ matrix.python_version }} -m pip install .
-            pytest tests
+            python${{ matrix.python_version }} -m pytest tests
 
   # Test if the python-isal conda package can be build. Which is linked
   # dynamically to the conda isa-l package.
