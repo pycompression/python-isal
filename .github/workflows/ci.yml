@@ -117,9 +117,10 @@ jobs:
           distro: none
           base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
           run: |-
-            python${{ matrix.python_version }} -m pip install tox
-            python${{ matrix.python_version }} -m tox -vv -e asan 
-            CFLAGS=-g0 -DNDEBUG python${{ matrix.python_version }} -m tox
+            CFLAGS="-lasan -fsanitize=address -fno-omit-frame-pointer" python${{ matrix.python_version }} -m pip install .
+            PYTHONDEVMODE=1 PYTHONMALLOC=malloc LD_PRELOAD=$(gcc -print-file-name=libasan.so) pytest tests
+            CFLAGS="-g0 -DNDEBUG" python${{ matrix.python_version }} -m pip install .
+            pytest tests
 
   # Test if the python-isal conda package can be build. Which is linked
   # dynamically to the conda isa-l package.
