@@ -117,8 +117,9 @@ jobs:
           distro: none
           base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
           run: |-
-            CFLAGS="-DNDEBUG -g0" python${{matrix.python_version}} -m pip install . pytest
-            python${{matrix.python_version}} -m pytest tests
+            pip install tox
+            tox -e asan 
+            CFLAGS=-g0 -DNDEBUG tox
 
   # Test if the python-isal conda package can be build. Which is linked
   # dynamically to the conda isa-l package.
