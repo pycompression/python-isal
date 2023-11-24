@@ -169,3 +169,25 @@ def test_writer_write_after_close(threads):
     with pytest.raises(ValueError) as error:
         f.write(b"abc")
     error.match("closed")
+
+
+def test_igzip_threaded_append(tmp_path):
+    test_file = tmp_path / "test.txt.gz"
+    with igzip_threaded.open(test_file, "wb") as f:
+        f.write(b"AB")
+    with igzip_threaded.open(test_file, mode="ab") as f:
+        f.write(b"CD")
+    with gzip.open(test_file, "rb") as f:
+        contents = f.read()
+    assert contents == b"ABCD"
+
+
+def test_igzip_threaded_append_text_mode(tmp_path):
+    test_file = tmp_path / "test.txt.gz"
+    with igzip_threaded.open(test_file, "wt") as f:
+        f.write("AB")
+    with igzip_threaded.open(test_file, mode="at") as f:
+        f.write("CD")
+    with gzip.open(test_file, "rt") as f:
+        contents = f.read()
+    assert contents == "ABCD"

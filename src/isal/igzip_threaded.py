@@ -63,6 +63,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
         gzip_file = io.BufferedWriter(
             _ThreadedGzipWriter(
                 filename,
+                mode.replace("t", "b"),
                 block_size=block_size,
                 level=compresslevel,
                 threads=threads
@@ -197,11 +198,16 @@ class _ThreadedGzipWriter(io.RawIOBase):
     """
     def __init__(self,
                  filename,
+                 mode: str = "wb",
                  level: int = isal_zlib.ISAL_DEFAULT_COMPRESSION,
                  threads: int = 1,
                  queue_size: int = 1,
                  block_size: int = 1024 * 1024,
                  ):
+        if "t" in mode or "r" in mode:
+            raise ValueError("Only binary writing is supported")
+        if "b" not in mode:
+            mode += "b"
         self.lock = threading.Lock()
         self.exception: Optional[Exception] = None
         self.level = level
@@ -238,7 +244,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.running = False
         self._size = 0
         self._closed = False
-        self.raw = open_as_binary_stream(filename, "wb")
+        self.raw = open_as_binary_stream(filename, mode)
         self._write_gzip_header()
         self.start()
 

@@ -7,6 +7,11 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.5.3
+-----------------
++ Fix a bug where append mode would not work when using
+  ``igzip_threaded.open``.
+
 version 1.5.2
 -----------------
 + Fix a bug where a filehandle remained opened when ``igzip_threaded.open``
