@@ -135,7 +135,7 @@ def build_isa_l():
 
 setup(
     name="isal",
-    version="1.5.2",
+    version="1.5.3",
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",
@@ -145,7 +145,7 @@ setup(
     long_description_content_type="text/x-rst",
     cmdclass={"build_ext": BuildIsalExt},
     license="PSF-2.0",
-    keywords="isal isa-l compression deflate gzip igzip",
+    keywords="isal isa-l compression deflate gzip igzip threads",
     zip_safe=False,
     packages=find_packages('src'),
     package_dir={'': 'src'},
