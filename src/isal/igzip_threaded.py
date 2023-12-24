@@ -204,6 +204,9 @@ class _ThreadedGzipWriter(io.RawIOBase):
                  queue_size: int = 1,
                  block_size: int = 1024 * 1024,
                  ):
+        # File should be closed during init, so __exit__ method does not
+        # touch the self.raw value before it is initialized.
+        self._closed = True
         if "t" in mode or "r" in mode:
             raise ValueError("Only binary writing is supported")
         if "b" not in mode:
@@ -243,8 +246,8 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self._crc = 0
         self.running = False
         self._size = 0
-        self._closed = False
         self.raw = open_as_binary_stream(filename, mode)
+        self._closed = False
         self._write_gzip_header()
         self.start()
 
