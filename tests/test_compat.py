@@ -11,7 +11,6 @@
 
 import gzip
 import itertools
-import os
 import zlib
 from pathlib import Path
 
@@ -34,8 +33,6 @@ SEEDS = [-INT_OVERFLOW, -3, -1, 0, 1, INT_OVERFLOW] + [
 
 # Wbits for ZLIB compression, GZIP compression, and RAW compressed streams
 WBITS_RANGE = list(range(9, 16)) + list(range(25, 32)) + list(range(-15, -8))
-
-DYNAMICALLY_LINKED = os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None
 
 
 @pytest.mark.parametrize(["data_size", "value"],
@@ -93,8 +90,6 @@ def test_decompress_isal_zlib(data_size, level):
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
                          itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))
-@pytest.mark.xfail(condition=DYNAMICALLY_LINKED,
-                   reason="Dynamically linked version may not have patch.")
 def test_compress_compressobj(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
     compressobj = isal_zlib.compressobj(level=level,

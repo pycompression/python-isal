@@ -33,15 +33,10 @@ BUILD_CACHE_FILE = Path(os.environ.get("PYTHON_ISAL_BUILD_CACHE_FILE",
                                        DEFAULT_CACHE_FILE))
 
 EXTENSIONS = [
-        Extension("isal.isal_zlib", ["src/isal/isal_zlibmodule.c"]),
-        Extension("isal.igzip_lib", ["src/isal/igzip_libmodule.c"]),
+    Extension("isal.isal_zlib", ["src/isal/isal_zlibmodule.c"]),
+    Extension("isal.igzip_lib", ["src/isal/igzip_libmodule.c"]),
+    Extension("isal._isal", ["src/isal/_isalmodule.c"]),
     ]
-
-# This does not add the extension on windows for dynamic linking. The required
-# header file might be missing.
-if not (SYSTEM_IS_WINDOWS and
-        os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None):
-    EXTENSIONS.append(Extension("isal._isal", ["src/isal/_isalmodule.c"]))
 
 
 class BuildIsalExt(build_ext):
