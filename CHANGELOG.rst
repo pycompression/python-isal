@@ -9,6 +9,7 @@ Changelog
 
 version 1.6.0-dev
 -----------------
++ Update statically linked ISA-L release to 2.31.0
 + Fix an error that occurred in the ``__close__`` function when a threaded
   writer was initialized with incorrect parameters.
 
