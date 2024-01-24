@@ -40,10 +40,6 @@ requires_Decompress_copy = unittest.skipUnless(
 
 
 class VersionTestCase(unittest.TestCase):
-
-    @unittest.skipIf(os.getenv("PYTHON_ISAL_LINK_DYNAMIC") is not None and
-                     sys.platform.startswith("win"),
-                     "Header file missing on windows")
     def test_library_version(self):
         # Test that the major version of the actual library in use matches the
         # major version that we were compiled against. We can't guarantee that
