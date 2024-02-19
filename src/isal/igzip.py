@@ -151,11 +151,12 @@ class IGzipFile(gzip.GzipFile):
         If omitted or None, the current time is used.
         """
         if not (isal_zlib.ISAL_BEST_SPEED <= compresslevel
-                <= isal_zlib.ISAL_BEST_COMPRESSION):
+                <= isal_zlib.ISAL_BEST_COMPRESSION) and "r" not in mode:
             raise ValueError(
-                "Compression level should be between {0} and {1}.".format(
-                    isal_zlib.ISAL_BEST_SPEED, isal_zlib.ISAL_BEST_COMPRESSION
-                ))
+                f"Compression level should be between "
+                f"{isal_zlib.ISAL_BEST_SPEED} and "
+                f"{isal_zlib.ISAL_BEST_COMPRESSION}, got {compresslevel}."
+            )
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
         if self.mode == WRITE:
             self.compress = isal_zlib.compressobj(compresslevel,
