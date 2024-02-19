@@ -2017,7 +2017,7 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
         Py_DECREF(chunk_list);
         return NULL;
     }
-    PyObject *ret = _PyBytes_Join(empty_bytes, chunk_list);
+    PyObject *ret = PyObject_CallMethod(empty_bytes, "join", "O", chunk_list);
     Py_DECREF(empty_bytes);
     Py_DECREF(chunk_list);
     return ret;

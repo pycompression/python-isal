@@ -191,3 +191,11 @@ def test_igzip_threaded_append_text_mode(tmp_path):
     with gzip.open(test_file, "rt") as f:
         contents = f.read()
     assert contents == "ABCD"
+
+
+def test_igzip_threaded_open_compresslevel_and_reading(tmp_path):
+    test_file = tmp_path / "test.txt.gz"
+    test_file.write_bytes(gzip.compress(b"thisisatest"))
+    with igzip_threaded.open(test_file, compresslevel=5) as f:
+        text = f.read()
+    assert text == b"thisisatest"
