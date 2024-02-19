@@ -456,6 +456,13 @@ class TestGzip(BaseTest):
         else:
             self.fail("1/0 didn't raise an exception")
 
+    def test_read_and_compresslevel(self):
+        with igzip.GzipFile(self.filename, "wb") as f:
+            f.write(b"xxx")
+        with igzip.GzipFile(self.filename, "rb", compresslevel=17) as f:
+            data = f.read()
+        assert data == b"xxx"
+
     def test_zero_padded_file(self):
         with igzip.GzipFile(self.filename, "wb") as f:
             f.write(data1 * 50)
@@ -784,6 +791,13 @@ class TestOpen(BaseTest):
             f.write(uncompressed)
         with igzip.open(self.filename, "rt", newline="\r") as f:
             self.assertEqual(f.readlines(), [uncompressed])
+
+    def test_reading_and_compresslevel(self):
+        with igzip.open(self.filename, "wb") as f:
+            f.write(data1)
+        with igzip.open(self.filename, "rb", compresslevel=17) as f:
+            text = f.read()
+        assert text == data1
 
 
 def create_and_remove_directory(directory):
