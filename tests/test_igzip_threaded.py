@@ -199,3 +199,22 @@ def test_igzip_threaded_open_compresslevel_and_reading(tmp_path):
     with igzip_threaded.open(test_file, compresslevel=5) as f:
         text = f.read()
     assert text == b"thisisatest"
+
+
+def test_threaded_reader_does_not_close_stream():
+    test_stream = io.BytesIO()
+    test_stream.write(gzip.compress(b"thisisatest"))
+    test_stream.seek(0)
+    with igzip_threaded.open(test_stream, "rb") as f:
+        text = f.read()
+    assert not test_stream.closed
+    assert text == b"thisisatest"
+
+
+def test_threaded_writer_does_not_close_stream():
+    test_stream = io.BytesIO()
+    with igzip_threaded.open(test_stream, "wb") as f:
+        f.write(b"thisisatest")
+    assert not test_stream.closed
+    test_stream.seek(0)
+    assert gzip.decompress(test_stream.read()) == b"thisisatest"

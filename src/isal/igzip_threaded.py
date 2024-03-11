@@ -78,16 +78,18 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
 def open_as_binary_stream(filename, open_mode):
     if isinstance(filename, (str, bytes)) or hasattr(filename, "__fspath__"):
         binary_file = builtins.open(filename, open_mode)
+        closefd = True
     elif hasattr(filename, "read") or hasattr(filename, "write"):
         binary_file = filename
+        closefd = False
     else:
         raise TypeError("filename must be a str or bytes object, or a file")
-    return binary_file
+    return binary_file, closefd
 
 
 class _ThreadedGzipReader(io.RawIOBase):
     def __init__(self, filename, queue_size=2, block_size=1024 * 1024):
-        self.raw = open_as_binary_stream(filename, "rb")
+        self.raw, self.closefd = open_as_binary_stream(filename, "rb")
         self.fileobj = igzip._IGzipReader(self.raw, buffersize=8 * block_size)
         self.pos = 0
         self.read_file = False
@@ -155,7 +157,8 @@ class _ThreadedGzipReader(io.RawIOBase):
         self.running = False
         self.worker.join()
         self.fileobj.close()
-        self.raw.close()
+        if self.closefd:
+            self.raw.close()
         self._closed = True
 
     @property
@@ -246,7 +249,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self._crc = 0
         self.running = False
         self._size = 0
-        self.raw = open_as_binary_stream(filename, mode)
+        self.raw, self.closefd = open_as_binary_stream(filename, mode)
         self._closed = False
         self._write_gzip_header()
         self.start()
@@ -329,7 +332,8 @@ class _ThreadedGzipWriter(io.RawIOBase):
         trailer = struct.pack("<II", self._crc, self._size & 0xFFFFFFFF)
         self.raw.write(trailer)
         self.raw.flush()
-        self.raw.close()
+        if self.closefd:
+            self.raw.close()
         self._closed = True
 
     @property
