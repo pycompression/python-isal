@@ -101,8 +101,6 @@ Installation is supported on Linux, Windows and MacOS. For more advanced
 installation options check the `documentation
 <https://python-isal.readthedocs.io/en/stable/index.html#installation>`_.
 
-.. _differences-with-zlib-and-gzip-modules:
-
 python-isal as a dependency in your project
 -------------------------------------------
 
@@ -124,6 +122,8 @@ your project please list a python-isal dependency as follows.
     },
 
 .. dependency end
+
+.. _differences-with-zlib-and-gzip-modules:
 
 Differences with zlib and gzip modules
 --------------------------------------
