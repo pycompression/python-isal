@@ -22,6 +22,7 @@ ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
 
 SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
                   sys.platform.startswith("darwin"))
+SYSTEM_IS_BSD = sys.platform.startswith("freebsd")
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
 
 # Since pip builds in a temp directory by default, setting a fixed file in
@@ -59,7 +60,7 @@ class BuildIsalExt(build_ext):
                                                      "include")]
                     ext.library_dirs = [os.path.join(prefix, "Library", "lib")]
                     break
-            if SYSTEM_IS_UNIX:
+            if SYSTEM_IS_UNIX or SYSTEM_IS_BSD:
                 ext.libraries = ["isal"]  # libisal.so*
             elif SYSTEM_IS_WINDOWS:
                 ext.libraries = ["isa-l"]  # isa-l.dll
@@ -68,7 +69,7 @@ class BuildIsalExt(build_ext):
                     f"Unsupported platform: {sys.platform}")
         else:
             isa_l_build_dir = build_isa_l()
-            if SYSTEM_IS_UNIX:
+            if SYSTEM_IS_UNIX or SYSTEM_IS_BSD:
                 ext.extra_objects = [
                     os.path.join(isa_l_build_dir, "bin", "isa-l.a")]
             elif SYSTEM_IS_WINDOWS:
@@ -101,22 +102,29 @@ def build_isa_l():
     # Build environment is a copy of OS environment to allow user to influence
     # it.
     build_env = os.environ.copy()
-    if SYSTEM_IS_UNIX:
+    if SYSTEM_IS_UNIX or SYSTEM_IS_BSD:
         build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
-    if SYSTEM_IS_UNIX:
+    if SYSTEM_IS_UNIX or SYSTEM_IS_BSD:
         if platform.machine() == "aarch64":
             cflags_param = "CFLAGS_aarch64"
         else:
             cflags_param = "CFLAGS_"
-        subprocess.run(["make", "-j", str(cpu_count), "-f", "Makefile.unx",
+
+        if SYSTEM_IS_BSD:
+            make_cmd = "gmake"
+        else:
+            make_cmd = "make"
+
+        subprocess.run([make_cmd, "-j", str(cpu_count), "-f", "Makefile.unx",
                         "isa-l.h", "bin/isa-l.a",
                         f"{cflags_param}={build_env.get('CFLAGS', '')}"],
                        **run_args)
+
     elif SYSTEM_IS_WINDOWS:
         subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
     else:
