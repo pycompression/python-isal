@@ -67,10 +67,12 @@ jobs:
           - "pypy-3.10"
         os: ["ubuntu-latest"]
         include:
-          - os: "macos-latest"
-            python-version: 3.8
+          - os: "macos-13"
+            python-version: "3.8"
+          - os: "macos-14"
+            python-version: "3.10"
           - os: "windows-latest"
-            python-version: 3.8
+            python-version: "3.8"
     steps:
       - uses: actions/checkout@v2.3.4
         with:
@@ -168,7 +170,8 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - macos-latest
+          - macos-13
+          - macos-14
           - windows-latest
         cibw_archs_linux: ["x86_64"]
         cibw_before_all_linux:
