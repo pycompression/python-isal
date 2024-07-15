@@ -7,6 +7,11 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.7.0-dev
+-----------------
++ Fix a bug where READ and WRITE in isal.igzip were inconsistent with the
+  values in gzip on Python 3.13
+
 version 1.6.1
 -----------------
 + Fix a bug where streams that were passed to igzip_threaded.open where closed.

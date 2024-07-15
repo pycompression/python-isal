@@ -55,7 +55,8 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 READ_BUFFER_SIZE = 512 * 1024
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
-READ, WRITE = 1, 2
+READ = gzip.READ
+WRITE = gzip.WRITE
 
 BadGzipFile = gzip.BadGzipFile  # type: ignore
 
