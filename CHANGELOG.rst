@@ -9,6 +9,8 @@ Changelog
 
 version 1.7.0-dev
 -----------------
++ Include a patched ISA-L version 2.31. The applied patches make compilation
+  and wheelbuilding on MacOS ARM64 possible.
 + Fix a bug where READ and WRITE in isal.igzip were inconsistent with the
   values in gzip on Python 3.13
 
