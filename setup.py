@@ -18,6 +18,8 @@ from pathlib import Path
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
+import versioningit
+
 ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
 
 SYSTEM_IS_BSD = (sys.platform.startswith("freebsd") or
@@ -136,7 +138,7 @@ def build_isa_l():
 
 setup(
     name="isal",
-    version="1.7.0-dev",
+    version=versioningit.get_version(),
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",
