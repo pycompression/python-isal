@@ -158,6 +158,13 @@ Contributing
    :start-after: .. contributing start
    :end-before: .. contributing end
 
+===========
+Development
+===========
+.. include:: includes/README.rst
+   :start-after: .. development start
+   :end-before: .. development end
+
 ================
 Acknowledgements
 ================

@@ -166,6 +166,24 @@ are also very welcome. Please report them on the `github issue tracker
 
 .. contributing end
 
+Development
+-----------
+.. development start
+
+The repository needs to be cloned recursively to make sure the
+`ISA-L <https://github.com/intel/isa-l>`_ repository is checked out:
+``git clone --recursive https://github.com/pycompression/python-isal.git``. If
+the repository is already checked out you can use ``git submodule update --init``.
+
+Patches should be made on a feature branch. To run the testing install ``tox``
+with ``pip install tox`` and run the commands ``tox -e lint`` and
+``tox``. That will run most of the testing that is also performed by the CI.
+For changes to the documentation run ``tox -e docs``. For changes to the C
+code please also run ``tox -e asan`` to check for memory leaks. This requires
+libasan to be installed.
+
+.. development end
+
 Acknowledgements
 ----------------
 
