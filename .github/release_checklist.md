@@ -2,9 +2,7 @@ Release checklist
 - [ ] Check outstanding issues on JIRA and Github.
 - [ ] Check [latest documentation](https://python-isal.readthedocs.io/en/latest/) looks fine.
 - [ ] Create a release branch.
-  - [ ] Set version to a stable number.
   - [ ] Change current development version in `CHANGELOG.rst` to stable version.
-  - [ ] Change the version in `__init__.py`
 - [ ] Check if the address sanitizer does not find any problems using `tox -e asan`
 - [ ] Merge the release branch into `main`.
 - [ ] Created an annotated tag with the stable version number. Include changes 

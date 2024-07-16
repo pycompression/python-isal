@@ -5,14 +5,4 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-from ._isal import (ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, ISAL_PATCH_VERSION,
-                    ISAL_VERSION)
-from ._version import __version__
-
-__all__ = [
-    "ISAL_MAJOR_VERSION",
-    "ISAL_MINOR_VERSION",
-    "ISAL_PATCH_VERSION",
-    "ISAL_VERSION",
-    "__version__"
-]
+__version__: int
