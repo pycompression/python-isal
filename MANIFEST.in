@@ -1,2 +1,8 @@
 graft src/isal/isa-l
 include src/isal/*.h
+prune tests
+prune docs
+prune benchmark_scripts
+exclude requirements-docs.txt
+exclude codecov.yml
+exclude .readthedocs.yml
