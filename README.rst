@@ -182,6 +182,10 @@ For changes to the documentation run ``tox -e docs``. For changes to the C
 code please also run ``tox -e asan`` to check for memory leaks. This requires
 libasan to be installed.
 
+Building requires the 
+`ISA-L build requirements <https://github.com/intel/isa-l?tab=readme-ov-file#building-isa-l>`_ 
+as well.
+
 .. development end
 
 Acknowledgements
