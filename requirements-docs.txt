@@ -1,5 +1,4 @@
 sphinx
-setuptools
 sphinx-rtd-theme
 # See https://github.com/sphinx-doc/sphinx-argparse/issues/56
 sphinx-argparse <0.5.0

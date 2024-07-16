@@ -4,27 +4,20 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-from distutils.dist import DistributionMetadata
-from pathlib import Path
-
-import pkg_resources
+from isal import __version__
 
 # -- Project information -----------------------------------------------------
 
 # Get package information from the installed package.
-package = pkg_resources.get_distribution("isal")
-metadata_file = Path(package.egg_info) / Path(package.PKG_INFO)
-metadata = DistributionMetadata(path=str(metadata_file))
 
 project = 'python-isal'
 copyright = '2020, Leiden University Medical Center'
 author = 'Leiden University Medical Center'
 
 # The short X.Y version
-version = package.parsed_version.base_version
+version = __version__
 # The full version, including alpha/beta/rc tags
-release = package.version
-
+release = __version__
 
 # -- General configuration ---------------------------------------------------
 
