@@ -2,9 +2,6 @@ name: Continous integration
 
 on:
   pull_request:
-    paths-ignore:
-      - 'docs/**'
-      - '*.rst'
   push:
     branches:
       - develop
