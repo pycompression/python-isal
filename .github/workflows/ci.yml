@@ -116,7 +116,11 @@ jobs:
           arch: none
           distro: none
           base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
+          # versioningit needs an accessible git repository but the container
+          # is run as root, which is different from the repository user.
+          # use git config to override this.
           run: |-
+            git config --global --add safe.directory $PWD
             CFLAGS="-DNDEBUG -g0" python${{matrix.python_version}} -m pip install . pytest
             python${{matrix.python_version}} -m pytest tests
 
