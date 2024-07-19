@@ -9,11 +9,7 @@
 # Changes compared to CPython:
 # - Subclassed GzipFile to IGzipFile. Methods that included calls to zlib have
 #   been overwritten with the same methods, but now calling to isal_zlib.
-# - _GzipReader uses a igzip_lib.IgzipDecompressor. This Decompressor is
-#   derived from the BZ2Decompressor as such it does not produce an unconsumed
-#   tail but keeps the read data internally. This prevents unnecessary copying
-#   of data. To accomodate this, the read method has been rewritten.
-# - _GzipReader._add_read_data uses isal_zlib.crc32 instead of zlib.crc32.
+# - _GzipReader is implemented in C in isal_zlib and allows dropping the GIL.
 # - Gzip.compress does not use a GzipFile to compress in memory, but creates a
 #   simple header using _create_simple_gzip_header and compresses the data with
 #   igzip_lib.compress using the DECOMP_GZIP_NO_HDR flag. This change was
