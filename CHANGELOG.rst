@@ -13,6 +13,8 @@ version 1.7.0-dev
   and wheelbuilding on MacOS ARM64 possible.
 + Fix a bug where READ and WRITE in isal.igzip were inconsistent with the
   values in gzip on Python 3.13
++ Small simplifications to the ``igzip.compress`` function, which should lead
+  to less overhead.
 
 version 1.6.1
 -----------------
