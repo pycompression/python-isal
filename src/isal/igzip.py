@@ -225,13 +225,10 @@ GzipFile = IGzipFile
 _IGzipReader = _GzipReader
 
 
-def _create_simple_gzip_header(compresslevel: int,
-                               mtime: Optional[SupportsInt] = None) -> bytes:
-    """
-    Write a simple gzip header with no extra fields.
-    :param compresslevel: Compresslevel used to determine the xfl bytes.
-    :param mtime: The mtime (must support conversion to a 32-bit integer).
-    :return: A bytes object representing the gzip header.
+def compress(data, compresslevel: int = _COMPRESS_LEVEL_BEST, *,
+             mtime: Optional[SupportsInt] = None) -> bytes:
+    """Compress data in one shot and return the compressed string.
+    Optional argument is the compression level, in range of 0-3.
     """
     if mtime is None:
         mtime = time.time()
@@ -240,14 +237,7 @@ def _create_simple_gzip_header(compresslevel: int,
     xfl = 4 if compresslevel == _COMPRESS_LEVEL_FAST else 0
     # Pack ID1 and ID2 magic bytes, method (8=deflate), header flags (no extra
     # fields added to header), mtime, xfl and os (255 for unknown OS).
-    return struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, int(mtime), xfl, 255)
-
-
-def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
-    """Compress data in one shot and return the compressed string.
-    Optional argument is the compression level, in range of 0-3.
-    """
-    header = _create_simple_gzip_header(compresslevel, mtime)
+    header = struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, int(mtime), xfl, 255)
     # use igzip_lib to compress the data without a gzip header but with a
     # gzip trailer.
     compressed = igzip_lib.compress(data, compresslevel,
