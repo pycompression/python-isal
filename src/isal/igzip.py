@@ -33,6 +33,7 @@ import builtins
 import gzip
 import io
 import os
+import shutil
 import struct
 import sys
 import time
@@ -358,11 +359,7 @@ def main():
             out_file = sys.stdout.buffer
 
     try:
-        while True:
-            block = in_file.read(args.buffer_size)
-            if block == b"":
-                break
-            out_file.write(block)
+        shutil.copyfileobj(in_file, out_file, args.buffer_size)
     finally:
         if in_file is not sys.stdin.buffer:
             in_file.close()
