@@ -8,7 +8,6 @@
 
 import functools
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -119,8 +118,9 @@ def build_isa_l():
             make_cmd = "gmake"
         subprocess.run([os.path.join(build_dir, "autogen.sh")], **run_args)
         subprocess.run([os.path.join(build_dir, "configure"), ], **run_args)
-        subprocess.run([make_cmd, "-j", str(cpu_count), "isa-l.h", "libisal.la",
-                        ], **run_args)
+        subprocess.run([
+            make_cmd, "-j", str(cpu_count), "isa-l.h", "libisal.la",
+        ], **run_args)
     elif SYSTEM_IS_WINDOWS:
         subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
     else:
