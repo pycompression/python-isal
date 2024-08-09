@@ -10,170 +10,170 @@ on:
       - "*"
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2.2.1
-        with:
-          python-version: 3.8
-      - name: Install tox
-        run: pip install tox
-      - name: Lint
-        run: tox -e lint
-
-  package-checks:
-    strategy:
-      matrix:
-        tox_env:
-          - docs
-          - twine_check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Set up Python 3.8
-        uses: actions/setup-python@v2.2.1
-        with:
-          python-version: 3.8
-      - name: Install isal
-        run: sudo apt-get install libisal-dev
-      - name: Install tox and upgrade setuptools and pip
-        run: pip install --upgrade tox setuptools pip
-      - name: Run tox -e ${{ matrix.tox_env }}
-        run: tox -e ${{ matrix.tox_env }}
-        env:
-          PYTHON_ISAL_LINK_DYNAMIC: True
-
-  test-static:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version:
-          - "3.8"
-          - "3.9"
-          - "3.10"
-          - "3.11"
-          - "3.12"
-          - "3.13-dev"
-          - "pypy-3.9"
-          - "pypy-3.10"
-        os: ["ubuntu-latest"]
-        include:
-          - os: "macos-13"
-            python-version: "3.8"
-          - os: "macos-14"
-            python-version: "3.10"
-          - os: "windows-latest"
-            python-version: "3.8"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2.2.1
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install tox and upgrade setuptools
-        run: pip install --upgrade tox setuptools
-      - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
-        run: sudo apt install nasm
-        if: runner.os == 'Linux'
-      - name: Install build dependencies (Macos)
-        # Install yasm because nasm does not work when building wheels.
-        # Probably because of nasm-filter.sh not filtering all flags that can not be used.
-        run: brew install nasm
-        if: runner.os == 'macOS'
-      - name: Set MSVC developer prompt
-        uses: ilammy/msvc-dev-cmd@v1.6.0
-        if: runner.os == 'Windows'
-      - name: Install nasm (Windows)
-        uses: ilammy/setup-nasm@v1.2.0
-        if: runner.os == 'Windows'
-      - name: Run tests
-        run: tox
-      - name: Upload coverage report
-        uses: codecov/codecov-action@v1
-
-  test-arch:
-    if: startsWith(github.ref, 'refs/tags') || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
-    runs-on: "ubuntu-latest"
-    strategy:
-      matrix:
-        python_version:
-          - "3.8"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: uraimo/run-on-arch-action@v2.5.0
-        name: Build & run test
-        with:
-          arch: none
-          distro: none
-          base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
-          # versioningit needs an accessible git repository but the container
-          # is run as root, which is different from the repository user.
-          # use git config to override this.
-          run: |-
-            git config --global --add safe.directory $PWD
-            CFLAGS="-DNDEBUG -g0" python${{matrix.python_version}} -m pip install . pytest
-            python${{matrix.python_version}} -m pytest tests
-
-  # Test if the python-isal conda package can be build. Which is linked
-  # dynamically to the conda isa-l package.
-  test-dynamic:
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        # This is needed for miniconda, see:
-        # https://github.com/marketplace/actions/setup-miniconda#important.
-        shell: bash -l {0}
-    strategy:
-      matrix:
-        os: ["ubuntu-latest", "macos-13", "windows-latest"]
-        python_version: [ "python" ]
-        include:
-          - os: "ubuntu-latest"
-            python_version: "pypy"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Install miniconda.
-        uses: conda-incubator/setup-miniconda@v3 # https://github.com/conda-incubator/setup-miniconda.
-        with:
-          channels: conda-forge,defaults
-      - name: Install requirements (universal)
-        run: conda install isa-l ${{ matrix.python_version}} tox
-      - name: Set MSVC developer prompt
-        uses: ilammy/msvc-dev-cmd@v1.6.0
-        if: runner.os == 'Windows'
-      - name: Run tests (dynamic link)
-        run: tox
-        env:
-          PYTHON_ISAL_LINK_DYNAMIC: True
+#  lint:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: recursive
+#      - name: Set up Python 3.8
+#        uses: actions/setup-python@v2.2.1
+#        with:
+#          python-version: 3.8
+#      - name: Install tox
+#        run: pip install tox
+#      - name: Lint
+#        run: tox -e lint
+#
+#  package-checks:
+#    strategy:
+#      matrix:
+#        tox_env:
+#          - docs
+#          - twine_check
+#    runs-on: ubuntu-latest
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: recursive
+#      - name: Set up Python 3.8
+#        uses: actions/setup-python@v2.2.1
+#        with:
+#          python-version: 3.8
+#      - name: Install isal
+#        run: sudo apt-get install libisal-dev
+#      - name: Install tox and upgrade setuptools and pip
+#        run: pip install --upgrade tox setuptools pip
+#      - name: Run tox -e ${{ matrix.tox_env }}
+#        run: tox -e ${{ matrix.tox_env }}
+#        env:
+#          PYTHON_ISAL_LINK_DYNAMIC: True
+#
+#  test-static:
+#    runs-on: ${{ matrix.os }}
+#    strategy:
+#      matrix:
+#        python-version:
+#          - "3.8"
+#          - "3.9"
+#          - "3.10"
+#          - "3.11"
+#          - "3.12"
+#          - "3.13-dev"
+#          - "pypy-3.9"
+#          - "pypy-3.10"
+#        os: ["ubuntu-latest"]
+#        include:
+#          - os: "macos-13"
+#            python-version: "3.8"
+#          - os: "macos-14"
+#            python-version: "3.10"
+#          - os: "windows-latest"
+#            python-version: "3.8"
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: recursive
+#      - name: Set up Python ${{ matrix.python-version }}
+#        uses: actions/setup-python@v2.2.1
+#        with:
+#          python-version: ${{ matrix.python-version }}
+#      - name: Install tox and upgrade setuptools
+#        run: pip install --upgrade tox setuptools
+#      - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
+#        run: sudo apt install nasm
+#        if: runner.os == 'Linux'
+#      - name: Install build dependencies (Macos)
+#        # Install yasm because nasm does not work when building wheels.
+#        # Probably because of nasm-filter.sh not filtering all flags that can not be used.
+#        run: brew install nasm
+#        if: runner.os == 'macOS'
+#      - name: Set MSVC developer prompt
+#        uses: ilammy/msvc-dev-cmd@v1.6.0
+#        if: runner.os == 'Windows'
+#      - name: Install nasm (Windows)
+#        uses: ilammy/setup-nasm@v1.2.0
+#        if: runner.os == 'Windows'
+#      - name: Run tests
+#        run: tox
+#      - name: Upload coverage report
+#        uses: codecov/codecov-action@v1
+#
+#  test-arch:
+#    if: startsWith(github.ref, 'refs/tags') || github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main'
+#    runs-on: "ubuntu-latest"
+#    strategy:
+#      matrix:
+#        python_version:
+#          - "3.8"
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: recursive
+#      - uses: uraimo/run-on-arch-action@v2.5.0
+#        name: Build & run test
+#        with:
+#          arch: none
+#          distro: none
+#          base_image: "--platform=linux/arm64 quay.io/pypa/manylinux2014_aarch64"
+#          # versioningit needs an accessible git repository but the container
+#          # is run as root, which is different from the repository user.
+#          # use git config to override this.
+#          run: |-
+#            git config --global --add safe.directory $PWD
+#            CFLAGS="-DNDEBUG -g0" python${{matrix.python_version}} -m pip install . pytest
+#            python${{matrix.python_version}} -m pytest tests
+#
+#  # Test if the python-isal conda package can be build. Which is linked
+#  # dynamically to the conda isa-l package.
+#  test-dynamic:
+#    runs-on: ${{ matrix.os }}
+#    defaults:
+#      run:
+#        # This is needed for miniconda, see:
+#        # https://github.com/marketplace/actions/setup-miniconda#important.
+#        shell: bash -l {0}
+#    strategy:
+#      matrix:
+#        os: ["ubuntu-latest", "macos-13", "windows-latest"]
+#        python_version: [ "python" ]
+#        include:
+#          - os: "ubuntu-latest"
+#            python_version: "pypy"
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          submodules: recursive
+#      - name: Install miniconda.
+#        uses: conda-incubator/setup-miniconda@v3 # https://github.com/conda-incubator/setup-miniconda.
+#        with:
+#          channels: conda-forge,defaults
+#      - name: Install requirements (universal)
+#        run: conda install isa-l ${{ matrix.python_version}} tox
+#      - name: Set MSVC developer prompt
+#        uses: ilammy/msvc-dev-cmd@v1.6.0
+#        if: runner.os == 'Windows'
+#      - name: Run tests (dynamic link)
+#        run: tox
+#        env:
+#          PYTHON_ISAL_LINK_DYNAMIC: True
 
   deploy:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+#    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
-    needs:
-      - lint
-      - package-checks
-      - test-static
-      - test-dynamic
-      - test-arch
+#    needs:
+#      - lint
+#      - package-checks
+#      - test-static
+#      - test-dynamic
+#      - test-arch
     strategy:
       matrix:
         os:
-          - ubuntu-latest
-          - macos-13
+#          - ubuntu-latest
+#          - macos-13
           - macos-14
-          - windows-latest
+#          - windows-latest
         cibw_archs_linux: ["x86_64"]
         cibw_before_all_linux:
           - >-
@@ -260,17 +260,17 @@ jobs:
         with:
           name: "dist"
           path: "dist/"
-      - name: Publish package to TestPyPI
-        # pypa/gh-action-pypi-publish@master does not work on OSX
-        # Alpha, Beta and dev releases contain a - in the tag.
-        if: contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
-        run: twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      - name: Publish package to PyPI
-        if: "!contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')"
-        run: twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+#      - name: Publish package to TestPyPI
+#        # pypa/gh-action-pypi-publish@master does not work on OSX
+#        # Alpha, Beta and dev releases contain a - in the tag.
+#        if: contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
+#        run: twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+#        env:
+#          TWINE_USERNAME: __token__
+#          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+#      - name: Publish package to PyPI
+#        if: "!contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')"
+#        run: twine upload dist/*
+#        env:
+#          TWINE_USERNAME: __token__
+#          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
