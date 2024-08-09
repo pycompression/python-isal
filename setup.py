@@ -75,7 +75,7 @@ class BuildIsalExt(build_ext):
             isa_l_build_dir = build_isa_l()
             if SYSTEM_IS_UNIX:
                 ext.extra_objects = [
-                    os.path.join(isa_l_build_dir, "bin", "isa-l.a")]
+                    os.path.join(isa_l_build_dir, ".libs", "libisal.a")]
             elif SYSTEM_IS_WINDOWS:
                 ext.extra_objects = [
                     os.path.join(isa_l_build_dir, "isa-l_static.lib")]
@@ -114,17 +114,13 @@ def build_isa_l():
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
     if SYSTEM_IS_UNIX:
-        if platform.machine() == "aarch64":
-            cflags_param = "CFLAGS_aarch64"
-        else:
-            cflags_param = "CFLAGS_"
         make_cmd = "make"
         if SYSTEM_IS_BSD:
             make_cmd = "gmake"
-        subprocess.run([make_cmd, "-j", str(cpu_count), "-f", "Makefile.unx",
-                        "isa-l.h", "bin/isa-l.a",
-                        f"{cflags_param}={build_env.get('CFLAGS', '')}"],
-                       **run_args)
+        subprocess.run([os.path.join(build_dir, "autogen.sh")], **run_args)
+        subprocess.run([os.path.join(build_dir, "configure"), ], **run_args)
+        subprocess.run([make_cmd, "-j", str(cpu_count), "isa-l.h", "libisal.la",
+                        ], **run_args)
     elif SYSTEM_IS_WINDOWS:
         subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
     else:
