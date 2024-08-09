@@ -18,10 +18,15 @@ from pathlib import Path
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
+import versioningit
+
 ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
 
+SYSTEM_IS_BSD = (sys.platform.startswith("freebsd") or
+                 sys.platform.startswith("netbsd"))
 SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
-                  sys.platform.startswith("darwin"))
+                  sys.platform.startswith("darwin") or
+                  SYSTEM_IS_BSD)
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
 
 # Since pip builds in a temp directory by default, setting a fixed file in
@@ -113,7 +118,10 @@ def build_isa_l():
             cflags_param = "CFLAGS_aarch64"
         else:
             cflags_param = "CFLAGS_"
-        subprocess.run(["make", "-j", str(cpu_count), "-f", "Makefile.unx",
+        make_cmd = "make"
+        if SYSTEM_IS_BSD:
+            make_cmd = "gmake"
+        subprocess.run([make_cmd, "-j", str(cpu_count), "-f", "Makefile.unx",
                         "isa-l.h", "bin/isa-l.a",
                         f"{cflags_param}={build_env.get('CFLAGS', '')}"],
                        **run_args)
@@ -130,7 +138,7 @@ def build_isa_l():
 
 setup(
     name="isal",
-    version="1.6.1",
+    version=versioningit.get_version(),
     description="Faster zlib and gzip compatible compression and "
                 "decompression by providing python bindings for the ISA-L "
                 "library.",

@@ -9,11 +9,7 @@
 # Changes compared to CPython:
 # - Subclassed GzipFile to IGzipFile. Methods that included calls to zlib have
 #   been overwritten with the same methods, but now calling to isal_zlib.
-# - _GzipReader uses a igzip_lib.IgzipDecompressor. This Decompressor is
-#   derived from the BZ2Decompressor as such it does not produce an unconsumed
-#   tail but keeps the read data internally. This prevents unnecessary copying
-#   of data. To accomodate this, the read method has been rewritten.
-# - _GzipReader._add_read_data uses isal_zlib.crc32 instead of zlib.crc32.
+# - _GzipReader is implemented in C in isal_zlib and allows dropping the GIL.
 # - Gzip.compress does not use a GzipFile to compress in memory, but creates a
 #   simple header using _create_simple_gzip_header and compresses the data with
 #   igzip_lib.compress using the DECOMP_GZIP_NO_HDR flag. This change was
@@ -33,6 +29,7 @@ import builtins
 import gzip
 import io
 import os
+import shutil
 import struct
 import sys
 import time
@@ -55,7 +52,8 @@ _COMPRESS_LEVEL_BEST = isal_zlib.ISAL_BEST_COMPRESSION
 READ_BUFFER_SIZE = 512 * 1024
 
 FTEXT, FHCRC, FEXTRA, FNAME, FCOMMENT = 1, 2, 4, 8, 16
-READ, WRITE = 1, 2
+READ = gzip.READ
+WRITE = gzip.WRITE
 
 BadGzipFile = gzip.BadGzipFile  # type: ignore
 
@@ -224,13 +222,10 @@ GzipFile = IGzipFile
 _IGzipReader = _GzipReader
 
 
-def _create_simple_gzip_header(compresslevel: int,
-                               mtime: Optional[SupportsInt] = None) -> bytes:
-    """
-    Write a simple gzip header with no extra fields.
-    :param compresslevel: Compresslevel used to determine the xfl bytes.
-    :param mtime: The mtime (must support conversion to a 32-bit integer).
-    :return: A bytes object representing the gzip header.
+def compress(data, compresslevel: int = _COMPRESS_LEVEL_BEST, *,
+             mtime: Optional[SupportsInt] = None) -> bytes:
+    """Compress data in one shot and return the compressed string.
+    Optional argument is the compression level, in range of 0-3.
     """
     if mtime is None:
         mtime = time.time()
@@ -239,14 +234,7 @@ def _create_simple_gzip_header(compresslevel: int,
     xfl = 4 if compresslevel == _COMPRESS_LEVEL_FAST else 0
     # Pack ID1 and ID2 magic bytes, method (8=deflate), header flags (no extra
     # fields added to header), mtime, xfl and os (255 for unknown OS).
-    return struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, int(mtime), xfl, 255)
-
-
-def compress(data, compresslevel=_COMPRESS_LEVEL_BEST, *, mtime=None):
-    """Compress data in one shot and return the compressed string.
-    Optional argument is the compression level, in range of 0-3.
-    """
-    header = _create_simple_gzip_header(compresslevel, mtime)
+    header = struct.pack("<BBBBLBB", 0x1f, 0x8b, 8, 0, int(mtime), xfl, 255)
     # use igzip_lib to compress the data without a gzip header but with a
     # gzip trailer.
     compressed = igzip_lib.compress(data, compresslevel,
@@ -367,11 +355,7 @@ def main():
             out_file = sys.stdout.buffer
 
     try:
-        while True:
-            block = in_file.read(args.buffer_size)
-            if block == b"":
-                break
-            out_file.write(block)
+        shutil.copyfileobj(in_file, out_file, args.buffer_size)
     finally:
         if in_file is not sys.stdin.buffer:
             in_file.close()

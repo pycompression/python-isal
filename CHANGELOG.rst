@@ -7,6 +7,15 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.7.0
+-----------------
++ Include a patched ISA-L version 2.31. The applied patches make compilation
+  and wheelbuilding on MacOS ARM64 possible.
++ Fix a bug where READ and WRITE in isal.igzip were inconsistent with the
+  values in gzip on Python 3.13
++ Small simplifications to the ``igzip.compress`` function, which should lead
+  to less overhead.
+
 version 1.6.1
 -----------------
 + Fix a bug where streams that were passed to igzip_threaded.open where closed.

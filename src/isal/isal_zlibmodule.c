@@ -14,14 +14,13 @@ Changes compared to CPython:
 - Zlib to ISA-L conversion functions were included.
 - All compression and checksum functions from zlib replaced with ISA-L
   compatible functions.
-- No locks in Compress and Decompress objects. These were deemed unnecessary
-  as the ISA-L functions do not allocate memory, unlike the zlib
-  counterparts.
 - zlib.compress also has a 'wbits' argument. This change was included in
   Python 3.11. It allows for faster gzip compression by using
   isal_zlib.compress(data, wbits=31).
 - Argument parsers were written using th CPython API rather than argument
   clinic.
+- Created a GzipReader class that implements gzip reading in C, reducing a lot
+  of overhead compared to the gzip.py:_GzipReader class.
 */
 
 #include "isal_shared.h"
