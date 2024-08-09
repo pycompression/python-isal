@@ -159,21 +159,21 @@ jobs:
           PYTHON_ISAL_LINK_DYNAMIC: True
 
   deploy:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+#    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
-    needs:
-      - lint
-      - package-checks
-      - test-static
-      - test-dynamic
-      - test-arch
+#    needs:
+#      - lint
+#      - package-checks
+#      - test-static
+#      - test-dynamic
+#      - test-arch
     strategy:
       matrix:
         os:
-          - ubuntu-latest
-          - macos-13
+#          - ubuntu-latest
+#          - macos-13
           - macos-14
-          - windows-latest
+#          - windows-latest
         cibw_archs_linux: ["x86_64"]
         cibw_before_all_linux:
           - >-
@@ -185,10 +185,10 @@ jobs:
             make nasm &&
             install -c nasm /usr/bin/nasm
         build_sdist: [true]
-        include:
-          - os: "ubuntu-latest"
-            cibw_archs_linux: "aarch64"
-            cibw_before_all_linux: "true"  # The true command exits with 0
+#        include:
+#          - os: "ubuntu-latest"
+#            cibw_archs_linux: "aarch64"
+#            cibw_before_all_linux: "true"  # The true command exits with 0
     steps:
       - uses: actions/checkout@v4
         with:
@@ -215,7 +215,7 @@ jobs:
       - name: Build wheels
         run: cibuildwheel --output-dir dist
         env:
-          CIBW_SKIP: "*-win32 *-manylinux_i686"  # Skip 32 bit
+          CIBW_SKIP: "*-win32 *-manylinux_i686 cp38-macosx_*arm64 cp39-macosx_*arm64"  # Skip 32 bit and problematic mac builds.
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
           CIBW_BEFORE_ALL_LINUX: ${{ matrix.cibw_before_all_linux }}
           # Fully test the build wheels again.
@@ -260,17 +260,17 @@ jobs:
         with:
           name: "dist"
           path: "dist/"
-      - name: Publish package to TestPyPI
-        # pypa/gh-action-pypi-publish@master does not work on OSX
-        # Alpha, Beta and dev releases contain a - in the tag.
-        if: contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
-        run: twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      - name: Publish package to PyPI
-        if: "!contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')"
-        run: twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+#      - name: Publish package to TestPyPI
+#        # pypa/gh-action-pypi-publish@master does not work on OSX
+#        # Alpha, Beta and dev releases contain a - in the tag.
+#        if: contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
+#        run: twine upload --repository-url https://test.pypi.org/legacy/ dist/*
+#        env:
+#          TWINE_USERNAME: __token__
+#          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+#      - name: Publish package to PyPI
+#        if: "!contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')"
+#        run: twine upload dist/*
+#        env:
+#          TWINE_USERNAME: __token__
+#          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
