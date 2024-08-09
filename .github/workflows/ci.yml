@@ -81,12 +81,12 @@ jobs:
       - name: Install tox and upgrade setuptools
         run: pip install --upgrade tox setuptools
       - name: Install build dependencies (Linux)  # Yasm in pypa/manylinux images.
-        run: sudo apt install nasm automake autoconf
+        run: sudo apt install nasm automake autoconf libtool
         if: runner.os == 'Linux'
       - name: Install build dependencies (Macos)
         # Install yasm because nasm does not work when building wheels.
         # Probably because of nasm-filter.sh not filtering all flags that can not be used.
-        run: brew install nasm automake autoconf
+        run: brew install nasm automake autoconf libtool
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
         uses: ilammy/msvc-dev-cmd@v1.6.0
@@ -199,7 +199,7 @@ jobs:
       - name: Install cibuildwheel twine wheel
         run: python -m pip install cibuildwheel twine wheel
       - name: Install build dependencies (Macos)
-        run: brew install nasm automake autoconf
+        run: brew install nasm automake autoconf libtool
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
         uses: ilammy/msvc-dev-cmd@v1.6.0
