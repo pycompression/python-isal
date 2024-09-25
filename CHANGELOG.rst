@@ -9,6 +9,8 @@ Changelog
 
 version 1.7.1-dev
 -----------------
++ Fix a bug where flushing files when writing in threaded mode did not work
+  properly.
 + Prevent threaded opening from blocking python exit when an error is thrown
   in the calling thread.
 
