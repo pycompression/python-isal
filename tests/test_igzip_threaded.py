@@ -239,3 +239,19 @@ def test_threaded_program_can_exit_on_error(tmp_path, mode, threads):
         )
         f.write("raise Exception('Error')\n")
     subprocess.run([sys.executable, str(program)])
+
+
+@pytest.mark.parametrize("threads", [1, 2])
+def test_flush(tmp_path, threads):
+    test_file = tmp_path / "output.gz"
+    with igzip_threaded.open(test_file, "wb", threads=threads) as f:
+        f.write(b"1")
+        f.flush()
+        assert gzip.decompress(test_file.read_bytes()) == b"1"
+        f.write(b"2")
+        f.flush()
+        assert gzip.decompress(test_file.read_bytes()) == b"12"
+        f.write(b"3")
+        f.flush()
+        assert gzip.decompress(test_file.read_bytes()) == b"123"
+    assert gzip.decompress(test_file.read_bytes()) == b"123"
