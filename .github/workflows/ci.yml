@@ -258,7 +258,7 @@ jobs:
             python -m build --sdist
       - uses: actions/upload-artifact@v4
         with:
-          name: "dist"
+          name: "dist-${{ env.RUNNER_OS }}-${{ env.RUNNER-ARCH }}"
           path: "dist/"
       - name: Publish package to TestPyPI
         # pypa/gh-action-pypi-publish@master does not work on OSX
