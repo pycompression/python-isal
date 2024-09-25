@@ -9,6 +9,8 @@ import gzip
 import io
 import itertools
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -218,3 +220,22 @@ def test_threaded_writer_does_not_close_stream():
     assert not test_stream.closed
     test_stream.seek(0)
     assert gzip.decompress(test_stream.read()) == b"thisisatest"
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize(
+    ["mode", "threads"], itertools.product(["rb", "wb"], [1, 2]))
+def test_threaded_program_can_exit_on_error(tmp_path, mode, threads):
+    program = tmp_path / "no_context_manager.py"
+    test_file = tmp_path / "output.gz"
+    # Write 40 mb input data to saturate read buffer. Because of the repetitive
+    # nature the resulting gzip file is very small (~40 KiB).
+    test_file.write_bytes(gzip.compress(b"test" * (10 * 1024 * 1024)))
+    with open(program, "wt") as f:
+        f.write("from isal import igzip_threaded\n")
+        f.write(
+            f"f = igzip_threaded.open('{test_file}', "
+            f"mode='{mode}', threads={threads})\n"
+        )
+        f.write("raise Exception('Error')\n")
+    subprocess.run([sys.executable, str(program)])
