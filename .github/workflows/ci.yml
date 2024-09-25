@@ -256,7 +256,7 @@ jobs:
         run: |
             pip install build
             python -m build --sdist
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact
         with:
           name: "dist"
           path: "dist/"
