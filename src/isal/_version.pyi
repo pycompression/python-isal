@@ -5,4 +5,4 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
-__version__: int
+__version__: str
