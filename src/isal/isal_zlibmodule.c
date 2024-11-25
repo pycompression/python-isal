@@ -266,7 +266,7 @@ PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
 "  crc2\n"
 "    the second crc32 checksum\n"
 "  crc2_length\n"
-"    the lenght of the data block crc2 was calculated from\n"
+"    the length of the data block crc2 was calculated from\n"
 );
 
 
