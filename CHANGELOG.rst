@@ -7,6 +7,12 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+
+version develop
+-----------------
++ Use upstream ISA-L version 2.31.1 which includes patches to make 
+  installation possible.
+
 version 1.7.1
 -----------------
 + Fix a bug where flushing files when writing in threaded mode did not work
