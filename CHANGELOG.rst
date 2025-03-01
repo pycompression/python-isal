@@ -12,6 +12,7 @@ version develop
 -----------------
 + Use upstream ISA-L version 2.31.1 which includes patches to make 
   installation possible.
++ Enable building on GNU/Hurd platforms.
 
 version 1.7.1
 -----------------
