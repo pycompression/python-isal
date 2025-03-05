@@ -12,6 +12,8 @@ version develop
 -----------------
 + Use upstream ISA-L version 2.31.1 which includes patches to make 
   installation possible.
++ Fix a bug where bytes were copied in the wrong order on big endian
+  architectures. Fixes test failures on s390x.
 + Enable building on GNU/Hurd platforms.
 
 version 1.7.1
