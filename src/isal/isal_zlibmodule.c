@@ -266,7 +266,7 @@ PyDoc_STRVAR(isal_zlib_crc32_combine__doc__,
 "  crc2\n"
 "    the second crc32 checksum\n"
 "  crc2_length\n"
-"    the lenght of the data block crc2 was calculated from\n"
+"    the length of the data block crc2 was calculated from\n"
 );
 
 
@@ -1643,7 +1643,7 @@ static inline uint32_t load_u32_le(void *address) {
 static inline uint16_t load_u16_le(void *address) {
     #if PY_BIG_ENDIAN
     uint8_t *mem = address;
-    return mem[0] | (mem[1] << 8) | (mem[2] << 16) | (mem[3] << 24);
+    return mem[0] | (mem[1] << 8);
     #else
     return *(uint16_t *)address;
     #endif

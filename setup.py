@@ -26,6 +26,7 @@ SYSTEM_IS_BSD = (sys.platform.startswith("freebsd") or
                  sys.platform.startswith("netbsd"))
 SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
                   sys.platform.startswith("darwin") or
+                  sys.platform.startswith("gnu") or
                   SYSTEM_IS_BSD)
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
 
