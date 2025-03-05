@@ -207,8 +207,15 @@ static int bitbuffer_copy(struct inflate_state *state, char *to, size_t n){
     int remainder = bits_in_buffer % 8;
     // Shift the 8-byte bitbuffer read_in so that the bytes are aligned.
     uint64_t remaining_bytes = state->read_in >> remainder;
+    #if PY_BIG_ENDIAN
+    char *remaining_buffer = (char *)&remaining_bytes;
+    for (int i = 0; i < n; ++i) {
+        to[i] = remaining_buffer[7-i];
+    }
+    #else
     // memcpy works because of little-endianness
     memcpy(to, &remaining_bytes, n);
+    #endif
     return 0;
 }
 
