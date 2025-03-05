@@ -1,3 +1,4 @@
-sphinx
+# https://github.com/sphinx-doc/sphinx/issues/13415
+sphinx <8
 sphinx-rtd-theme
 sphinx-argparse
