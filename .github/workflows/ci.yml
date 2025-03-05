@@ -17,7 +17,7 @@ jobs:
         with:
           submodules: recursive
       - name: Set up Python 3.8
-        uses: actions/setup-python@v2.2.1
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Install tox
@@ -37,7 +37,7 @@ jobs:
         with:
           submodules: recursive
       - name: Set up Python 3.8
-        uses: actions/setup-python@v2.2.1
+        uses: actions/setup-python@v5
         with:
           python-version: 3.8
       - name: Install isal
@@ -75,7 +75,7 @@ jobs:
         with:
           submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2.2.1
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install tox and upgrade setuptools
@@ -89,10 +89,10 @@ jobs:
         run: brew install nasm
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
-        uses: ilammy/msvc-dev-cmd@v1.6.0
+        uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Install nasm (Windows)
-        uses: ilammy/setup-nasm@v1.2.0
+        uses: ilammy/setup-nasm@v1
         if: runner.os == 'Windows'
       - name: Run tests
         run: tox
@@ -110,7 +110,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: uraimo/run-on-arch-action@v2.5.0
+      - uses: uraimo/run-on-arch-action@v3
         name: Build & run test
         with:
           arch: none
@@ -151,7 +151,7 @@ jobs:
       - name: Install requirements (universal)
         run: conda install isa-l ${{ matrix.python_version}} tox
       - name: Set MSVC developer prompt
-        uses: ilammy/msvc-dev-cmd@v1.6.0
+        uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Run tests (dynamic link)
         run: tox
@@ -194,7 +194,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0  # Fetch everything to get accurately versioned tag.
-      - uses: actions/setup-python@v2
+      - uses: actions/setup-python@v5
         name: Install Python
       - name: Install cibuildwheel twine wheel
         run: python -m pip install cibuildwheel twine wheel
@@ -202,14 +202,14 @@ jobs:
         run: brew install nasm
         if: runner.os == 'macOS'
       - name: Set MSVC developer prompt
-        uses: ilammy/msvc-dev-cmd@v1.6.0
+        uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Install nasm (Windows)
-        uses: ilammy/setup-nasm@v1.2.0
+        uses: ilammy/setup-nasm@v1
         if: runner.os == 'Windows'
       - name: Set up QEMU
         if: ${{runner.os == 'Linux' && matrix.cibw_archs_linux == 'aarch64'}}
-        uses: docker/setup-qemu-action@v1.0.1
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
       - name: Build wheels
