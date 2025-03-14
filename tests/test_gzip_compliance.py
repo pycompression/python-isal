@@ -845,9 +845,23 @@ class TestCommandLine(unittest.TestCase):
 
         self.assertTrue(os.path.exists(igzipname))
 
+    # The following tests use assert_python_failure or assert_python_ok.
+    #
+    # If the env_vars argument to assert_python_failure or assert_python_ok
+    # is empty the test will run in isolated mode (-I) which means that the
+    # PYTHONPATH environment variable will be ignored and the test fails
+    # because the isal module can not be found, or the test is run usung the
+    # system installed version of the module instead of the newly built
+    # module that should be tested.
+    #
+    # By adding a dummy entry to the env_vars argument the isolated mode is
+    # not used and the PYTHONPATH environment variable is not ignored and
+    # the test works as expected.
+
     def test_decompress_infile_outfile_error(self):
         rc, out, err = assert_python_failure('-m', 'isal.igzip', '-d',
-                                             'thisisatest.out')
+                                             'thisisatest.out',
+                                             **{'_dummy': '1'})
         self.assertEqual(b"filename doesn't end in .gz: 'thisisatest.out'. "
                          b"Cannot determine output filename.",
                          err.strip())
@@ -872,7 +886,8 @@ class TestCommandLine(unittest.TestCase):
         with open(local_testigzip, 'wb') as fp:
             fp.write(self.data)
 
-        rc, out, err = assert_python_ok('-m', 'isal.igzip', local_testigzip)
+        rc, out, err = assert_python_ok('-m', 'isal.igzip', local_testigzip,
+                                        **{'_dummy': '1'})
 
         self.assertTrue(os.path.exists(igzipname))
         self.assertEqual(out, b'')
@@ -891,7 +906,8 @@ class TestCommandLine(unittest.TestCase):
 
                 rc, out, err = assert_python_ok('-m', 'isal.igzip',
                                                 compress_level,
-                                                local_testigzip)
+                                                local_testigzip,
+                                                **{'_dummy': '1'})
 
                 self.assertTrue(os.path.exists(igzipname))
                 self.assertEqual(out, b'')
@@ -901,7 +917,7 @@ class TestCommandLine(unittest.TestCase):
 
     def test_compress_fast_best_are_exclusive(self):
         rc, out, err = assert_python_failure('-m', 'isal.igzip', '--fast',
-                                             '--best')
+                                             '--best', **{'_dummy': '1'})
         self.assertIn(
             b"error: argument -3/--best: not allowed with argument -0/--fast",
             err)
@@ -909,7 +925,7 @@ class TestCommandLine(unittest.TestCase):
 
     def test_decompress_cannot_have_flags_compression(self):
         rc, out, err = assert_python_failure('-m', 'isal.igzip', '--fast',
-                                             '-d')
+                                             '-d', **{'_dummy': '1'})
         self.assertIn(
             b'error: argument -d/--decompress: not allowed with argument '
             b'-0/--fast',
