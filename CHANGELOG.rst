@@ -8,6 +8,10 @@ Changelog
 .. that users understand how the changes affect the new version.
 
 
+version 1.7.3
+-----------------
++ Fix an issue where some tests failed because they ignored PYTHONPATH.
+
 version 1.7.2
 -----------------
 + Use upstream ISA-L version 2.31.1 which includes patches to make 
