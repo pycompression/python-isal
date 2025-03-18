@@ -14,7 +14,7 @@ import struct
 import threading
 from typing import List, Optional, Tuple
 
-from . import igzip, isal_zlib
+from . import igzip, isal_zlib, _bgzip
 
 DEFLATE_WINDOW_SIZE = 2 ** 15
 
@@ -167,7 +167,7 @@ class _ThreadedGzipReader(io.RawIOBase):
         return self._closed
 
 
-class ThreadedBGZipReader(io.RawIOBase):
+class _ThreadedBGzipReader(io.RawIOBase):
     def __init__(self, filename, threads=2, queue_size=2, block_size=1024 * 1024):
         if threads < 2:
             raise RuntimeError("_ThreadedGzipReader class handles that use case.")
@@ -175,6 +175,7 @@ class ThreadedBGZipReader(io.RawIOBase):
 
         self.lock = threading.Lock()
         self.pos = 0
+        self._read_from_index = 0
         self.read_file = False
         self.input_queues = [queue.Queue(queue_size) for _ in range(threads)]
         self.output_queues = [queue.Queue(queue_size) for _ in range(threads)]
@@ -203,13 +204,16 @@ class ThreadedBGZipReader(io.RawIOBase):
         while self.running and self._calling_thread.is_alive():
             to_read = block_size - len(previous_block)
             block = previous_block + self.raw.read(to_read)
-            blocks_end = find_last_bgzip_end(block)
+            if block == b"":
+                return
+            blocks_end = _bgzip.find_last_bgzip_end(block)
             compressed = block[:blocks_end]
             previous_block = block[blocks_end:]
             input_queue = self.input_queues[input_index]
             while self.running and self._calling_thread.is_alive():
                 try:
                     input_queue.put(compressed, timeout=0.05)
+                    break
                 except queue.Full:
                     pass
             input_index += 1
@@ -254,15 +258,14 @@ class ThreadedBGZipReader(io.RawIOBase):
     def readinto(self, b):
         self._check_closed()
         result = self.buffer.readinto(b)
-        index = 0
-        number_of_queues = len(self.output_queues)
         if result == 0:
-            output_queue = self.output_queues[index]
+            output_queue = self.output_queues[self._read_from_index]
             while True:
                 try:
                     data_from_queue = output_queue.get(timeout=0.01)
-                    index += 1
-                    index %= number_of_queues
+                    output_queue.task_done()
+                    self._read_from_index += 1
+                    self._read_from_index %= len(self.output_queues)
                     break
                 except queue.Empty:
                     if self.exception:
@@ -289,7 +292,7 @@ class ThreadedBGZipReader(io.RawIOBase):
         self.input_worker.join()
         for worker in self.output_workers:
             worker.join()
-        self.fileobj.close()
+        self.buffer.close()
         if self.closefd:
             self.raw.close()
         self._closed = True
