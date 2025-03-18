@@ -168,9 +168,14 @@ class _ThreadedGzipReader(io.RawIOBase):
 
 
 class _ThreadedBGzipReader(io.RawIOBase):
-    def __init__(self, filename, threads=2, queue_size=2, block_size=1024 * 1024):
-        if threads < 2:
-            raise RuntimeError("_ThreadedGzipReader class handles that use case.")
+    """
+    Reads BGZip files multithreaded. For one thread, the normal gzip reader
+    class is more efficient, as it operates fewer queues and keeps less
+    allocated data around.
+    """
+    def __init__(self, filename, threads=1, queue_size=2, block_size=1024 * 1024):
+        if threads < 1:
+            raise RuntimeError("At least one thread is needed")
         self.raw, self.closefd = open_as_binary_stream(filename, "rb")
 
         self.lock = threading.Lock()
