@@ -200,19 +200,23 @@ class _ThreadedBGzipReader(io.RawIOBase):
         block_size = self.block_size
         number_of_queues = len(self.output_queues)
         input_index = 0
-        previous_block = b""
+        buffer = bytearray(block_size)
+        buffer_view = memoryview(buffer)
+        offset = 0
         while self.running and self._calling_thread.is_alive():
-            to_read = block_size - len(previous_block)
-            block = previous_block + self.raw.read(to_read)
-            if block == b"":
+            bytes_read = self.raw.readinto(buffer_view[offset:])
+            total_read = offset + bytes_read
+            if bytes_read == 0:
                 return
-            blocks_end = _bgzip.find_last_bgzip_end(block)
-            compressed = block[:blocks_end]
-            previous_block = block[blocks_end:]
+            blocks_end = _bgzip.find_last_bgzip_end(buffer_view[:total_read])
+            compressed = bytes(buffer_view[:blocks_end])
+            leftover = buffer_view[blocks_end:total_read]
+            offset = leftover.nbytes
+            buffer[:offset] = leftover
             input_queue = self.input_queues[input_index]
             while self.running and self._calling_thread.is_alive():
                 try:
-                    input_queue.put(compressed, timeout=0.05)
+                    input_queue.put(compressed, timeout=0.01)
                     break
                 except queue.Full:
                     pass
@@ -224,7 +228,7 @@ class _ThreadedBGzipReader(io.RawIOBase):
         output_queue = self.output_queues[index]
         while self.running and self._calling_thread.is_alive():
             try:
-                input_data = input_queue.get(timeout=0.05)
+                input_data = input_queue.get(timeout=0.01)
             except queue.Empty:
                 if not self.input_worker.is_alive():
                     return
