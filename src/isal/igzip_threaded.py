@@ -167,6 +167,138 @@ class _ThreadedGzipReader(io.RawIOBase):
         return self._closed
 
 
+class ThreadedBGZipReader(io.RawIOBase):
+    def __init__(self, filename, threads=2, queue_size=2, block_size=1024 * 1024):
+        if threads < 2:
+            raise RuntimeError("_ThreadedGzipReader class handles that use case.")
+        self.raw, self.closefd = open_as_binary_stream(filename, "rb")
+
+        self.lock = threading.Lock()
+        self.pos = 0
+        self.read_file = False
+        self.input_queues = [queue.Queue(queue_size) for _ in range(threads)]
+        self.output_queues = [queue.Queue(queue_size) for _ in range(threads)]
+        self.eof = False
+        self.exception = None
+        self.buffer = io.BytesIO()
+        self.block_size = block_size
+        self.input_worker = threading.Thread(target=self._read_input)
+        self.output_workers = [threading.Thread(target=self._decompress, args=(i,)) for i in range(threads)]
+        self._closed = False
+        self.running = True
+        self._calling_thread = threading.current_thread()
+        self.input_worker.start()
+        for worker in self.output_workers:
+            worker.start()
+
+    def _check_closed(self, msg=None):
+        if self._closed:
+            raise ValueError("I/O operation on closed file")
+
+    def _read_input(self):
+        block_size = self.block_size
+        number_of_queues = len(self.output_queues)
+        input_index = 0
+        previous_block = b""
+        while self.running and self._calling_thread.is_alive():
+            to_read = block_size - len(previous_block)
+            block = previous_block + self.raw.read(to_read)
+            blocks_end = find_last_bgzip_end(block)
+            compressed = block[:blocks_end]
+            previous_block = block[blocks_end:]
+            input_queue = self.input_queues[input_index]
+            while self.running and self._calling_thread.is_alive():
+                try:
+                    input_queue.put(compressed, timeout=0.05)
+                except queue.Full:
+                    pass
+            input_index += 1
+            input_index %= number_of_queues
+
+    def _decompress(self, index: int):
+        input_queue = self.input_queues[index]
+        output_queue = self.output_queues[index]
+        while self.running and self._calling_thread.is_alive():
+            try:
+                input_data = input_queue.get(timeout=0.05)
+            except queue.Empty:
+                if not self.input_worker.is_alive():
+                    return
+                continue
+            try:
+                decompressed = isal_zlib._GzipReader(input_data).read()
+            except Exception as e:
+                with self.lock:
+                    self.exception = e
+                    return
+            input_queue.task_done()
+            while self.running and self._calling_thread.is_alive():
+                try:
+                    output_queue.put(decompressed, timeout=0.05)
+                    break
+                except queue.Full:
+                    pass
+
+    def _set_error_and_empty_queue(self, error, q):
+        with self.lock:
+            self.exception = error
+            # Abort everything and empty the queue
+            self.running = False
+            while True:
+                try:
+                    _ = q.get(timeout=0.05)
+                    q.task_done()
+                except queue.Empty:
+                    return
+
+    def readinto(self, b):
+        self._check_closed()
+        result = self.buffer.readinto(b)
+        index = 0
+        number_of_queues = len(self.output_queues)
+        if result == 0:
+            output_queue = self.output_queues[index]
+            while True:
+                try:
+                    data_from_queue = output_queue.get(timeout=0.01)
+                    index += 1
+                    index %= number_of_queues
+                    break
+                except queue.Empty:
+                    if self.exception:
+                        raise self.exception
+                    if not any(worker.is_alive() for worker in self.output_workers):
+                        # EOF reached
+                        return 0
+            self.buffer = io.BytesIO(data_from_queue)
+            result = self.buffer.readinto(b)
+        self.pos += result
+        return result
+
+    def readable(self) -> bool:
+        return True
+
+    def tell(self) -> int:
+        self._check_closed()
+        return self.pos
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self.running = False
+        self.input_worker.join()
+        for worker in self.output_workers:
+            worker.join()
+        self.fileobj.close()
+        if self.closefd:
+            self.raw.close()
+        self._closed = True
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+
 class FlushableBufferedWriter(io.BufferedWriter):
     def flush(self):
         super().flush()
