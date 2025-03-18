@@ -42,6 +42,7 @@ EXTENSIONS = [
     Extension("isal.isal_zlib", ["src/isal/isal_zlibmodule.c"]),
     Extension("isal.igzip_lib", ["src/isal/igzip_libmodule.c"]),
     Extension("isal._isal", ["src/isal/_isalmodule.c"]),
+    Extension("isal._bgzip", ["src/isal/_bgzipmodule.c"]),
     ]
 
 
