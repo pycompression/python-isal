@@ -8,7 +8,7 @@ Changelog
 .. that users understand how the changes affect the new version.
 
 
-version 1.7.3
+version 1.8.0-dev
 -----------------
 + Fix an issue where some tests failed because they ignored PYTHONPATH.
 
