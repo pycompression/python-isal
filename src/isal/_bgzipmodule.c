@@ -37,9 +37,8 @@ static PyObject *find_last_bgzip_end(PyObject *module, PyObject *buffer_obj) {
     const uint8_t *data_end = data + data_length;
     const uint8_t *cursor = data;
 
-    Py_ssize_t answer = 0;
     while (true) {
-        if (data_end - cursor < 18) {
+        if (cursor + 18 > data_end) {
             break;
         }
         uint8_t magic1 = cursor[0];
@@ -74,10 +73,13 @@ static PyObject *find_last_bgzip_end(PyObject *module, PyObject *buffer_obj) {
             return NULL;
         }
         uint16_t block_size = load_u16_le(cursor + 16);
-        size_t actual_block_size = block_size + 1;
-        cursor += actual_block_size;
+        const uint8_t *new_start = cursor + block_size + 1;
+        if (new_start > data_end) {
+            break;
+        }
+        cursor = new_start;
     }
-    return PyLong_FromSsize_t(answer);
+    return PyLong_FromSsize_t(cursor - data);
 }
 
 static PyMethodDef _bgzip_methods[] = {
