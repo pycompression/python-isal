@@ -44,44 +44,32 @@ static PyObject *find_last_bgzip_end(PyObject *module, PyObject *buffer_obj) {
         }
         uint8_t magic1 = cursor[0];
         uint8_t magic2 = cursor[1];
-        if (magic1 != 31 || magic2 != 139) {
-            PyErr_Format(PyExc_ValueError, 
-            "Incorrect gzip magic: %x, %x", magic1, magic2);
-            return NULL;
-        }
         uint8_t method = cursor[2];
-        if (method != 8) {
-            PyErr_Format(
-                PyExc_ValueError,
-                "Incorrect method: %x", method
-            );
-            return NULL;
-        }
         uint8_t flags = cursor[3];
-        if (flags != FEXTRA) {
-            PyErr_SetString(
-                PyExc_NotImplementedError,
-                "Only bgzip files with only FEXTRA flag set are supported."
-            );
-            return NULL;
-        }
         uint16_t xlen = load_u16_le(cursor + 10);
-        if (xlen != 6) {
-            PyErr_SetString(
-                PyExc_NotImplementedError,
-                "Only bgzip files with one extra field are supported."
-            );
-            return NULL;
-        }
         uint8_t si1 = cursor[12];
         uint8_t si2 = cursor[13];
-        uint16_t subfield_length = load_u16_le(cursor + 14);
-        if (si1 != 66 || si2 != 67 || subfield_length != 2) {
+        uint16_t subfield_length = load_u16_le(cursor + 14);        
+        if (
+            magic1 != 31 || 
+            magic2 != 139 ||
+            method != 8 ||
+            flags != FEXTRA ||
+            xlen != 6 ||
+            si1 != 66 ||
+            si2 != 67 ||
+            subfield_length != 2
+        ) {
             PyErr_Format(
-                PyExc_ValueError,
-                "Incorrectly formatted magic and subfield length, "
-                "expected 66, 67, 2 got %d, %d, %d", 
-                si1, si2, subfield_length
+                PyExc_ValueError, 
+                "Incorrect bgzip header:\n"
+                "magic: %x, %x\n" 
+                "method: %x\n"  
+                "flags: %x\n"
+                "xlen: %d\n"
+                "si1, si2: %d, %d \n"
+                "subfield_length: %d",
+                magic1, magic2, method, flags, xlen, si1, si2, subfield_length
             );
             return NULL;
         }
