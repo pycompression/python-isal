@@ -252,18 +252,6 @@ class _ThreadedBGzipReader(io.RawIOBase):
                 except queue.Full:
                     pass
 
-    def _set_error_and_empty_queue(self, error, q):
-        with self.lock:
-            self.exception = error
-            # Abort everything and empty the queue
-            self.running = False
-            while True:
-                try:
-                    _ = q.get(timeout=0.05)
-                    q.task_done()
-                except queue.Empty:
-                    return
-
     def readinto(self, b):
         self._check_closed()
         result = self.buffer.readinto(b)
