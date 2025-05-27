@@ -15,10 +15,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from setuptools import Extension, find_packages, setup
+from setuptools import Extension, setup
 from setuptools.command.build_ext import build_ext
-
-import versioningit
 
 ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
 
@@ -138,46 +136,6 @@ def build_isa_l():
 
 
 setup(
-    name="isal",
-    version=versioningit.get_version(),
-    description="Faster zlib and gzip compatible compression and "
-                "decompression by providing python bindings for the ISA-L "
-                "library.",
-    author="Leiden University Medical Center",
-    author_email="r.h.p.vorderman@lumc.nl",  # A placeholder for now
-    long_description=Path("README.rst").read_text(),
-    long_description_content_type="text/x-rst",
     cmdclass={"build_ext": BuildIsalExt},
-    license="PSF-2.0",
-    keywords="isal isa-l compression deflate gzip igzip threads",
-    zip_safe=False,
-    packages=find_packages('src'),
-    package_dir={'': 'src'},
-    package_data={'isal': ['*.pyi', 'py.typed',
-                           # Include isa-l LICENSE and other relevant files
-                           # with the binary distribution.
-                           'isa-l/LICENSE', 'isa-l/README.md',
-                           'isa-l/Release_notes.txt']},
-    url="https://github.com/pycompression/python-isal",
-    classifiers=[
-        "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-        "Programming Language :: Python :: 3.13",
-        "Programming Language :: Python :: Implementation :: CPython",
-        "Programming Language :: Python :: Implementation :: PyPy",
-        "Programming Language :: C",
-        "Development Status :: 5 - Production/Stable",
-        "Topic :: System :: Archiving :: Compression",
-        "License :: OSI Approved :: Python Software Foundation License",
-        "Operating System :: POSIX :: Linux",
-        "Operating System :: MacOS",
-        "Operating System :: Microsoft :: Windows",
-    ],
-    python_requires=">=3.8",  # BadGzipFile imported
     ext_modules=EXTENSIONS
 )
