@@ -10,6 +10,11 @@ Changelog
 
 version 1.8.0-dev
 -----------------
++ Python 3.8 is no longer supported.
++ Change build backend to setuptools-scm which is more commonly used and
+  supported.
++ Include test packages in the source distribution, so source distribution
+  installations can be verified.
 + Fix an issue where some tests failed because they ignored PYTHONPATH.
 
 version 1.7.2

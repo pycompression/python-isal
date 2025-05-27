@@ -1,10 +1,61 @@
 [build-system]
-requires = ["setuptools>=64", "versioningit>=1.1.0"]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
-[tool.versioningit.vcs]
-method="git"
-default-tag = "v0.0.0"
+[project]
+name = "isal"
+dynamic = ["version"]
+description = """
+Faster zlib and gzip compatible compression and decompression by providing \
+python bindings for the ISA-L ibrary."""
+license="PSF-2.0"
+keywords=["isal", "isa-l", "compression", "deflate", "gzip", "igzip"]
+authors = [{name = "Leiden University Medical Center"},
+           {email = "r.h.p.vorderman@lumc.nl"}]
+readme = "README.rst"
+requires-python = ">=3.9"  # Because of setuptools version
+classifiers = [
+        "Programming Language :: Python :: 3 :: Only",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: Implementation :: CPython",
+        "Programming Language :: Python :: Implementation :: PyPy",
+        "Programming Language :: C",
+        "Development Status :: 5 - Production/Stable",
+        "Topic :: System :: Archiving :: Compression",
+        "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS",
+        "Operating System :: Microsoft :: Windows",
+]
+urls.homepage = "https://github.com/pycompression/python-isal"
+urls.documentation = "python-isal.readthedocs.io"
 
-[tool.versioningit.write]
-file = "src/isal/_version.py"
+[tool.setuptools_scm]
+version_file = "src/isal/_version.py"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["isal"]
+
+[tool.setuptools.package-data]
+isal = ['*.pyi', 'py.typed', 'isa-l/LICENSE', 'isa-l/README.md', 'isa-l/Release_notes.txt']
+[tool.setuptools.exclude-package-data]
+isal = [
+        "*.c",
+        "*.h",
+        "isa-l/*/*",
+        "isa-l/Mak*",
+        "isa-l/.*",
+        "isa-l/autogen.sh",
+        "isa-l/Doxyfile",
+        "isa-l/CONTRIBUTING.md",
+        "isa-l/SECURITY.md",
+        "isa-l/configure.ac",
+        "isa-l/isa-l.*",
+        "isa-l/libisal.pc.in",
+        "isa-l/make.inc",
+]
