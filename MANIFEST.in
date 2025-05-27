@@ -1,6 +1,5 @@
 graft src/isal/isa-l
 include src/isal/*.h
-prune tests
 prune docs
 prune .github
 exclude .git*
