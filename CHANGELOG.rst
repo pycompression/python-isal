@@ -10,6 +10,10 @@ Changelog
 
 version 1.8.0-dev
 -----------------
++ Change build backend to setuptools-scm which is more commonly used and
+  supported.
++ Include test packages in the source distribution, so source distribution
+  installations can be verified.
 + Fix an issue where some tests failed because they ignored PYTHONPATH.
 
 version 1.7.2
