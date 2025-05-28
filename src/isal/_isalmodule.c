@@ -31,6 +31,11 @@ PyInit__isal(void)
     if (m == NULL) {
         return NULL;
     }
+
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
+
     PyModule_AddIntMacro(m, ISAL_MAJOR_VERSION);
     PyModule_AddIntMacro(m, ISAL_MINOR_VERSION);
     PyModule_AddIntMacro(m, ISAL_PATCH_VERSION);
