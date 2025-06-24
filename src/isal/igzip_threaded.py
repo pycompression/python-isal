@@ -316,7 +316,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.input_queues[worker_index].put((data, zdict))
         return len(data)
 
-    def _end_gzip_stream(self):
+    def flush(self):
         self._check_closed()
         # Wait for all data to be compressed
         for in_q in self.input_queues:
@@ -324,22 +324,18 @@ class _ThreadedGzipWriter(io.RawIOBase):
         # Wait for all data to be written
         for out_q in self.output_queues:
             out_q.join()
-        # Write an empty deflate block with a lost block marker.
+        self.raw.flush()
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self.flush()
         self.raw.write(isal_zlib.compress(b"", wbits=-15))
         trailer = struct.pack("<II", self._crc, self._size & 0xFFFFFFFF)
         self.raw.write(trailer)
         self._crc = 0
         self._size = 0
         self.raw.flush()
-
-    def flush(self):
-        self._end_gzip_stream()
-        self._write_gzip_header()
-
-    def close(self) -> None:
-        if self._closed:
-            return
-        self._end_gzip_stream()
         self.stop()
         if self.exception:
             self.raw.close()

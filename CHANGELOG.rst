@@ -11,6 +11,10 @@ Changelog
 version 1.8.0-dev
 -----------------
 + Python 3.8 is no longer supported.
++ Fix an issue where flushing using igzip_threaded caused a gzip end of stream
+  and started a new gzip stream. In essence creating a concatenated gzip
+  stream. Now it is in concordance with how single threaded gzip streams
+  are flushed using Z_SYNC_FLUSH.
 + Change build backend to setuptools-scm which is more commonly used and
   supported.
 + Include test packages in the source distribution, so source distribution
