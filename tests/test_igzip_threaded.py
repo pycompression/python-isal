@@ -245,7 +245,8 @@ def test_threaded_program_can_exit_on_error(tmp_path, mode, threads):
 @pytest.mark.parametrize("threads", [1, 2])
 def test_flush(tmp_path, threads):
     empty_block_end = b"\x00\x00\xff\xff"
-    deflate_last_block = zlib.compress(b"", wbits=-15)
+    compressobj = zlib.compressobj(wbits=-15)
+    deflate_last_block = compressobj.compress(b"") + compressobj.flush()
     test_file = tmp_path / "output.gz"
     with igzip_threaded.open(test_file, "wb", threads=threads) as f:
         f.write(b"1")
