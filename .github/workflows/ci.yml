@@ -59,6 +59,7 @@ jobs:
           - "3.11"
           - "3.12"
           - "3.13"
+          - "3.14"
           - "pypy-3.9"
           - "pypy-3.10"
         os: ["ubuntu-latest"]
@@ -76,6 +77,7 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
+          allow-prereleases: true
           python-version: ${{ matrix.python-version }}
       - name: Install tox and upgrade setuptools
         run: pip install --upgrade tox setuptools
