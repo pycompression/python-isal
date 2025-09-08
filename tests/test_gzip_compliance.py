@@ -850,7 +850,7 @@ class TestCommandLine(unittest.TestCase):
     # If the env_vars argument to assert_python_failure or assert_python_ok
     # is empty the test will run in isolated mode (-I) which means that the
     # PYTHONPATH environment variable will be ignored and the test fails
-    # because the isal module can not be found, or the test is run usung the
+    # because the isal module can not be found, or the test is run using the
     # system installed version of the module instead of the newly built
     # module that should be tested.
     #
