@@ -3,7 +3,7 @@ import random
 import string
 import threading
 
-from isal import igzip_lib, isal_zlib 
+from isal import igzip_lib, isal_zlib
 
 import pytest
 
