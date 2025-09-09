@@ -22,7 +22,7 @@ version 1.8.0-dev
   installations can be verified.
 + Fix an issue where some tests failed because they ignored PYTHONPATH.
 + Enable support for free-threading and build free-threaded wheels for
-  CPython 3.14.
+  CPython 3.14. Thanks to @lysnikolaou and @ngoldbaum.
 
 version 1.7.2
 -----------------
