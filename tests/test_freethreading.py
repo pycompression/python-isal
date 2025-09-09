@@ -3,9 +3,9 @@ import random
 import string
 import threading
 
-import pytest
+from isal import igzip_lib, isal_zlib 
 
-from isal import isal_zlib, igzip_lib
+import pytest
 
 
 HAMLET_SCENE = b"""
