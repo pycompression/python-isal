@@ -617,6 +617,11 @@ PyInit_igzip_lib(void)
     if (m == NULL)
         return NULL;
 
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
+
+
     IsalError = PyErr_NewException("igzip_lib.IsalError", NULL, NULL);
     if (IsalError == NULL) {
         return NULL;
