@@ -10,7 +10,8 @@ Changelog
 
 version 1.8.0-dev
 -----------------
-+ Python 3.8 is no longer supported.
++ Python 3.14 is supported.
++ Python 3.8 and 3.9 are no longer supported.
 + Fix an issue where flushing using igzip_threaded caused a gzip end of stream
   and started a new gzip stream. In essence creating a concatenated gzip
   stream. Now it is in concordance with how single threaded gzip streams
