@@ -12,6 +12,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import zlib
 from pathlib import Path
 
 from isal import igzip_threaded
@@ -243,15 +244,29 @@ def test_threaded_program_can_exit_on_error(tmp_path, mode, threads):
 
 @pytest.mark.parametrize("threads", [1, 2])
 def test_flush(tmp_path, threads):
+    empty_block_end = b"\x00\x00\xff\xff"
+    compressobj = zlib.compressobj(wbits=-15)
+    deflate_last_block = compressobj.compress(b"") + compressobj.flush()
     test_file = tmp_path / "output.gz"
     with igzip_threaded.open(test_file, "wb", threads=threads) as f:
         f.write(b"1")
         f.flush()
-        assert gzip.decompress(test_file.read_bytes()) == b"1"
+        data = test_file.read_bytes()
+        assert data[-4:] == empty_block_end
+        # Cut off gzip header and end data with an explicit last block to
+        # test if the data was compressed correctly.
+        deflate_block = data[10:] + deflate_last_block
+        assert zlib.decompress(deflate_block, wbits=-15) == b"1"
         f.write(b"2")
         f.flush()
-        assert gzip.decompress(test_file.read_bytes()) == b"12"
+        data = test_file.read_bytes()
+        assert data[-4:] == empty_block_end
+        deflate_block = data[10:] + deflate_last_block
+        assert zlib.decompress(deflate_block, wbits=-15) == b"12"
         f.write(b"3")
         f.flush()
-        assert gzip.decompress(test_file.read_bytes()) == b"123"
+        data = test_file.read_bytes()
+        assert data[-4:] == empty_block_end
+        deflate_block = data[10:] + deflate_last_block
+        assert zlib.decompress(deflate_block, wbits=-15) == b"123"
     assert gzip.decompress(test_file.read_bytes()) == b"123"

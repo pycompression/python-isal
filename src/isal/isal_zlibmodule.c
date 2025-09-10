@@ -2183,6 +2183,10 @@ PyInit_isal_zlib(void)
         return NULL;
     }
 
+#ifdef Py_GIL_DISABLED
+    PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
+#endif
+
     PyObject *igzip_lib_module = PyImport_ImportModule("isal.igzip_lib");
     if (igzip_lib_module == NULL) {
         return NULL;

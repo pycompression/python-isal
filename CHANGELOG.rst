@@ -8,6 +8,22 @@ Changelog
 .. that users understand how the changes affect the new version.
 
 
+version 1.8.0
+-----------------
++ Python 3.14 is supported.
++ Python 3.8 and 3.9 are no longer supported.
++ Fix an issue where flushing using igzip_threaded caused a gzip end of stream
+  and started a new gzip stream. In essence creating a concatenated gzip
+  stream. Now it is in concordance with how single threaded gzip streams
+  are flushed using Z_SYNC_FLUSH.
++ Change build backend to setuptools-scm which is more commonly used and
+  supported.
++ Include test packages in the source distribution, so source distribution
+  installations can be verified.
++ Fix an issue where some tests failed because they ignored PYTHONPATH.
++ Enable support for free-threading and build free-threaded wheels for
+  CPython 3.14. Thanks to @lysnikolaou and @ngoldbaum.
+
 version 1.7.2
 -----------------
 + Use upstream ISA-L version 2.31.1 which includes patches to make 
