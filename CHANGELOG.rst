@@ -8,7 +8,7 @@ Changelog
 .. that users understand how the changes affect the new version.
 
 
-version 1.8.0-dev
+version 1.8.0
 -----------------
 + Python 3.14 is supported.
 + Python 3.8 and 3.9 are no longer supported.
