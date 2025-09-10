@@ -32,7 +32,7 @@ classifiers = [
         "Operating System :: Microsoft :: Windows",
 ]
 urls.homepage = "https://github.com/pycompression/python-isal"
-urls.documentation = "python-isal.readthedocs.io"
+urls.documentation = "https://python-isal.readthedocs.io"
 
 [tool.setuptools_scm]
 version_file = "src/isal/_version.py"
