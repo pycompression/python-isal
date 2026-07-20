@@ -587,7 +587,7 @@ Comp_dealloc(compobject *self)
 }
 
 static compobject *
-newcompobject()
+newcompobject(void)
 {
     compobject *self;
     self = PyObject_New(compobject, &IsalZlibCompType);
@@ -656,7 +656,7 @@ set_inflate_zdict(decompobject *self)
 }
 
 static decompobject *
-newdecompobject()
+newdecompobject(void)
 {
     decompobject *self;
     self = PyObject_New(decompobject, &IsalZlibDecompType);
