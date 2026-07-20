@@ -8,6 +8,10 @@ Changelog
 .. that users understand how the changes affect the new version.
 
 
+version 1.8.1-dev
+-----------------
++ Restore PyPy wheel builds.
+
 version 1.8.0
 -----------------
 + Python 3.14 is supported.
