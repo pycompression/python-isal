@@ -10,6 +10,9 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ Switch back to building ISA-L using autotools as it leads to better compile
+  time configurations that don't skip functions specialized for the
+  architecture. This was hurting the MacOS arm64 build.
 + Restore PyPy wheel builds.
 
 version 1.8.0
