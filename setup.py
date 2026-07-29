@@ -26,6 +26,7 @@ SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
                   sys.platform.startswith("gnu") or
                   SYSTEM_IS_BSD)
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
+SYSTEM_IS_MACOS = sys.platform.startswith("darwin")
 
 # Since pip builds in a temp directory by default, setting a fixed file in
 # /tmp works during the entire session.
@@ -106,6 +107,8 @@ def build_isa_l():
     build_env = os.environ.copy()
     if SYSTEM_IS_UNIX:
         build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
+    if SYSTEM_IS_MACOS:
+        build_env["LDFLAGS"] = build_env.get("LDFLAGS", "") + " -Wl"
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
