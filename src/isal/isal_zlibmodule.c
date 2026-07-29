@@ -587,7 +587,7 @@ Comp_dealloc(compobject *self)
 }
 
 static compobject *
-newcompobject()
+newcompobject(void)
 {
     compobject *self;
     self = PyObject_New(compobject, &IsalZlibCompType);
@@ -656,7 +656,7 @@ set_inflate_zdict(decompobject *self)
 }
 
 static decompobject *
-newdecompobject()
+newdecompobject(void)
 {
     decompobject *self;
     self = PyObject_New(decompobject, &IsalZlibDecompType);
@@ -1664,8 +1664,8 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
         PyThreadState *_save;
         Py_UNBLOCK_THREADS
         while(1) {     
+            size_t remaining; // Must be before labels.
             switch(self->stream_phase) {
-                size_t remaining; // Must be before labels.
                 case GzipReader_HEADER:
                     remaining = buffer_end - current_pos;
                     if (remaining == 0 && self->all_bytes_read) {

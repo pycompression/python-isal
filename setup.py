@@ -8,7 +8,6 @@
 
 import functools
 import os
-import platform
 import shutil
 import subprocess
 import sys
@@ -27,6 +26,7 @@ SYSTEM_IS_UNIX = (sys.platform.startswith("linux") or
                   sys.platform.startswith("gnu") or
                   SYSTEM_IS_BSD)
 SYSTEM_IS_WINDOWS = sys.platform.startswith("win")
+SYSTEM_IS_MACOS = sys.platform.startswith("darwin")
 
 # Since pip builds in a temp directory by default, setting a fixed file in
 # /tmp works during the entire session.
@@ -74,7 +74,7 @@ class BuildIsalExt(build_ext):
             isa_l_build_dir = build_isa_l()
             if SYSTEM_IS_UNIX:
                 ext.extra_objects = [
-                    os.path.join(isa_l_build_dir, "bin", "isa-l.a")]
+                    os.path.join(isa_l_build_dir, ".libs", "libisal.a")]
             elif SYSTEM_IS_WINDOWS:
                 ext.extra_objects = [
                     os.path.join(isa_l_build_dir, "isa-l_static.lib")]
@@ -107,23 +107,20 @@ def build_isa_l():
     build_env = os.environ.copy()
     if SYSTEM_IS_UNIX:
         build_env["CFLAGS"] = build_env.get("CFLAGS", "") + " -fPIC"
+    if SYSTEM_IS_MACOS:
+        build_env["LDFLAGS"] = build_env.get("LDFLAGS", "") + " -Wl"
     if hasattr(os, "sched_getaffinity"):
         cpu_count = len(os.sched_getaffinity(0))
     else:  # sched_getaffinity not available on all platforms
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
     if SYSTEM_IS_UNIX:
-        if platform.machine() == "aarch64":
-            cflags_param = "CFLAGS_aarch64"
-        else:
-            cflags_param = "CFLAGS_"
         make_cmd = "make"
         if SYSTEM_IS_BSD:
             make_cmd = "gmake"
-        subprocess.run([make_cmd, "-j", str(cpu_count), "-f", "Makefile.unx",
-                        "isa-l.h", "bin/isa-l.a",
-                        f"{cflags_param}={build_env.get('CFLAGS', '')}"],
-                       **run_args)
+        subprocess.run(os.path.join(build_dir, "autogen.sh"), **run_args)
+        subprocess.run([os.path.join(build_dir, "configure")], **run_args)
+        subprocess.run([make_cmd, "-j", str(cpu_count)], **run_args)
     elif SYSTEM_IS_WINDOWS:
         subprocess.run(["nmake", "/f", "Makefile.nmake"], **run_args)
     else:
