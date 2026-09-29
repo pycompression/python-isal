@@ -11,6 +11,8 @@ Changelog
 version 1.8.1-dev
 -----------------
 + Restore PyPy wheel builds.
++ Fix backward seeking in igzip files by discarding buffered compressed data
+  when rewinding the underlying file.
 
 version 1.8.0
 -----------------

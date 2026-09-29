@@ -1918,6 +1918,10 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
         if (seek_result == NULL) {
             return NULL;
         }
+        Py_DECREF(seek_result);
+        /* Discard compressed data buffered before rewinding the file. */
+        self->current_pos = self->input_buffer;
+        self->buffer_end = self->input_buffer;
         self->stream_phase = GzipReader_HEADER;
         self->_pos = 0;
         self->all_bytes_read = 0;
