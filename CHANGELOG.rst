@@ -10,6 +10,7 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ Updated ISA-L to 2.32.1.
 + Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
   3.12 and Python 3.15.
 + Restore PyPy wheel builds.
