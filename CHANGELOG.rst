@@ -10,6 +10,8 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
+  3.12 and Python 3.15.
 + Restore PyPy wheel builds.
 + Fix zlib streams compressed with a preset dictionary so they can be decoded
   by standard zlib, including builds linked against older ISA-L releases.
