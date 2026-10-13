@@ -10,10 +10,17 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ Updated ISA-L to 2.32.1.
++ Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
+  3.12 and Python 3.15.
 + Switch back to building ISA-L using autotools as it leads to better compile
   time configurations that don't skip functions specialized for the
   architecture. This was hurting the MacOS arm64 build.
 + Restore PyPy wheel builds.
++ Fix zlib streams compressed with a preset dictionary so they can be decoded
+  by standard zlib, including builds linked against older ISA-L releases.
++ Fix backward seeking in igzip files by discarding buffered compressed data
+  when rewinding the underlying file.
 
 version 1.8.0
 -----------------
