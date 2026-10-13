@@ -11,6 +11,8 @@ Changelog
 version 1.8.1-dev
 -----------------
 + Restore PyPy wheel builds.
++ Fix zlib streams compressed with a preset dictionary so they can be decoded
+  by standard zlib, including builds linked against older ISA-L releases.
 + Fix backward seeking in igzip files by discarding buffered compressed data
   when rewinding the underlying file.
 

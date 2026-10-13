@@ -570,6 +570,7 @@ typedef struct
     PyObject_HEAD
     uint8_t *level_buf;
     PyObject *zdict;
+    struct isal_zlib_header zlib_header;
     int is_initialised;
     PyThread_type_lock lock;
     // isal_zstream should be at the bottom as it contains buffers inside the struct.
@@ -595,6 +596,7 @@ newcompobject()
         return NULL;
     self->is_initialised = 0;
     self->zdict = NULL;
+    self->zlib_header.dict_flag = 0;
     self->level_buf = NULL;
     self->lock = PyThread_allocate_lock();
     if (self->lock == NULL) {
@@ -755,8 +757,18 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     } else {
         err = isal_deflate_set_dict(&(self->zst),
                                     zdict->buf, (uint32_t)zdict->len);
-        if (err == COMP_OK)
+        if (err == COMP_OK) {
+            if (flag == IGZIP_ZLIB && zdict->len != 0) {
+                isal_zlib_header_init(&self->zlib_header);
+                self->zlib_header.info = hist_bits - 8;
+                self->zlib_header.level = level == 0 ? 0 : 1;
+                self->zlib_header.dict_flag = 1;
+                self->zlib_header.dict_id = isal_adler32(
+                    1, zdict->buf, (uint32_t)zdict->len);
+                self->zst.gzip_flag = IGZIP_ZLIB_NO_HDR;
+            }
             goto success;
+        }
         PyErr_SetString(PyExc_ValueError, "Invalid dictionary");
         goto error;
         }
@@ -817,6 +829,31 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
     return (PyObject *)self;
 }
 
+/* Called with the compressor locked and a newly arranged output buffer.
+ * The six-byte dictionary header is written once, including when flush()
+ * is the first operation. ISA-L still generates the Adler-32 trailer. */
+static int
+write_pending_zlib_header(compobject *self)
+{
+    if (self->zlib_header.dict_flag) {
+        uint8_t *header = self->zst.next_out;
+        if (isal_write_zlib_header(&self->zst, &self->zlib_header) != 0) {
+            PyErr_SetString(PyExc_RuntimeError,
+                            "Insufficient space for the zlib dictionary header");
+            return -1;
+        }
+        /* Older ISA-L releases write DICTID in little-endian order.
+         * RFC 1950 requires network byte order, regardless of ISA-L version. */
+        uint32_t dict_id = self->zlib_header.dict_id;
+        header[2] = (uint8_t)(dict_id >> 24);
+        header[3] = (uint8_t)(dict_id >> 16);
+        header[4] = (uint8_t)(dict_id >> 8);
+        header[5] = (uint8_t)dict_id;
+        self->zlib_header.dict_flag = 0;
+    }
+    return 0;
+}
+
 static PyObject *
 isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 /*[clinic end generated code: output=5d5cd791cbc6a7f4 input=0d95908d6e64fab8]*/
@@ -836,6 +873,9 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
             obuflen = arrange_output_buffer(&(self->zst.avail_out),
                                             &(self->zst.next_out), &RetVal, obuflen);
             if (obuflen < 0)
+                goto error;
+
+            if (write_pending_zlib_header(self) < 0)
                 goto error;
 
             Py_BEGIN_ALLOW_THREADS
@@ -1045,6 +1085,11 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         length = arrange_output_buffer(&(self->zst.avail_out), 
                                        &(self->zst.next_out), &RetVal, length);
         if (length < 0) {
+            Py_CLEAR(RetVal);
+            goto error;
+        }
+
+        if (write_pending_zlib_header(self) < 0) {
             Py_CLEAR(RetVal);
             goto error;
         }
