@@ -147,7 +147,7 @@ jobs:
         with:
           submodules: recursive
       - name: Install miniconda.
-        uses: conda-incubator/setup-miniconda@v3 # https://github.com/conda-incubator/setup-miniconda.
+        uses: conda-incubator/setup-miniconda@v4 # https://github.com/conda-incubator/setup-miniconda.
         with:
           channels: conda-forge,defaults
       - name: Install requirements (universal)
