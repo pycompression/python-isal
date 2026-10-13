@@ -480,19 +480,20 @@ def test_adverserial_header():
     method = 8
     mtime = 0
     flags = FCOMMENT
-    os = 255
+    _os = 255
     xfl = 0
-    header = struct.pack("<2sBBIBB", magic, method, flags, mtime, xfl, os)
+    header = struct.pack("<2sBBIBB", magic, method, flags, mtime, xfl, _os)
     comment = b"A" * 10 * 1024 * 1024 + b"\00"
-    compressed = isal_zlib.compress(b"", wbits = -15)
+    compressed = isal_zlib.compress(b"", wbits=-15)
     crc = isal_zlib.crc32(b"")
     length = 0
     trailer = struct.pack("<II", crc, length)
     adverserial = header + comment + compressed + trailer
-    with tempfile.NamedTemporaryFile("wb") as tmpfile:
+    with tempfile.NamedTemporaryFile("wb", delete=False) as tmpfile:
         tmpfile.write(adverserial)
-        tmpfile.flush()
+    try:
         with pytest.raises(OverflowError):
             with igzip.open(tmpfile.name, "rb") as gzip_file:
                 gzip_file.read()
-
+    finally:
+        os.remove(tmpfile.name)
