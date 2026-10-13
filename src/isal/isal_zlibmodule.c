@@ -1627,16 +1627,14 @@ GzipReader_read_from_file(GzipReader *self)
     size_t remaining = buffer_end - current_pos;
     if (remaining == self->buffer_size) {
         /* Buffer is full but a new read request was issued. This will be due 
-           to the header being bigger than the header. Enlarge the buffer 
-           to accommodate the hzip header.  */
-        size_t new_buffer_size = self->buffer_size * 2;
-        uint8_t *tmp_buffer = PyMem_Realloc(self->input_buffer, new_buffer_size);
-        if (tmp_buffer == NULL) {
-            PyErr_NoMemory();
-            return -1;
-        }
-        self->input_buffer = tmp_buffer;
-        self->buffer_size = new_buffer_size;
+           to the header being bigger than the header.
+           This should not occur and an error should be issued  */
+        PyErr_Format(
+            PyExc_OverflowError,
+            "Gzip header exceeds input buffer size of %lu",
+            self->buffer_size
+        );
+        return -1;
     } else if (remaining > 0) {
         memmove(self->input_buffer, current_pos, remaining);
     }
