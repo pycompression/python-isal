@@ -161,8 +161,9 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
 
     self->avail_in_real += self->state.avail_in;
 
-    if (_PyBytes_Resize(&RetVal, self->state.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) != 0)
+    Py_ssize_t resize_size = self->state.next_out - (uint8_t *)PyBytes_AS_STRING(RetVal);
+    /* Check if resize_size = 0 to prevent resizing the empty string object. */
+    if (resize_size && _PyBytes_Resize(&RetVal, resize_size) != 0)
         goto error;
 
     return RetVal;
