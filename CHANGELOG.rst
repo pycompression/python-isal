@@ -18,6 +18,10 @@ version 1.8.1-dev
   by standard zlib, including builds linked against older ISA-L releases.
 + Fix backward seeking in igzip files by discarding buffered compressed data
   when rewinding the underlying file.
++ Extraordinarily large gzip headers with either a very long comment or
+  filename will now cause an ``OverflowError`` rather than use more and more
+  memory. The size is limited to the internal buffer size which is currently
+  set at 512 KiB.
 
 version 1.8.0
 -----------------

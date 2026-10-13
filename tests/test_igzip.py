@@ -411,7 +411,7 @@ def test_very_long_header_in_data():
 def test_very_long_header_in_file():
     # header with a very long filename.
     header = (b"\x1f\x8b\x08\x08\x00\x00\x00\x00\x00\xff" +
-              igzip.READ_BUFFER_SIZE * 2 * b"A" +
+              (igzip.READ_BUFFER_SIZE - 11) * b"A" +
               b"\x00")
     compressed = header + isal_zlib.compress(b"", 3, -15) + 8 * b"\00"
     f = io.BytesIO(compressed)
@@ -473,3 +473,27 @@ def test_bgzip():
     with igzip.open(gzip_file, "rb") as gz:
         gz_data = gz.read()
     assert bgz_data == gz_data
+
+
+def test_adverserial_header():
+    magic = b"\x1f\x8b"
+    method = 8
+    mtime = 0
+    flags = FCOMMENT
+    _os = 255
+    xfl = 0
+    header = struct.pack("<2sBBIBB", magic, method, flags, mtime, xfl, _os)
+    comment = b"A" * 10 * 1024 * 1024 + b"\00"
+    compressed = isal_zlib.compress(b"", wbits=-15)
+    crc = isal_zlib.crc32(b"")
+    length = 0
+    trailer = struct.pack("<II", crc, length)
+    adverserial = header + comment + compressed + trailer
+    with tempfile.NamedTemporaryFile("wb", delete=False) as tmpfile:
+        tmpfile.write(adverserial)
+    try:
+        with pytest.raises(OverflowError):
+            with igzip.open(tmpfile.name, "rb") as gzip_file:
+                gzip_file.read()
+    finally:
+        os.remove(tmpfile.name)
