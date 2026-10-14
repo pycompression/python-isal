@@ -113,15 +113,21 @@ def build_isa_l():
         cpu_count = os.cpu_count() or 1  # os.cpu_count() can return None
     run_args = dict(cwd=build_dir, env=build_env)
     if SYSTEM_IS_UNIX:
+        make_args = []
         if platform.machine() == "aarch64":
             cflags_param = "CFLAGS_aarch64"
+        elif sys.platform == "darwin" and platform.machine() == "arm64":
+            # Makefile.unx does not recognize "arm64" and builds the slow
+            # portable C code. ISA-L still checks CPU features at runtime.
+            cflags_param = "CFLAGS_aarch64"
+            make_args = ["host_cpu=aarch64", "arch=aarch64"]
         else:
             cflags_param = "CFLAGS_"
         make_cmd = "make"
         if SYSTEM_IS_BSD:
             make_cmd = "gmake"
         subprocess.run([make_cmd, "-j", str(cpu_count), "-f", "Makefile.unx",
-                        "isa-l.h", "bin/isa-l.a",
+                        "isa-l.h", "bin/isa-l.a", *make_args,
                         f"{cflags_param}={build_env.get('CFLAGS', '')}"],
                        **run_args)
     elif SYSTEM_IS_WINDOWS:
