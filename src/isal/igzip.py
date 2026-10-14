@@ -57,6 +57,10 @@ WRITE = gzip.WRITE
 
 BadGzipFile = gzip.BadGzipFile  # type: ignore
 
+# Since Python 3.12 GzipFile.write buffers small writes and passes them to
+# _write_raw in large chunks, which compress much faster.
+_GZIP_BUFFERS_WRITES = hasattr(gzip.GzipFile, "_write_raw")
+
 
 # The open method was copied from the CPython source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
@@ -202,7 +206,12 @@ class IGzipFile(gzip.GzipFile):
         if self.fileobj is None:
             raise ValueError("write() on closed IGzipFile object")
 
-        if isinstance(data, bytes):
+        if _GZIP_BUFFERS_WRITES:
+            return self._buffer.write(data)
+        return self._write_raw(data)
+
+    def _write_raw(self, data):
+        if isinstance(data, (bytes, bytearray)):
             length = len(data)
         else:
             # accept any data that supports the buffer protocol
@@ -215,6 +224,15 @@ class IGzipFile(gzip.GzipFile):
             self.crc = isal_zlib.crc32(data, self.crc)
             self.offset += length
         return length
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        position = super().seek(offset, whence)
+        if self.mode == WRITE and _GZIP_BUFFERS_WRITES:
+            # GzipFile.seek returns the offset before the zeros it writes
+            # leave the write buffer.
+            self._buffer.flush()
+            return self.offset
+        return position
 
 
 # Aliases for improved compatibility with CPython gzip module.

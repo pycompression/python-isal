@@ -26,6 +26,10 @@ version 1.8.1-dev
   ISA-L rather than its optimized aarch64 assembly. On an Apple M4,
   decompression is 1.6 to 3 times faster, CRC-32 is 50 times faster, and
   Adler-32 is 7 times faster.
++ Speed up many small writes to ``igzip.IGzipFile`` on Python 3.12 and later.
+  ``IGzipFile`` collects these writes in the write buffer of
+  ``gzip.GzipFile`` and compresses them in large chunks, which makes writing
+  lines 1.4 times faster.
 
 version 1.8.0
 -----------------
