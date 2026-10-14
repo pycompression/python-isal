@@ -30,6 +30,9 @@ version 1.8.1-dev
   ``IGzipFile`` collects these writes in the write buffer of
   ``gzip.GzipFile`` and compresses them in large chunks, which makes writing
   lines 1.4 times faster.
++ Fix ``igzip_threaded`` readers and writers that waited for a polling timeout
+  of up to 50 ms at the end of the stream or when closed. Writing and closing
+  a small file takes less than a millisecond instead of 60 ms.
 
 version 1.8.0
 -----------------

@@ -116,20 +116,25 @@ class _ThreadedGzipReader(io.RawIOBase):
                 data = self.fileobj.read(block_size)
             except Exception as e:
                 self.exception = e
-                return
-            if not data:
-                return
+                data = b""
+            # An empty block tells the reader about EOF or an error
             while self.running and self._calling_thread.is_alive():
                 try:
                     block_queue.put(data, timeout=0.05)
                     break
                 except queue.Full:
                     pass
+            if not data:
+                return
 
     def readinto(self, b):
         self._check_closed()
         result = self.buffer.readinto(b)
         if result == 0:
+            if self.eof:
+                if self.exception:
+                    raise self.exception
+                return 0
             while True:
                 try:
                     data_from_queue = self.queue.get(timeout=0.01)
@@ -140,6 +145,11 @@ class _ThreadedGzipReader(io.RawIOBase):
                             raise self.exception
                         # EOF reached
                         return 0
+            if not data_from_queue:
+                self.eof = True
+                if self.exception:
+                    raise self.exception
+                return 0
             self.buffer = io.BytesIO(data_from_queue)
             result = self.buffer.readinto(b)
         self.pos += result
@@ -156,6 +166,12 @@ class _ThreadedGzipReader(io.RawIOBase):
         if self._closed:
             return
         self.running = False
+        # Empty the queue so a worker blocked on put can stop
+        while True:
+            try:
+                self.queue.get_nowait()
+            except queue.Empty:
+                break
         self.worker.join()
         self.fileobj.close()
         if self.closefd:
@@ -235,9 +251,12 @@ class _ThreadedGzipWriter(io.RawIOBase):
                                         level=level) for _ in range(threads)
         ]
         if threads > 1:
-            self.input_queues: List[queue.Queue[Tuple[bytes, memoryview]]] = [
+            # None is the sentinel from stop()
+            self.input_queues: List[
+                queue.Queue[Optional[Tuple[bytes, memoryview]]]] = [
                 queue.Queue(queue_size) for _ in range(threads)]
-            self.output_queues: List[queue.Queue[Tuple[bytes, int, int]]] = [
+            self.output_queues: List[
+                queue.Queue[Optional[Tuple[bytes, int, int]]]] = [
                 queue.Queue(queue_size) for _ in range(threads)]
             self.output_worker = threading.Thread(target=self._write)
             self.compression_workers = [
@@ -287,6 +306,13 @@ class _ThreadedGzipWriter(io.RawIOBase):
     def stop(self):
         """Stop, but do not care for remaining work"""
         self.running = False
+        # Wake up threads that wait on a queue. A thread with a full queue
+        # is busy and checks self.running when it is done.
+        for q in self.input_queues + self.output_queues:
+            try:
+                q.put_nowait(None)
+            except queue.Full:
+                pass
         for worker in self.compression_workers:
             worker.join()
         self.output_worker.join()
@@ -355,11 +381,15 @@ class _ThreadedGzipWriter(io.RawIOBase):
         compressor: isal_zlib._ParallelCompress = self.compressors[index]
         while True:
             try:
-                data, zdict = in_queue.get(timeout=0.05)
+                item = in_queue.get(timeout=0.05)
             except queue.Empty:
                 if not (self.running and self._calling_thread.is_alive()):
                     return
                 continue
+            if item is None:  # Sentinel from stop()
+                in_queue.task_done()
+                return
+            data, zdict = item
             try:
                 compressed, crc = compressor.compress_and_crc(data, zdict)
             except Exception as e:
@@ -377,11 +407,15 @@ class _ThreadedGzipWriter(io.RawIOBase):
             out_index = index % self.threads
             output_queue = output_queues[out_index]
             try:
-                compressed, crc, data_length = output_queue.get(timeout=0.05)
+                item = output_queue.get(timeout=0.05)
             except queue.Empty:
                 if not (self.running and self._calling_thread.is_alive()):
                     return
                 continue
+            if item is None:  # Sentinel from stop()
+                output_queue.task_done()
+                return
+            compressed, crc, data_length = item
             self._crc = isal_zlib.crc32_combine(self._crc, crc, data_length)
             self._size += data_length
             self.raw.write(compressed)
@@ -395,11 +429,15 @@ class _ThreadedGzipWriter(io.RawIOBase):
         compressor = self.compressors[0]
         while True:
             try:
-                data, zdict = in_queue.get(timeout=0.05)
+                item = in_queue.get(timeout=0.05)
             except queue.Empty:
                 if not (self.running and self._calling_thread.is_alive()):
                     return
                 continue
+            if item is None:  # Sentinel from stop()
+                in_queue.task_done()
+                return
+            data, zdict = item
             try:
                 compressed, crc = compressor.compress_and_crc(data, zdict)
             except Exception as e:
