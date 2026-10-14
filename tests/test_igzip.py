@@ -611,3 +611,52 @@ def test_adverserial_header():
                 gzip_file.read()
     finally:
         os.remove(tmpfile.name)
+
+
+@pytest.mark.skipif(not igzip._GZIP_BUFFERS_WRITES,
+                    reason="GzipFile buffers writes from Python 3.12 onwards")
+def test_small_writes_are_compressed_in_large_chunks(monkeypatch):
+    chunk_sizes = []
+    write_raw = igzip.IGzipFile._write_raw
+
+    def recording_write_raw(self, data):
+        chunk_sizes.append(memoryview(data).nbytes)
+        return write_raw(self, data)
+
+    monkeypatch.setattr(igzip.IGzipFile, "_write_raw", recording_write_raw)
+    lines = [b"line %d\n" % i for i in range(10_000)]
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as gzip_file:
+        for line in lines:
+            assert gzip_file.write(line) == len(line)
+    data = b"".join(lines)
+    assert sum(chunk_sizes) == len(data)
+    # Each compressor call has overhead, so small writes must be combined
+    assert len(chunk_sizes) < len(lines) // 100
+    assert gzip.decompress(output.getvalue()) == data
+
+
+def test_seek_in_write_mode_returns_new_position():
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as gzip_file:
+        gzip_file.write(b"abc")
+        assert gzip_file.seek(10) == 10
+        assert gzip_file.seek(5, io.SEEK_CUR) == 15
+        assert gzip_file.tell() == 15
+    assert gzip.decompress(output.getvalue()) == b"abc" + bytes(12)
+
+
+def test_small_writes_tell_and_flush():
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as gzip_file:
+        assert gzip_file.write(b"ab") == 2
+        assert gzip_file.tell() == 2
+        assert gzip_file.write(bytearray(b"cd")) == 2
+        assert gzip_file.write(memoryview(b"ef")) == 2
+        assert gzip_file.tell() == 6
+        gzip_file.flush()
+        # A flush emits all data written so far
+        decompressor = zlib.decompressobj(wbits=31)
+        assert decompressor.decompress(output.getvalue()) == b"abcdef"
+        gzip_file.write(b"gh")
+    assert gzip.decompress(output.getvalue()) == b"abcdefgh"
