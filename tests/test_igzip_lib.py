@@ -257,6 +257,17 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
         assert igzd.unused_data == true_unused_data
 
 
+@pytest.mark.skipif(not hasattr(sys, "getrefcount"),
+                    reason="Needs reference counting")
+def test_igzip_decompressor_keeps_zdict_reference():
+    zdict = bytes(range(256))
+    refcount = sys.getrefcount(zdict)
+    decompressor = IgzipDecompressor(flag=DECOMP_ZLIB, zdict=zdict)
+    assert sys.getrefcount(zdict) == refcount + 1
+    del decompressor
+    assert sys.getrefcount(zdict) == refcount
+
+
 @pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
                          itertools.product([26], FLAGS,
                                            [128 * 1024 - 3, 874, 81923, 9111]))

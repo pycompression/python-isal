@@ -463,6 +463,7 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
     self->avail_in_real = 0;
     self->input_buffer = NULL;
     self->input_buffer_size = 0;
+    Py_XINCREF(zdict);
     self->zdict = zdict;
     self->unused_data = PyBytes_FromStringAndSize(NULL, 0);
     if (self->unused_data == NULL) {
