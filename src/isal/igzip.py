@@ -166,6 +166,14 @@ class IGzipFile(gzip.GzipFile):
             raw = _GzipReader(self.fileobj, READ_BUFFER_SIZE)
             self._buffer = io.BufferedReader(raw)
 
+    def readline(self, size=-1):
+        """Read a line of decompressed data, or at most size bytes of it."""
+        # GzipFile.closed tests whether fileobj is None, so testing fileobj
+        # here skips the two Python calls GzipFile.readline makes per line.
+        if self.fileobj is None:
+            self._check_not_closed()
+        return self._buffer.readline(size)
+
     def __repr__(self):
         s = repr(self.fileobj)
         return '<igzip ' + s[1:-1] + ' ' + hex(id(self)) + '>'

@@ -14,6 +14,9 @@ version 1.8.1-dev
 + Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
   3.12 and Python 3.15.
 + Restore PyPy wheel builds.
++ Speed up reading lines from binary ``igzip`` files through iteration,
+  ``readlines()``, and ``readline()``. On an Apple M4, reading FASTQ data is
+  1.13 times faster, and reading lines of a few bytes is 1.5 times faster.
 + Fix zlib streams compressed with a preset dictionary so they can be decoded
   by standard zlib, including builds linked against older ISA-L releases.
 + Fix backward seeking in igzip files by discarding buffered compressed data

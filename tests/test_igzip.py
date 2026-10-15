@@ -11,6 +11,7 @@
 
 import gzip
 import io
+import itertools
 import os
 import re
 import shutil
@@ -70,6 +71,94 @@ def test_igzipfile_read_truncated():
         test.read()
     error.match("Compressed file ended before the end-of-stream marker was "
                 "reached")
+
+
+LINES_DATA = [
+    b"",
+    b"no newline",
+    b"a\nb\n\nc",
+    b"".join(b"line %d\n" % i for i in range(10_000)),
+    b"x" * 200_000 + b"\n" + b"y" * 10,
+]
+
+
+@pytest.mark.parametrize("data", LINES_DATA,
+                         ids=["empty", "no_newline", "blank_line",
+                              "many_lines", "long_line"])
+def test_igzipfile_iteration_like_gzipfile(data):
+    compressed = gzip.compress(data)
+    with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as gzip_file:
+        expected = list(gzip_file)
+    with igzip.IGzipFile(fileobj=io.BytesIO(compressed)) as igzip_file:
+        assert list(igzip_file) == expected
+        igzip_file.seek(0)
+        assert igzip_file.readlines() == expected
+        igzip_file.seek(0)
+        assert list(itertools.islice(igzip_file, 2)) == expected[:2]
+        assert igzip_file.read() == b"".join(expected[2:])
+
+
+def test_igzipfile_is_its_own_iterator():
+    with igzip.IGzipFile(fileobj=io.BytesIO(COMPRESSED_DATA)) as igzip_file:
+        assert iter(igzip_file) is igzip_file
+
+
+def test_igzipfile_readline_skips_check_not_closed_when_open(monkeypatch):
+    calls = []
+    check_not_closed = igzip.IGzipFile._check_not_closed
+    monkeypatch.setattr(igzip.IGzipFile, "_check_not_closed",
+                        lambda self: calls.append(1) or check_not_closed(self))
+    data = gzip.compress(b"a\nb\n" * 100)
+    igzip_file = igzip.IGzipFile(fileobj=io.BytesIO(data))
+    assert len(list(igzip_file)) == 200
+    # Open files skip the check, which costs two Python calls per line
+    assert calls == []
+    igzip_file.close()
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        igzip_file.readline()
+    assert calls == [1]
+
+
+def test_igzipfile_iteration_uses_replaced_methods(monkeypatch):
+    class ReadlineSubclass(igzip.IGzipFile):
+        def readline(self, size=-1):
+            return super().readline(size).upper()
+
+    class NextSubclass(igzip.IGzipFile):
+        def __next__(self):
+            return super().__next__().upper()
+
+    compressed = gzip.compress(b"a\nb\n")
+    for cls in (ReadlineSubclass, NextSubclass):
+        with cls(fileobj=io.BytesIO(compressed)) as igzip_file:
+            assert list(igzip_file) == [b"A\n", b"B\n"]
+    with igzip.IGzipFile(fileobj=io.BytesIO(compressed)) as igzip_file:
+        igzip_file.readline = lambda size=-1: b""
+        assert list(igzip_file) == []
+    monkeypatch.setattr(igzip.IGzipFile, "readline", lambda self, size=-1: b"")
+    with igzip.IGzipFile(fileobj=io.BytesIO(compressed)) as igzip_file:
+        assert list(igzip_file) == []
+
+
+def test_igzipfile_iteration_after_close():
+    igzip_file = igzip.IGzipFile(fileobj=io.BytesIO(gzip.compress(b"a\nb\n")))
+    lines = iter(igzip_file)
+    assert next(lines) == b"a\n"
+    igzip_file.close()
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        next(lines)
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        iter(igzip_file)
+
+
+def test_igzipfile_iteration_in_write_mode_like_gzipfile():
+    errors = []
+    for cls in (gzip.GzipFile, igzip.IGzipFile):
+        with cls(fileobj=io.BytesIO(), mode="wb") as gzip_file:
+            with pytest.raises(Exception) as error:
+                next(iter(gzip_file))
+            errors.append(type(error.value))
+    assert errors[0] == errors[1]
 
 
 @pytest.mark.parametrize("level", range(1, 10))
