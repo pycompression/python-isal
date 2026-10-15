@@ -310,8 +310,8 @@ ParallelCompress__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     int level = ISAL_DEFAULT_COMPRESSION;
     static char *format = "n|i:ParallelCompress__new__";
     static char *kwarg_names[] = {"buffersize", "level", NULL};
-    if (PyArg_ParseTupleAndKeywords(args, kwargs, format, kwarg_names, 
-        &buffer_size, &level) < 0) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, format, kwarg_names, 
+        &buffer_size, &level)) {
             return NULL;
     }
     uint32_t level_buf_size;
@@ -323,6 +323,7 @@ ParallelCompress__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         PyErr_Format(PyExc_ValueError, 
         "buffersize must be at most %zd, got %zd", 
         (Py_ssize_t)UINT32_MAX, buffer_size);
+        return NULL;
     }
     ParallelCompress *self = PyObject_New(ParallelCompress, type);
     if (self == NULL) {
