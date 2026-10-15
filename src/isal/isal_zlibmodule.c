@@ -1533,7 +1533,9 @@ static void GzipReader_dealloc(GzipReader *self)
         PyMem_Free(self->memview);
     }
     Py_XDECREF(self->fp);
-    PyThread_free_lock(self->lock);
+    if (self->lock != NULL) {
+        PyThread_free_lock(self->lock);
+    }
     Py_TYPE(self)->tp_free(self);
 }
 
@@ -1574,8 +1576,15 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         return NULL;
     }
     GzipReader *self = PyObject_New(GzipReader, type);
+    if (self == NULL) {
+        return NULL;
+    }
+    // GzipReader_dealloc uses these members when initialization fails
+    self->input_buffer = NULL;
+    self->memview = NULL;
+    self->fp = NULL;
+    self->lock = NULL;
     if (PyObject_HasAttrString(fp, "read")) {
-        self->memview = NULL;
         self->buffer_size = buffer_size;
         self->input_buffer = PyMem_Malloc(self->buffer_size);
         if (self->input_buffer == NULL) {
@@ -1585,14 +1594,17 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         self->buffer_end = self->input_buffer;
         self->all_bytes_read = 0;
     } else {
-        self->memview = PyMem_Malloc(sizeof(Py_buffer));
-        if (self->memview == NULL) {
+        Py_buffer *memview = PyMem_Malloc(sizeof(Py_buffer));
+        if (memview == NULL) {
+            Py_DECREF(self);
             return PyErr_NoMemory();
         }
-        if (PyObject_GetBuffer(fp, self->memview, PyBUF_SIMPLE) < 0) {
+        if (PyObject_GetBuffer(fp, memview, PyBUF_SIMPLE) < 0) {
+            PyMem_Free(memview);
             Py_DECREF(self);
             return NULL;
         }
+        self->memview = memview;
         self->buffer_size = self->memview->len;
         self->input_buffer = self->memview->buf;
         self->buffer_end = self->input_buffer + self->buffer_size;
