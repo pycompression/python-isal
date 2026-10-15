@@ -257,6 +257,31 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
         assert igzd.unused_data == true_unused_data
 
 
+@pytest.mark.parametrize(["flag", "wbits"], [(DECOMP_DEFLATE, -15),
+                                             (DECOMP_ZLIB, 15),
+                                             (DECOMP_GZIP, 31)])
+def test_igzip_decompressor_unused_data_after_max_length(flag, wbits):
+    data = b"hello world " * 300
+    unused_data = b"0123456789"
+    compressor = zlib.compressobj(wbits=wbits)
+    compressed = compressor.compress(data) + compressor.flush() + unused_data
+    stream_end = len(compressed) - len(unused_data)
+    # The stream can end in bytes that an earlier call read
+    for chunk_size in range(1, 25):
+        decompressor = IgzipDecompressor(flag=flag)
+        result = b""
+        position = 0
+        while not decompressor.eof:
+            chunk = b""
+            if decompressor.needs_input:
+                assert position < len(compressed)
+                chunk = compressed[position:position + chunk_size]
+                position += chunk_size
+            result += decompressor.decompress(chunk, 7)
+        assert result == data
+        assert decompressor.unused_data == compressed[stream_end:position]
+
+
 @pytest.mark.skipif(not hasattr(sys, "getrefcount"),
                     reason="Needs reference counting")
 def test_igzip_decompressor_keeps_zdict_reference():

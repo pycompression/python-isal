@@ -617,6 +617,8 @@ typedef struct
     int is_initialised;
     int method_set;
     char eof;
+    uint8_t saved_bitbuffer[8];
+    Py_ssize_t saved_bitbuffer_size;
     PyThread_type_lock lock;
     // inflate_state should be at the bottom as it contains buffers inside the struct.
     struct inflate_state zst;
@@ -665,6 +667,7 @@ newdecompobject()
     if (self == NULL)
         return NULL;
     self->eof = 0;
+    self->saved_bitbuffer_size = 0;
     self->is_initialised = 0;
     self->method_set = 0;
     self->zdict = NULL;
@@ -915,7 +918,8 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             Py_ssize_t new_size, left_size;
             PyObject *new_data;
             Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
-            left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
+            left_size = (Py_ssize_t)((uintptr_t)data->buf + data->len -
+                                     (uintptr_t)self->zst.next_in);
             if (left_size + bytes_in_bitbuffer > (PY_SSIZE_T_MAX - old_size)) {
                 PyErr_NoMemory();
                 return -1;
@@ -929,9 +933,16 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             memcpy(new_data_ptr,
                    PyBytes_AS_STRING(self->unused_data), old_size);
             bitbuffer_copy(&(self->zst), new_data_ptr + old_size, bytes_in_bitbuffer);
-            memcpy(new_data_ptr + old_size + bytes_in_bitbuffer,
-                   self->zst.next_in, left_size);       
+            if (copy_from_next_in(&(self->zst), data->buf,
+                                  self->saved_bitbuffer,
+                                  self->saved_bitbuffer_size,
+                                  new_data_ptr + old_size + bytes_in_bitbuffer,
+                                  left_size) < 0) {
+                Py_DECREF(new_data);
+                return -1;
+            }
             Py_SETREF(self->unused_data, new_data);
+            self->zst.next_in = (uint8_t *)data->buf + data->len;
             self->zst.avail_in = 0;
         }
     }
@@ -948,6 +959,10 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
         Py_SETREF(self->unconsumed_tail, new_data);
     }
 
+    if (self->zst.block_state != ISAL_BLOCK_FINISH) {
+        save_bitbuffer(&(self->zst), self->saved_bitbuffer,
+                       &self->saved_bitbuffer_size);
+    }
     return 0;
 }
 

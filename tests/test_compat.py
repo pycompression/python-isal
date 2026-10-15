@@ -185,6 +185,21 @@ def test_unused_data(unused_size, wbits):
     assert decompressor.unused_data == unused_data
 
 
+@pytest.mark.parametrize("wbits", [-15, 15, 31])
+def test_decompressobj_unconsumed_tail_after_eof(wbits):
+    source = b"abcdefghijklmnopqrstuvwxyz"
+    remainder = b"0123456789"
+    compressor = zlib.compressobj(wbits=wbits)
+    compressed = compressor.compress(source) + compressor.flush()
+    decompressor = isal_zlib.decompressobj(wbits=wbits)
+    data = decompressor.decompress(compressed + remainder, 1)
+    data += decompressor.decompress(decompressor.unconsumed_tail)
+    assert decompressor.eof
+    assert data == source
+    assert decompressor.unconsumed_tail == b""
+    assert decompressor.unused_data == remainder
+
+
 def test_zlib_dictionary_decompress():
     dictionary = b"bla"
     data = b"bladiebla"
