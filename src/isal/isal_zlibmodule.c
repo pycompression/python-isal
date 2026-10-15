@@ -1076,6 +1076,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     } else {
         PyErr_Format(IsalError, 
                      "Unsupported flush mode: %d", mode);
+        LEAVE_ZLIB(self);
         return NULL;
     }
 

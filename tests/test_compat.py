@@ -11,6 +11,7 @@
 
 import gzip
 import itertools
+import threading
 import zlib
 from pathlib import Path
 
@@ -98,6 +99,21 @@ def test_compress_compressobj(data_size, level, wbits, memLevel):
     compressed = compressobj.compress(data) + compressobj.flush()
     decompressed = zlib.decompress(compressed, wbits=wbits)
     assert data == decompressed
+
+
+def test_compressobj_flush_unsupported_mode():
+    compressor = isal_zlib.compressobj()
+    with pytest.raises(isal_zlib.error) as error:
+        compressor.flush(isal_zlib.Z_PARTIAL_FLUSH)
+    error.match("Unsupported flush mode")
+    # The next call hangs if the failed flush kept the lock
+    result = []
+    thread = threading.Thread(target=lambda: result.append(
+        compressor.compress(b"data") + compressor.flush()), daemon=True)
+    thread.start()
+    thread.join(timeout=10)
+    assert result
+    assert zlib.decompress(result[0]) == b"data"
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
