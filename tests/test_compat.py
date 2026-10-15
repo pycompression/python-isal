@@ -116,6 +116,13 @@ def test_compressobj_flush_unsupported_mode():
     assert zlib.decompress(result[0]) == b"data"
 
 
+def test_compressobj_level_0_flush_after_finish():
+    compressor = isal_zlib.compressobj(0)
+    compressed = compressor.compress(b"data") + compressor.flush()
+    assert compressor.flush() == b""
+    assert zlib.decompress(compressed) == b"data"
+
+
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
                          itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))

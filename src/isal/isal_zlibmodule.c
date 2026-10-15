@@ -1112,6 +1112,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
        mode is Z_FINISH, but checking both for safety*/
     if (self->zst.internal_state.state == ZSTATE_END && mode == Z_FINISH) {
         PyMem_FREE(self->level_buf);
+        self->level_buf = NULL;
         self->zst.level_buf_size = 0;
         self->zst.level_buf = NULL;
         self->is_initialised = 0;
