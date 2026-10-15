@@ -7,7 +7,6 @@
 
 import builtins
 import io
-import multiprocessing
 import os
 import queue
 import struct
@@ -52,10 +51,7 @@ def open(filename, mode="rb", compresslevel=igzip._COMPRESS_LEVEL_TRADEOFF,
         try:
             threads = len(os.sched_getaffinity(0))
         except:  # noqa: E722
-            try:
-                threads = multiprocessing.cpu_count()
-            except:  # noqa: E722
-                threads = 1
+            threads = os.cpu_count() or 1
     if "r" in mode:
         gzip_file = io.BufferedReader(
             _ThreadedGzipReader(filename, block_size=block_size))
