@@ -310,8 +310,8 @@ ParallelCompress__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     int level = ISAL_DEFAULT_COMPRESSION;
     static char *format = "n|i:ParallelCompress__new__";
     static char *kwarg_names[] = {"buffersize", "level", NULL};
-    if (PyArg_ParseTupleAndKeywords(args, kwargs, format, kwarg_names, 
-        &buffer_size, &level) < 0) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, format, kwarg_names, 
+        &buffer_size, &level)) {
             return NULL;
     }
     uint32_t level_buf_size;
@@ -323,6 +323,7 @@ ParallelCompress__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         PyErr_Format(PyExc_ValueError, 
         "buffersize must be at most %zd, got %zd", 
         (Py_ssize_t)UINT32_MAX, buffer_size);
+        return NULL;
     }
     ParallelCompress *self = PyObject_New(ParallelCompress, type);
     if (self == NULL) {
@@ -617,6 +618,8 @@ typedef struct
     int is_initialised;
     int method_set;
     char eof;
+    uint8_t saved_bitbuffer[8];
+    Py_ssize_t saved_bitbuffer_size;
     PyThread_type_lock lock;
     // inflate_state should be at the bottom as it contains buffers inside the struct.
     struct inflate_state zst;
@@ -665,6 +668,7 @@ newdecompobject()
     if (self == NULL)
         return NULL;
     self->eof = 0;
+    self->saved_bitbuffer_size = 0;
     self->is_initialised = 0;
     self->method_set = 0;
     self->zdict = NULL;
@@ -915,7 +919,8 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             Py_ssize_t new_size, left_size;
             PyObject *new_data;
             Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
-            left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
+            left_size = (Py_ssize_t)((uintptr_t)data->buf + data->len -
+                                     (uintptr_t)self->zst.next_in);
             if (left_size + bytes_in_bitbuffer > (PY_SSIZE_T_MAX - old_size)) {
                 PyErr_NoMemory();
                 return -1;
@@ -929,9 +934,16 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             memcpy(new_data_ptr,
                    PyBytes_AS_STRING(self->unused_data), old_size);
             bitbuffer_copy(&(self->zst), new_data_ptr + old_size, bytes_in_bitbuffer);
-            memcpy(new_data_ptr + old_size + bytes_in_bitbuffer,
-                   self->zst.next_in, left_size);       
+            if (copy_from_next_in(&(self->zst), data->buf,
+                                  self->saved_bitbuffer,
+                                  self->saved_bitbuffer_size,
+                                  new_data_ptr + old_size + bytes_in_bitbuffer,
+                                  left_size) < 0) {
+                Py_DECREF(new_data);
+                return -1;
+            }
             Py_SETREF(self->unused_data, new_data);
+            self->zst.next_in = (uint8_t *)data->buf + data->len;
             self->zst.avail_in = 0;
         }
     }
@@ -948,6 +960,10 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
         Py_SETREF(self->unconsumed_tail, new_data);
     }
 
+    if (self->zst.block_state != ISAL_BLOCK_FINISH) {
+        save_bitbuffer(&(self->zst), self->saved_bitbuffer,
+                       &self->saved_bitbuffer_size);
+    }
     return 0;
 }
 
@@ -1076,6 +1092,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     } else {
         PyErr_Format(IsalError, 
                      "Unsupported flush mode: %d", mode);
+        LEAVE_ZLIB(self);
         return NULL;
     }
 
@@ -1111,6 +1128,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
        mode is Z_FINISH, but checking both for safety*/
     if (self->zst.internal_state.state == ZSTATE_END && mode == Z_FINISH) {
         PyMem_FREE(self->level_buf);
+        self->level_buf = NULL;
         self->zst.level_buf_size = 0;
         self->zst.level_buf = NULL;
         self->is_initialised = 0;
@@ -1533,7 +1551,9 @@ static void GzipReader_dealloc(GzipReader *self)
         PyMem_Free(self->memview);
     }
     Py_XDECREF(self->fp);
-    PyThread_free_lock(self->lock);
+    if (self->lock != NULL) {
+        PyThread_free_lock(self->lock);
+    }
     Py_TYPE(self)->tp_free(self);
 }
 
@@ -1574,8 +1594,15 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         return NULL;
     }
     GzipReader *self = PyObject_New(GzipReader, type);
+    if (self == NULL) {
+        return NULL;
+    }
+    // GzipReader_dealloc uses these members when initialization fails
+    self->input_buffer = NULL;
+    self->memview = NULL;
+    self->fp = NULL;
+    self->lock = NULL;
     if (PyObject_HasAttrString(fp, "read")) {
-        self->memview = NULL;
         self->buffer_size = buffer_size;
         self->input_buffer = PyMem_Malloc(self->buffer_size);
         if (self->input_buffer == NULL) {
@@ -1585,14 +1612,17 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         self->buffer_end = self->input_buffer;
         self->all_bytes_read = 0;
     } else {
-        self->memview = PyMem_Malloc(sizeof(Py_buffer));
-        if (self->memview == NULL) {
+        Py_buffer *memview = PyMem_Malloc(sizeof(Py_buffer));
+        if (memview == NULL) {
+            Py_DECREF(self);
             return PyErr_NoMemory();
         }
-        if (PyObject_GetBuffer(fp, self->memview, PyBUF_SIMPLE) < 0) {
+        if (PyObject_GetBuffer(fp, memview, PyBUF_SIMPLE) < 0) {
+            PyMem_Free(memview);
             Py_DECREF(self);
             return NULL;
         }
+        self->memview = memview;
         self->buffer_size = self->memview->len;
         self->input_buffer = self->memview->buf;
         self->buffer_end = self->input_buffer + self->buffer_size;

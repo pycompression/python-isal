@@ -341,6 +341,18 @@ def test_decompress_empty():
     assert igzip.decompress(b"") == b""
 
 
+@pytest.mark.parametrize("data", ["x", 1, None])
+def test_decompress_not_bytes_like(data):
+    with pytest.raises(TypeError) as error:
+        igzip.decompress(data)
+    error.match("a bytes-like object is required")
+
+
+def test_decompress_not_contiguous():
+    with pytest.raises(BufferError):
+        igzip.decompress(memoryview(b"abcd")[::2])
+
+
 def headers():
     magic = b"\x1f\x8b"
     method = b"\x08"
