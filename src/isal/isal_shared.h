@@ -219,6 +219,40 @@ static int bitbuffer_copy(struct inflate_state *state, char *to, size_t n){
     return 0;
 }
 
+/* When a stream ends, isal_inflate moves next_in back over the unused bytes
+   in the bit buffer. If a previous call read those bytes, next_in points
+   before the current input. This keeps a copy of them after each call. */
+static inline void
+save_bitbuffer(struct inflate_state *state, uint8_t *saved,
+               Py_ssize_t *saved_size)
+{
+    *saved_size = bitbuffer_size(state);
+    bitbuffer_copy(state, (char *)saved, *saved_size);
+}
+
+/* Copy size bytes starting at state->next_in. Bytes before input_start come
+   from the saved bit buffer. */
+static int
+copy_from_next_in(struct inflate_state *state, uint8_t *input_start,
+                  uint8_t *saved, Py_ssize_t saved_size,
+                  char *to, Py_ssize_t size)
+{
+    uint8_t *from = state->next_in;
+    Py_ssize_t before_input = 0;
+    if ((uintptr_t)from < (uintptr_t)input_start) {
+        before_input = (Py_ssize_t)((uintptr_t)input_start - (uintptr_t)from);
+        if (before_input > saved_size || before_input > size) {
+            PyErr_SetString(PyExc_RuntimeError,
+                            "Leftover input before the buffer is unavailable");
+            return -1;
+        }
+        memcpy(to, saved + saved_size - before_input, before_input);
+        from = input_start;
+    }
+    memcpy(to + before_input, from, size - before_input);
+    return 0;
+}
+
 static inline void
 arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
 {
