@@ -159,6 +159,17 @@ def test_writer_too_low_threads():
     error.match("at least 1")
 
 
+def test_writer_block_size_too_large():
+    with pytest.raises(ValueError) as error:
+        igzip_threaded.open(io.BytesIO(), "wb", block_size=2**32)
+    error.match("buffersize must be at most")
+
+
+def test_writer_level_not_an_integer():
+    with pytest.raises(TypeError):
+        igzip_threaded.open(io.BytesIO(), "wb", compresslevel="x")
+
+
 def test_reader_read_after_close():
     with open(TEST_FILE, "rb") as test_f:
         f = igzip_threaded._ThreadedGzipReader(test_f)

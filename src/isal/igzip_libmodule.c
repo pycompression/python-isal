@@ -34,6 +34,8 @@ typedef struct {
     Py_ssize_t avail_in_real;
     char eof;           /* T_BOOL expects a char */
     char needs_input;
+    uint8_t saved_bitbuffer[8];
+    Py_ssize_t saved_bitbuffer_size;
     /* Struct inflate state contains a massive buffer at the end. Put it at
        the end of the IgzipDecompressor so members can be accessed easily. */
     struct inflate_state state;
@@ -226,6 +228,7 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
         input_buffer_in_use = 0;
     }
 
+    uint8_t *input_start = self->state.next_in;
     result = decompress_buf(self, max_length);
     if(result == NULL) {
         self->state.next_in = NULL;
@@ -242,8 +245,14 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
                 goto error;
             char *new_data_ptr = PyBytes_AS_STRING(new_data);
             bitbuffer_copy(&(self->state), new_data_ptr, bytes_in_bitbuffer);
-            memcpy(new_data_ptr + bytes_in_bitbuffer, self->state.next_in, 
-                   self->avail_in_real);
+            if (copy_from_next_in(&(self->state), input_start,
+                                  self->saved_bitbuffer,
+                                  self->saved_bitbuffer_size,
+                                  new_data_ptr + bytes_in_bitbuffer,
+                                  self->avail_in_real) < 0) {
+                Py_DECREF(new_data);
+                goto error;
+            }
             Py_XSETREF(self->unused_data, new_data);
         }
     }
@@ -281,6 +290,10 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
             memcpy(self->input_buffer, self->state.next_in, self->avail_in_real);
             self->state.next_in = self->input_buffer;
         }
+    }
+    if (!self->eof) {
+        save_bitbuffer(&(self->state), self->saved_bitbuffer,
+                       &self->saved_bitbuffer_size);
     }
     return result;
 
@@ -460,9 +473,11 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
     IgzipDecompressor *self = PyObject_New(IgzipDecompressor, type); 
     self->eof = 0;
     self->needs_input = 1;
+    self->saved_bitbuffer_size = 0;
     self->avail_in_real = 0;
     self->input_buffer = NULL;
     self->input_buffer_size = 0;
+    Py_XINCREF(zdict);
     self->zdict = zdict;
     self->unused_data = PyBytes_FromStringAndSize(NULL, 0);
     if (self->unused_data == NULL) {

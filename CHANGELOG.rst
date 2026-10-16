@@ -10,6 +10,9 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by
+  importing ``argparse`` and ``shutil`` only when the command line interface
+  runs, and by dropping the ``multiprocessing`` import.
 + Updated ISA-L to 2.32.1.
 + Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
   3.12 and Python 3.15.
@@ -18,6 +21,22 @@ version 1.8.1-dev
   by standard zlib, including builds linked against older ISA-L releases.
 + Fix backward seeking in igzip files by discarding buffered compressed data
   when rewinding the underlying file.
++ Fix a crash when ``igzip.decompress`` gets an object that is not
+  bytes-like, such as a ``str``. It raises a ``TypeError`` instead.
++ Fix a crash after creating ``igzip_lib.IgzipDecompressor`` objects with a
+  ``zdict``.
++ Fix a hang in ``isal_zlib.Compress``: after ``flush()`` raised an error for
+  an unsupported mode, the next call on the same object never returned.
++ Fix a crash when you call ``flush(Z_FINISH)`` twice on a level 0
+  ``isal_zlib.Compress`` object.
++ Fix ``unused_data`` of ``isal_zlib.Decompress`` and
+  ``igzip_lib.IgzipDecompressor``, which could contain bytes from outside the
+  input buffer when ``max_length`` split the end of a stream. At the end of a
+  stream, ``isal_zlib.Decompress.unconsumed_tail`` is empty, matching the
+  CPython fix for gh-158169.
++ ``igzip_threaded.open`` raises ``ValueError`` for a ``block_size`` of about
+  3.6 GiB or more and ``TypeError`` for a ``compresslevel`` that is not an
+  integer. Both raised ``SystemError`` before.
 + Extraordinarily large gzip headers with either a very long comment or
   filename will now cause an ``OverflowError`` rather than use more and more
   memory. The size is limited to the internal buffer size which is currently
