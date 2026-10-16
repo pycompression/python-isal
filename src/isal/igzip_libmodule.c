@@ -32,7 +32,7 @@ typedef struct {
        separately. Conversion and looping is encapsulated in
        decompress_buf() */
     Py_ssize_t avail_in_real;
-    char eof;           /* T_BOOL expects a char */
+    char eof;
     char needs_input;
     uint8_t saved_bitbuffer[8];
     Py_ssize_t saved_bitbuffer_size;
@@ -519,16 +519,56 @@ PyDoc_STRVAR(IgzipDecompressor_needs_input_doc,
 PyDoc_STRVAR(IgzipDecompressor_crc_doc,
 "The checksum that is saved if DECOMP_ZLIB* or DECOMP_GZIP* flags are used.");
 
-static PyMemberDef IgzipDecompressor_members[] = {
-    {"eof", T_BOOL, offsetof(IgzipDecompressor, eof),
-     READONLY, IgzipDecompressor_eof__doc__},
-    {"unused_data", T_OBJECT_EX, offsetof(IgzipDecompressor, unused_data),
-     READONLY, IgzipDecompressor_unused_data__doc__},
-    {"needs_input", T_BOOL, offsetof(IgzipDecompressor, needs_input), READONLY,
-     IgzipDecompressor_needs_input_doc},
-    {"crc", T_UINT, 
-     offsetof(IgzipDecompressor, state) + offsetof(struct inflate_state, crc), 
-     READONLY, IgzipDecompressor_crc_doc},
+/* The getters take the lock, because without the GIL another thread can
+   change these attributes in decompress(). */
+static PyObject *
+IgzipDecompressor_get_eof(IgzipDecompressor *self, void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    char eof = self->eof;
+    LEAVE_ZLIB(self);
+    return PyBool_FromLong(eof);
+}
+
+static PyObject *
+IgzipDecompressor_get_unused_data(IgzipDecompressor *self,
+                                  void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    PyObject *unused_data = self->unused_data;
+    Py_INCREF(unused_data);
+    LEAVE_ZLIB(self);
+    return unused_data;
+}
+
+static PyObject *
+IgzipDecompressor_get_needs_input(IgzipDecompressor *self,
+                                  void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    char needs_input = self->needs_input;
+    LEAVE_ZLIB(self);
+    return PyBool_FromLong(needs_input);
+}
+
+static PyObject *
+IgzipDecompressor_get_crc(IgzipDecompressor *self, void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    uint32_t crc = self->state.crc;
+    LEAVE_ZLIB(self);
+    return PyLong_FromUnsignedLong(crc);
+}
+
+static PyGetSetDef IgzipDecompressor_properties[] = {
+    {"eof", (getter)IgzipDecompressor_get_eof, NULL,
+     IgzipDecompressor_eof__doc__, NULL},
+    {"unused_data", (getter)IgzipDecompressor_get_unused_data, NULL,
+     IgzipDecompressor_unused_data__doc__, NULL},
+    {"needs_input", (getter)IgzipDecompressor_get_needs_input, NULL,
+     IgzipDecompressor_needs_input_doc, NULL},
+    {"crc", (getter)IgzipDecompressor_get_crc, NULL,
+     IgzipDecompressor_crc_doc, NULL},
     {NULL}
 };
 
@@ -540,7 +580,7 @@ static PyTypeObject IgzipDecompressor_Type = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_doc = igzip_lib_IgzipDecompressor___init____doc__,
     .tp_methods = IgzipDecompressor_methods,
-    .tp_members =  IgzipDecompressor_members,
+    .tp_getset = IgzipDecompressor_properties,
     .tp_new = igzip_lib_IgzipDecompressor__new__,
 };
 

@@ -983,6 +983,12 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
     else
         hard_limit = max_length;
 
+    /* limit amount of data allocated to max_length */
+    if (max_length && obuflen > max_length)
+        obuflen = max_length;
+
+    ENTER_ZLIB(self);
+
     if (!self->method_set) {
         if (data_is_gzip(data)){
             self->zst.crc_flag = ISAL_GZIP;
@@ -992,12 +998,6 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
         }
         self->method_set = 1;
     }
-
-    /* limit amount of data allocated to max_length */
-    if (max_length && obuflen > max_length)
-        obuflen = max_length;
-
-    ENTER_ZLIB(self);
 
     self->zst.next_in = data->buf;
     ibuflen = data->len;
@@ -1490,8 +1490,6 @@ static PyTypeObject IsalZlibCompType = {
     .tp_methods = comp_methods,
 };
 
-#define COMP_OFF(x) offsetof(decompobject, x)
-
 PyDoc_STRVAR(Decomp_unconsumed_tail,
 "A bytes object that contains any data that was not consumed by the last\n"
 "decompress() call because it exceeded the limit for the uncompressed data\n"
@@ -1499,13 +1497,44 @@ PyDoc_STRVAR(Decomp_unconsumed_tail,
 "feed it (possibly with further data concatenated to it) back to a \n"
 "subsequent decompress() method call in order to get correct output.");
 
-static PyMemberDef Decomp_members[] = {
-    {"unused_data",     T_OBJECT, COMP_OFF(unused_data), READONLY,
-    "Data found after the end of the compressed stream."},
-    {"unconsumed_tail", T_OBJECT, COMP_OFF(unconsumed_tail), READONLY,
-    Decomp_unconsumed_tail},
-    {"eof",             T_BOOL,   COMP_OFF(eof), READONLY,
-    "True if the end-of-stream marker has been reached."},
+/* The getters take the lock, because without the GIL another thread can
+   change these attributes in decompress() or flush(). */
+static PyObject *
+Decomp_get_unused_data(decompobject *self, void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    PyObject *unused_data = self->unused_data;
+    Py_INCREF(unused_data);
+    LEAVE_ZLIB(self);
+    return unused_data;
+}
+
+static PyObject *
+Decomp_get_unconsumed_tail(decompobject *self, void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    PyObject *unconsumed_tail = self->unconsumed_tail;
+    Py_INCREF(unconsumed_tail);
+    LEAVE_ZLIB(self);
+    return unconsumed_tail;
+}
+
+static PyObject *
+Decomp_get_eof(decompobject *self, void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    char eof = self->eof;
+    LEAVE_ZLIB(self);
+    return PyBool_FromLong(eof);
+}
+
+static PyGetSetDef Decomp_properties[] = {
+    {"unused_data", (getter)Decomp_get_unused_data, NULL,
+     "Data found after the end of the compressed stream.", NULL},
+    {"unconsumed_tail", (getter)Decomp_get_unconsumed_tail, NULL,
+     Decomp_unconsumed_tail, NULL},
+    {"eof", (getter)Decomp_get_eof, NULL,
+     "True if the end-of-stream marker has been reached.", NULL},
     {NULL},
 };
 
@@ -1516,7 +1545,7 @@ static PyTypeObject IsalZlibDecompType = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_dealloc = (destructor)Decomp_dealloc,
     .tp_methods = Decomp_methods,
-    .tp_members = Decomp_members,
+    .tp_getset = Decomp_properties,
 };
 
 #define GzipReader_HEADER 1

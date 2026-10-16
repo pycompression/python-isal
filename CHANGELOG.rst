@@ -44,6 +44,12 @@ version 1.8.1-dev
   filename will now cause an ``OverflowError`` rather than use more and more
   memory. The size is limited to the internal buffer size which is currently
   set at 512 KiB.
++ Fix a crash on the free-threaded build when one thread reads
+  ``unused_data`` or ``unconsumed_tail`` of an ``isal_zlib`` decompressor
+  while another thread decompresses with it. Reading the attributes of
+  ``isal_zlib`` decompressors and ``igzip_lib.IgzipDecompressor`` from other
+  threads is now safe, and so is calling ``decompress()`` from several
+  threads at the same time when ``wbits`` detects the format.
 
 version 1.8.0
 -----------------
