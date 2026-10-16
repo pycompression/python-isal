@@ -11,6 +11,7 @@
 
 import gzip
 import itertools
+import threading
 import zlib
 from pathlib import Path
 
@@ -100,6 +101,28 @@ def test_compress_compressobj(data_size, level, wbits, memLevel):
     assert data == decompressed
 
 
+def test_compressobj_flush_unsupported_mode():
+    compressor = isal_zlib.compressobj()
+    with pytest.raises(isal_zlib.error) as error:
+        compressor.flush(isal_zlib.Z_PARTIAL_FLUSH)
+    error.match("Unsupported flush mode")
+    # The next call hangs if the failed flush kept the lock
+    result = []
+    thread = threading.Thread(target=lambda: result.append(
+        compressor.compress(b"data") + compressor.flush()), daemon=True)
+    thread.start()
+    thread.join(timeout=10)
+    assert result
+    assert zlib.decompress(result[0]) == b"data"
+
+
+def test_compressobj_level_0_flush_after_finish():
+    compressor = isal_zlib.compressobj(0)
+    compressed = compressor.compress(b"data") + compressor.flush()
+    assert compressor.flush() == b""
+    assert zlib.decompress(compressed) == b"data"
+
+
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
                          itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))
@@ -160,6 +183,21 @@ def test_unused_data(unused_size, wbits):
     result = decompressor.decompress(compressed + unused_data)
     assert result == data
     assert decompressor.unused_data == unused_data
+
+
+@pytest.mark.parametrize("wbits", [-15, 15, 31])
+def test_decompressobj_unconsumed_tail_after_eof(wbits):
+    source = b"abcdefghijklmnopqrstuvwxyz"
+    remainder = b"0123456789"
+    compressor = zlib.compressobj(wbits=wbits)
+    compressed = compressor.compress(source) + compressor.flush()
+    decompressor = isal_zlib.decompressobj(wbits=wbits)
+    data = decompressor.decompress(compressed + remainder, 1)
+    data += decompressor.decompress(decompressor.unconsumed_tail)
+    assert decompressor.eof
+    assert data == source
+    assert decompressor.unconsumed_tail == b""
+    assert decompressor.unused_data == remainder
 
 
 def test_zlib_dictionary_decompress():

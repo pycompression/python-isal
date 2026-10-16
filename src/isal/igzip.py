@@ -24,12 +24,10 @@
 """Similar to the stdlib gzip module. But using the Intel Storage Accelaration
 Library to speed up its methods."""
 
-import argparse
 import builtins
 import gzip
 import io
 import os
-import shutil
 import struct
 import sys
 import time
@@ -263,6 +261,7 @@ def decompress(data):
 
 
 def _argument_parser():
+    import argparse  # Only the command line interface needs it
     parser = argparse.ArgumentParser()
     parser.description = (
         "A simple command line interface for the igzip module. "
@@ -310,6 +309,7 @@ def _argument_parser():
 
 
 def main():
+    import shutil  # Only the command line interface needs it
     args = _argument_parser().parse_args()
 
     compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
