@@ -10,6 +10,9 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by
+  importing ``argparse`` and ``shutil`` only when the command line interface
+  runs, and by dropping the ``multiprocessing`` import.
 + Updated ISA-L to 2.32.1.
 + Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
   3.12 and Python 3.15.

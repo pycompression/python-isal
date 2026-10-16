@@ -15,6 +15,7 @@ import os
 import re
 import shutil
 import struct
+import subprocess
 import sys
 import tempfile
 import zlib
@@ -259,6 +260,18 @@ def test_compress_infile_out_file_no_name(tmp_path, capsysbinary):
     assert out == b''
     assert output[4] & gzip.FNAME == 0  # No filename set.
     assert output[4:8] == b"\x00\x00\x00\x00"  # No timestamp set.
+
+
+def test_import_does_not_load_cli_modules():
+    # Each of these modules takes milliseconds to import
+    code = ("import sys; before = set(sys.modules); "
+            "import isal.igzip, isal.igzip_threaded; "
+            "print(*(set(sys.modules) - before))")
+    result = subprocess.run([sys.executable, "-c", code], check=True,
+                            capture_output=True, text=True)
+    new_modules = set(result.stdout.split())
+    assert "isal.igzip_threaded" in new_modules
+    assert not new_modules & {"argparse", "shutil", "multiprocessing"}
 
 
 def test_decompress():
