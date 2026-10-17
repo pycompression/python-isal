@@ -44,6 +44,9 @@ version 1.8.1-dev
   filename will now cause an ``OverflowError`` rather than use more and more
   memory. The size is limited to the internal buffer size which is currently
   set at 512 KiB.
++ Fix ``igzip_threaded`` readers and writers that waited for a polling timeout
+  of up to 50 ms at the end of the stream or when closed. Writing and closing
+  a small file takes less than a millisecond instead of 60 ms.
 + Speed up many small writes to ``igzip.IGzipFile`` on Python 3.12 and later.
   ``IGzipFile`` collects these writes in the write buffer of
   ``gzip.GzipFile`` and compresses them in large chunks, which makes writing
