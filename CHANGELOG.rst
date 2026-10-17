@@ -44,6 +44,10 @@ version 1.8.1-dev
   filename will now cause an ``OverflowError`` rather than use more and more
   memory. The size is limited to the internal buffer size which is currently
   set at 512 KiB.
++ Fix builds on macOS with Apple Silicon, which used the portable C code of
+  ISA-L rather than its optimized aarch64 assembly. On an Apple M4,
+  decompression is 1.6 to 3 times faster, CRC-32 is 50 times faster, and
+  Adler-32 is 7 times faster.
 
 version 1.8.0
 -----------------
