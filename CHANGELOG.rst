@@ -55,6 +55,11 @@ version 1.8.1-dev
   ISA-L rather than its optimized aarch64 assembly. On an Apple M4,
   decompression is 1.6 to 3 times faster, CRC-32 is 50 times faster, and
   Adler-32 is 7 times faster.
++ Fix ``igzip_threaded`` writers that waited forever when writing to the
+  underlying file failed, for example, because the disk was full. A later call
+  to ``write()``, ``flush()``, or ``close()`` raises the error. After an error,
+  ``close()`` no longer closes a file object that you passed to
+  ``igzip_threaded.open``.
 
 version 1.8.0
 -----------------
