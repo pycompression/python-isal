@@ -9,9 +9,12 @@ import gzip
 import io
 import itertools
 import os
+import queue
 import subprocess
 import sys
 import tempfile
+import threading
+import types
 import zlib
 from pathlib import Path
 
@@ -281,3 +284,84 @@ def test_flush(tmp_path, threads):
         deflate_block = data[10:] + deflate_last_block
         assert zlib.decompress(deflate_block, wbits=-15) == b"123"
     assert gzip.decompress(test_file.read_bytes()) == b"123"
+
+
+# Threads in igzip_threaded poll their queues with a timeout, so they can exit
+# with the calling thread. Normal use should never wait for that timeout. This
+# fixture stretches the timeouts to 2 seconds and records the ones that expire.
+@pytest.fixture
+def queue_monitor(monkeypatch):
+    monitor = types.SimpleNamespace(expired=[], put_blocked=threading.Event())
+
+    class PatientQueue(queue.Queue):
+        def get(self, block=True, timeout=None):
+            if not block or timeout is None:
+                return super().get(block, timeout)
+            try:
+                return super().get(block, 2.0)
+            except queue.Empty:
+                monitor.expired.append("get")
+                raise
+
+        def put(self, item, block=True, timeout=None):
+            if not block or timeout is None:
+                return super().put(item, block, timeout)
+            if self.full():
+                monitor.put_blocked.set()
+            try:
+                return super().put(item, block, 2.0)
+            except queue.Full:
+                monitor.expired.append("put")
+                raise
+
+    monkeypatch.setattr(igzip_threaded, "queue", types.SimpleNamespace(
+        Queue=PatientQueue, Empty=queue.Empty, Full=queue.Full))
+    return monitor
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("threads", [1, 3])
+def test_writer_does_not_wait_for_queue_timeouts(queue_monitor, threads):
+    output = io.BytesIO()
+    with igzip_threaded.open(output, "wb", threads=threads) as f:
+        f.write(b"first")
+        f.flush()
+        f.write(b"second")
+    assert gzip.decompress(output.getvalue()) == b"firstsecond"
+    assert queue_monitor.expired == []
+
+
+@pytest.mark.timeout(10)
+def test_reader_does_not_wait_for_queue_timeouts(queue_monitor):
+    data = os.urandom(100_000)
+    with igzip_threaded.open(io.BytesIO(gzip.compress(data)), "rb",
+                             block_size=8 * 1024) as f:
+        assert f.read() == data
+        # Reading at the end of the stream returns immediately
+        assert f.read() == b""
+        assert f.read(10) == b""
+    assert queue_monitor.expired == []
+
+
+@pytest.mark.timeout(10)
+def test_reader_closes_early_without_waiting_for_queue_timeouts(
+        queue_monitor):
+    data = os.urandom(1024 * 1024)
+    with igzip_threaded.open(io.BytesIO(gzip.compress(data)), "rb",
+                             block_size=8 * 1024) as f:
+        assert f.read(10) == data[:10]
+        # Close while the reader thread waits for room in its full queue
+        assert queue_monitor.put_blocked.wait(timeout=5)
+    assert queue_monitor.expired == []
+
+
+@pytest.mark.timeout(10)
+def test_reader_error_does_not_wait_for_queue_timeouts(queue_monitor):
+    truncated = gzip.compress(os.urandom(100_000))[:-8]
+    with igzip_threaded.open(io.BytesIO(truncated), "rb") as f:
+        with pytest.raises(EOFError):
+            f.read()
+        # The error is raised again on subsequent reads
+        with pytest.raises(EOFError):
+            f.read()
+    assert queue_monitor.expired == []
