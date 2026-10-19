@@ -253,7 +253,10 @@ def test_threaded_program_can_exit_on_error(tmp_path, mode, threads):
             f"mode='{mode}', threads={threads})\n"
         )
         f.write("raise Exception('Error')\n")
-    subprocess.run([sys.executable, str(program)])
+    result = subprocess.run([sys.executable, str(program)],
+                            capture_output=True)
+    # A sanitizer report changes the exit code.
+    assert result.returncode == 1, result.stderr.decode()
 
 
 @pytest.mark.parametrize("threads", [1, 2])
