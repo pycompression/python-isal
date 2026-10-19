@@ -763,7 +763,8 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
                                     zdict->buf, (uint32_t)zdict->len);
         if (err == COMP_OK) {
             if (flag == IGZIP_ZLIB && zdict->len != 0) {
-                isal_zlib_header_init(&self->zlib_header);
+                // Set every field instead of calling isal_zlib_header_init,
+                // which ISA-L 2.30 does not have.
                 self->zlib_header.info = hist_bits - 8;
                 self->zlib_header.level = level == 0 ? 0 : 1;
                 self->zlib_header.dict_flag = 1;
