@@ -31,7 +31,9 @@ jobs:
         tox_env:
           - docs
           - twine_check
-    runs-on: ubuntu-latest
+    # Use the same Ubuntu release as build.os in .readthedocs.yml, so the
+    # documentation is checked against the libisal that Read the Docs uses.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
