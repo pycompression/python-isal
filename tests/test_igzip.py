@@ -52,6 +52,24 @@ def test_write_readonly_file():
     error.match(r"write\(\) on read-only IGzipFile object")
 
 
+def test_igzipfile_write_skips_check_not_closed_when_open(monkeypatch):
+    calls = []
+    check_not_closed = igzip.IGzipFile._check_not_closed
+    monkeypatch.setattr(igzip.IGzipFile, "_check_not_closed",
+                        lambda self: calls.append(1) or check_not_closed(self))
+    output = io.BytesIO()
+    igzip_file = igzip.IGzipFile(fileobj=output, mode="wb")
+    for _ in range(100):
+        assert igzip_file.write(b"a\n") == 2
+    # Open files skip the check, which costs two Python calls per write
+    assert calls == []
+    igzip_file.close()
+    assert gzip.decompress(output.getvalue()) == b"a\n" * 100
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        igzip_file.write(b"a\n")
+    assert calls == [1]
+
+
 def test_igzip_reader_readall():
     data = io.BytesIO(COMPRESSED_DATA)
     test = igzip._IGzipReader(data)

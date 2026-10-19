@@ -20,6 +20,9 @@ version 1.8.1-dev
 + Speed up reading lines from binary ``igzip`` files through iteration,
   ``readlines()``, and ``readline()``. On an Apple M4, reading FASTQ data is
   1.13 times faster, and reading lines of a few bytes is 1.5 times faster.
++ Speed up each ``write()`` call to binary ``igzip`` files on CPython. On an
+  AMD Ryzen 7 9800X3D with Python 3.14.8, writing FASTQ data or Python source
+  code one line at a time is 1.1 times faster.
 + Fix zlib streams compressed with a preset dictionary so they can be decoded
   by standard zlib, including builds linked against older ISA-L releases.
 + Fix backward seeking in igzip files by discarding buffered compressed data
