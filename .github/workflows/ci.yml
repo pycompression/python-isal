@@ -159,6 +159,49 @@ jobs:
         env:
           PYTHON_ISAL_LINK_DYNAMIC: True
 
+  # Run the tests on CPython builds with AddressSanitizer and ThreadSanitizer
+  # from https://github.com/nascheme/cpython_sanity.
+  test-sanitizers:
+    runs-on: ubuntu-latest
+    # A crash under ThreadSanitizer can hang instead of exiting.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: address
+            image: ghcr.io/nascheme/cpython-asan:3.14
+          # The free-threaded build runs Python threads in parallel.
+          - sanitizer: thread
+            image: ghcr.io/nascheme/cpython-tsan:3.14t
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build dependencies
+        run: apt-get update && apt-get install -y nasm
+      - name: Install python-isal with ${{ matrix.sanitizer }} sanitizer
+        # setuptools-scm needs git, and the container user does not own the
+        # repository.
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python -m pip install . pytest pytest-timeout
+        env:
+          # The extension modules get -fsanitize from CPython. CFLAGS adds it
+          # to the C code of ISA-L.
+          CFLAGS: -fsanitize=${{ matrix.sanitizer }} -fno-omit-frame-pointer -g
+      - name: Run tests
+        # Do not set PYTHONDEVMODE. Its debug allocator pads each allocation,
+        # so AddressSanitizer misses small overflows. --capture=sys prints
+        # sanitizer reports from C code even when they end the process, and
+        # -v prints the name of the test before its report.
+        run: python -m pytest -v tests --capture=sys
+        env:
+          # Exit at the first data race. A crash after a race can hang.
+          TSAN_OPTIONS: halt_on_error=1
+
   deploy:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
@@ -168,6 +211,7 @@ jobs:
       - test-static
       - test-dynamic
       - test-arch
+      - test-sanitizers
     strategy:
       matrix:
         os:
