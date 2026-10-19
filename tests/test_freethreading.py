@@ -122,6 +122,57 @@ def run_in_threads(function):
         return list(executor.map(run, range(NUM_THREADS)))
 
 
+def test_compressobj_shared_between_threads():
+    compressobj = isal_zlib.compressobj()
+
+    def compress(index):
+        for _ in range(NUM_ITERATIONS):
+            compressobj.compress(HAMLET_SCENE)
+            if index == 0:
+                compressobj.flush(isal_zlib.Z_SYNC_FLUSH)
+
+    # The order of the calls is unknown, so the output cannot be checked.
+    # This test is for ThreadSanitizer.
+    run_in_threads(compress)
+    compressobj.flush()
+
+
+def test_decompressobj_shared_between_threads():
+    decompressobj = isal_zlib.decompressobj()
+    decompressobj.decompress(isal_zlib.compress(HAMLET_SCENE))
+    assert decompressobj.eof
+
+    def decompress(index):
+        # Data after the end of the stream is added to unused_data.
+        for _ in range(NUM_ITERATIONS):
+            assert decompressobj.decompress(bytes([index]) * 10) == b""
+
+    run_in_threads(decompress)
+    unused_data = decompressobj.unused_data
+    blocks = [unused_data[i:i + 10] for i in range(0, len(unused_data), 10)]
+    assert sorted(blocks) == sorted(
+        bytes([index]) * 10
+        for index in range(NUM_THREADS)
+        for _ in range(NUM_ITERATIONS)
+    )
+
+
+def test_igzip_decompressor_shared_between_threads():
+    data = HAMLET_SCENE * 100
+    decompressor = igzip_lib.IgzipDecompressor()
+    first = decompressor.decompress(igzip_lib.compress(data), 100)
+
+    def decompress(index):
+        size = 0
+        while True:
+            try:
+                size += len(decompressor.decompress(b"", 100))
+            except EOFError:
+                return size
+
+    assert len(first) + sum(run_in_threads(decompress)) == len(data)
+
+
 def test_decompressobj_shared_between_threads_detects_format():
     compressed = isal_zlib.compress(HAMLET_SCENE, wbits=31)
     for _ in range(NUM_ITERATIONS):
