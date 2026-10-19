@@ -104,6 +104,21 @@ def test_threaded_write_oversized_block_no_error(threads):
 
 
 @pytest.mark.timeout(5)
+@pytest.mark.parametrize(["threads", "block_size"],
+                         itertools.product([1, 3], [8 * 1024, 1024 * 1024]))
+def test_threaded_write_incompressible_level_0(tmp_path, threads, block_size):
+    # Level 0 codes all data with one precomputed Huffman table and never
+    # falls back to stored blocks, so random bytes grow by more than 20%.
+    data = os.urandom(3 * block_size)
+    test_file = tmp_path / "output.gz"
+    with igzip_threaded.open(test_file, "wb", compresslevel=0,
+                             threads=threads, block_size=block_size) as f:
+        f.write(data)
+    with gzip.open(test_file, "rb") as f:
+        assert f.read() == data
+
+
+@pytest.mark.timeout(5)
 @pytest.mark.parametrize("threads", [1, 3])
 def test_threaded_write_error(threads):
     f = igzip_threaded._ThreadedGzipWriter(

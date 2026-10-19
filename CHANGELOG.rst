@@ -40,6 +40,10 @@ version 1.8.1-dev
 + ``igzip_threaded.open`` raises ``ValueError`` for a ``block_size`` of about
   3.6 GiB or more and ``TypeError`` for a ``compresslevel`` that is not an
   integer. Both raised ``SystemError`` before.
++ Fix ``igzip_threaded`` writers at compression level 0, which raised
+  ``OverflowError`` for data that does not compress, such as random bytes or
+  already compressed files. At compression level 0, ``block_size`` must now be
+  less than about 2 GiB.
 + Extraordinarily large gzip headers with either a very long comment or
   filename will now cause an ``OverflowError`` rather than use more and more
   memory. The size is limited to the internal buffer size which is currently
