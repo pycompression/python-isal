@@ -94,6 +94,14 @@ def test_igzip_reader_wrong_arguments(method, args):
         getattr(test, method)(*args)
 
 
+def test_igzip_reader_readinto_read_only():
+    test = igzip._IGzipReader(io.BytesIO(COMPRESSED_DATA))
+    buffer = bytes(10)
+    with pytest.raises(TypeError):
+        test.readinto(buffer)
+    assert buffer == bytes(10)
+
+
 def test_igzipfile_read_truncated():
     # Chop of trailer (8 bytes) and part of DEFLATE stream
     data = io.BytesIO(COMPRESSED_DATA[:-10])

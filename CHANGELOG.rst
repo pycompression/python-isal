@@ -82,6 +82,9 @@ version 1.8.1-dev
   ``isal_zlib.Compress()``, and then use it. Calling the type raises
   ``TypeError`` now, as it does on CPython. Use ``compressobj()`` and
   ``decompressobj()`` instead.
++ Fix ``readinto()`` of the private ``isal_zlib._GzipReader`` class, which
+  wrote into read-only objects such as ``bytes``. It raises ``TypeError`` now.
+  ``igzip.IGzipFile`` was not affected.
 
 version 1.8.0
 -----------------
