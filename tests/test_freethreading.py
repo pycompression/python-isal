@@ -171,3 +171,75 @@ def test_igzip_decompressor_shared_between_threads():
                 return size
 
     assert len(first) + sum(run_in_threads(decompress)) == len(data)
+
+
+def test_decompressobj_shared_between_threads_detects_format():
+    compressed = isal_zlib.compress(HAMLET_SCENE, wbits=31)
+    for _ in range(NUM_ITERATIONS):
+        # wbits=47 detects gzip or zlib in the first decompress() call.
+        decompressobj = isal_zlib.decompressobj(wbits=47)
+        results = run_in_threads(
+            lambda index: decompressobj.decompress(compressed))
+        assert sorted(results) == [b""] * (NUM_THREADS - 1) + [HAMLET_SCENE]
+        assert decompressobj.unused_data == compressed * (NUM_THREADS - 1)
+
+
+def test_decompressobj_attributes_while_decompressing():
+    data = HAMLET_SCENE * 100
+    compressed = isal_zlib.compress(data) + b"unused"
+    decompressobj = isal_zlib.decompressobj()
+    done = threading.Event()
+
+    def decompress():
+        output = []
+        unconsumed = compressed
+        while not decompressobj.eof:
+            output.append(decompressobj.decompress(unconsumed, 100))
+            unconsumed = decompressobj.unconsumed_tail
+        # Each call replaces unused_data with a longer bytes object.
+        for _ in range(NUM_ITERATIONS):
+            decompressobj.decompress(b"!")
+        return b"".join(output)
+
+    def run(index):
+        if index == 0:
+            try:
+                return decompress()
+            finally:
+                done.set()
+        while not done.is_set():
+            decompressobj.eof
+            decompressobj.unused_data
+            decompressobj.unconsumed_tail
+
+    assert run_in_threads(run)[0] == data
+    assert decompressobj.unused_data == b"unused" + b"!" * NUM_ITERATIONS
+
+
+def test_igzip_decompressor_attributes_while_decompressing():
+    data = HAMLET_SCENE * 100
+    compressed = igzip_lib.compress(data, flag=igzip_lib.COMP_GZIP)
+    decompressor = igzip_lib.IgzipDecompressor(flag=igzip_lib.DECOMP_GZIP)
+    done = threading.Event()
+
+    def decompress():
+        output = [decompressor.decompress(compressed + b"unused", 100)]
+        while not decompressor.eof:
+            output.append(decompressor.decompress(b"", 100))
+        return b"".join(output)
+
+    def run(index):
+        if index == 0:
+            try:
+                return decompress()
+            finally:
+                done.set()
+        while not done.is_set():
+            decompressor.eof
+            decompressor.unused_data
+            decompressor.needs_input
+            decompressor.crc
+
+    assert run_in_threads(run)[0] == data
+    assert decompressor.unused_data == b"unused"
+    assert decompressor.crc == isal_zlib.crc32(data)
