@@ -130,6 +130,13 @@ def test_compressobj_level_0_flush_after_finish():
     assert zlib.decompress(compressed) == b"data"
 
 
+@pytest.mark.parametrize("factory",
+                         [isal_zlib.compressobj, isal_zlib.decompressobj])
+def test_compress_and_decompress_types_cannot_be_called(factory):
+    with pytest.raises(TypeError):
+        type(factory())()
+
+
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
                          itertools.product([128 * 1024], range(4),
                                            WBITS_RANGE, range(1, 10)))

@@ -60,6 +60,14 @@ Changes compared to CPython:
 #define MEMORYVIEW_READINTO_FLAGS PyBUF_WRITE
 #endif
 
+/* Only compressobj() and decompressobj() create Compress and Decompress
+   objects. CPython does not let you call a static type without tp_new, but
+   PyPy does, and the uninitialized object crashes when you use it. This flag
+   makes PyPy raise TypeError too. Python 3.9 does not have the flag. */
+#ifndef Py_TPFLAGS_DISALLOW_INSTANTIATION
+#define Py_TPFLAGS_DISALLOW_INSTANTIATION 0
+#endif
+
 static PyTypeObject IsalZlibCompType;
 static PyTypeObject IsalZlibDecompType;
 
@@ -1502,7 +1510,7 @@ static PyTypeObject IsalZlibCompType = {
     .tp_name = "isal_zlib.Compress", 
     .tp_doc = "Object returned by isal_zlib.compressobj",
     .tp_basicsize = sizeof(compobject),
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Comp_dealloc,
     .tp_methods = comp_methods,
 };
@@ -1559,7 +1567,7 @@ static PyTypeObject IsalZlibDecompType = {
     .tp_name = "isal_zlib.Decompress",
     .tp_doc = "Object returned by isal_zlib.compressobj.",
     .tp_basicsize = sizeof(decompobject),
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Decomp_dealloc,
     .tp_methods = Decomp_methods,
     .tp_getset = Decomp_properties,
