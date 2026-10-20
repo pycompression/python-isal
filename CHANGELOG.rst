@@ -40,6 +40,10 @@ version 1.8.1-dev
   input buffer when ``max_length`` split the end of a stream. At the end of a
   stream, ``isal_zlib.Decompress.unconsumed_tail`` is empty, matching the
   CPython fix for gh-158169.
++ Fix ``isal_zlib.decompressobj`` with a ``wbits`` of 40 to 47, which detects
+  zlib or gzip data. It failed on gzip data when the first ``decompress()``
+  call got fewer than 2 bytes, for example, when the data arrived byte by
+  byte.
 + ``igzip_threaded.open`` raises ``ValueError`` for a ``block_size`` of about
   3.6 GiB or more and ``TypeError`` for a ``compresslevel`` that is not an
   integer. Both raised ``SystemError`` before.

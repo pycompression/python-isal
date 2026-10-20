@@ -141,10 +141,13 @@ static inline int zlib_mem_level_to_isal(int mem_level) {
     return ZLIB_MEM_LEVEL_TO_ISAL[mem_level];
 }
 
+/* A gzip stream starts with 31, 139. A zlib stream cannot start with 31,
+   because the low 4 bits of its first byte are the compression method 8.
+   So the first byte is enough, even when the data arrives byte by byte. */
 static inline int
 data_is_gzip(Py_buffer *data){
     uint8_t *buf = (uint8_t *)data->buf;
-    return (data->len > 1) && (buf[0] == 31) && (buf[1] == 139);
+    return (data->len > 0) && (buf[0] == 31);
 }
 
 
@@ -991,6 +994,11 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
     ENTER_ZLIB(self);
 
     if (!self->method_set) {
+        if (data->len == 0) {
+            /* Detect the format when the first byte arrives. */
+            LEAVE_ZLIB(self);
+            return PyBytes_FromStringAndSize(NULL, 0);
+        }
         if (data_is_gzip(data)){
             self->zst.crc_flag = ISAL_GZIP;
         }
