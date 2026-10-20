@@ -57,6 +57,13 @@ def test_crc32_combine_wrong_arguments(args):
         isal_zlib.crc32_combine(*args)
 
 
+@pytest.mark.parametrize("factory",
+                         [isal_zlib.compressobj, isal_zlib.decompressobj])
+def test_compress_and_decompress_types_cannot_be_called(factory):
+    with pytest.raises(TypeError):
+        type(factory())()
+
+
 @pytest.mark.parametrize(["data_size", "level"],
                          itertools.product(DATA_SIZES, range(4)))
 def test_compress(data_size, level):
