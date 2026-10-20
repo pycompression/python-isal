@@ -11,7 +11,9 @@
 
 import gzip
 import itertools
+import random
 import threading
+import warnings
 import zlib
 from pathlib import Path
 
@@ -121,6 +123,68 @@ def test_compressobj_level_0_flush_after_finish():
     compressed = compressor.compress(b"data") + compressor.flush()
     assert compressor.flush() == b""
     assert zlib.decompress(compressed) == b"data"
+
+
+@pytest.mark.parametrize("flush_mode", [isal_zlib.Z_SYNC_FLUSH,
+                                        isal_zlib.Z_FULL_FLUSH])
+@pytest.mark.parametrize(["strategy", "btype"],
+                         [(isal_zlib.Z_DEFAULT_STRATEGY, 2),
+                          (isal_zlib.Z_FIXED, 1)])
+def test_compressobj_level_0_block_type(strategy, btype, flush_mode):
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        compressor = isal_zlib.compressobj(0, wbits=-15, strategy=strategy)
+    decompressor = zlib.decompressobj(wbits=-15)
+    for i in range(0, 64 * 1024, 4096):
+        data = DATA[i:i + 4096]
+        compressed = compressor.compress(data) + compressor.flush(flush_mode)
+        # Sync and full flushes end on a byte boundary, so each output starts
+        # with a new block header. Bits 1 and 2 of the first byte hold BTYPE:
+        # 1 for fixed Huffman codes, 2 for dynamic Huffman codes.
+        assert compressed[0] >> 1 & 3 == btype
+        assert decompressor.decompress(compressed) == data
+
+
+# Gzip has no preset dictionary, so zdict is only tested with zlib and raw.
+@pytest.mark.parametrize(["wbits", "use_zdict"],
+                         [(wbits, False) for wbits in WBITS_RANGE] +
+                         [(wbits, True) for wbits in WBITS_RANGE
+                          if not 25 <= wbits <= 31])
+def test_compressobj_level_0_z_fixed_round_trip(wbits, use_zdict):
+    kwargs = {"zdict": DATA[:1024]} if use_zdict else {}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        compressor = isal_zlib.compressobj(
+            0, wbits=wbits, strategy=isal_zlib.Z_FIXED, **kwargs)
+    # Random bytes use all literal codes, including the 9-bit ones.
+    data = DATA[:64 * 1024] + random.Random(0).randbytes(64 * 1024)
+    flush_modes = itertools.cycle([isal_zlib.Z_SYNC_FLUSH,
+                                   isal_zlib.Z_FULL_FLUSH,
+                                   isal_zlib.Z_NO_FLUSH])
+    compressed = b""
+    for i, mode in zip(range(0, len(data), 1000), flush_modes):
+        compressed += (compressor.compress(data[i:i + 1000]) +
+                       compressor.flush(mode))
+    compressed += compressor.flush()
+    decompressor = zlib.decompressobj(wbits=wbits, **kwargs)
+    assert decompressor.decompress(compressed) == data
+    assert decompressor.eof
+
+
+@pytest.mark.parametrize(["level", "strategy"],
+                         list(itertools.product(range(4),
+                                                [isal_zlib.Z_FILTERED,
+                                                 isal_zlib.Z_HUFFMAN_ONLY,
+                                                 isal_zlib.Z_RLE])) +
+                         [(level, isal_zlib.Z_FIXED) for level in range(1, 4)])
+def test_compressobj_unsupported_strategy(level, strategy):
+    data = DATA[:64 * 1024]
+    with pytest.warns(UserWarning, match="Using the default strategy"):
+        compressor = isal_zlib.compressobj(level, strategy=strategy)
+    default_compressor = isal_zlib.compressobj(level)
+    compressed = compressor.compress(data) + compressor.flush()
+    assert compressed == (default_compressor.compress(data) +
+                          default_compressor.flush())
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
