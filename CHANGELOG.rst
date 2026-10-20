@@ -89,6 +89,13 @@ version 1.8.1-dev
   ``isal_zlib.Compress()``, and then use it. Calling the type raises
   ``TypeError`` now, as it does on CPython. Use ``compressobj()`` and
   ``decompressobj()`` instead.
++ Fix error handling when more than one interpreter imports
+  ``isal.isal_zlib`` or ``isal.igzip_lib``, for example, the main interpreter
+  and a legacy subinterpreter that ``Py_NewInterpreter()`` creates. Each
+  import replaced the error classes that the C code raises, so
+  ``except isal_zlib.error``, ``except igzip_lib.error``, and
+  ``except gzip.BadGzipFile`` caught errors only in the interpreter that
+  imported the modules last.
 
 version 1.8.0
 -----------------
