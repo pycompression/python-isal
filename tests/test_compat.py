@@ -50,6 +50,13 @@ def test_adler32(data_size, value):
     assert zlib.adler32(data, value) == isal_zlib.adler32(data, value)
 
 
+@pytest.mark.parametrize("args", [("a", 1, 2), (1, "a", 2), (1, 2, "a"),
+                                  (1, 2)])
+def test_crc32_combine_wrong_arguments(args):
+    with pytest.raises(TypeError):
+        isal_zlib.crc32_combine(*args)
+
+
 @pytest.mark.parametrize(["data_size", "level"],
                          itertools.product(DATA_SIZES, range(4)))
 def test_compress(data_size, level):

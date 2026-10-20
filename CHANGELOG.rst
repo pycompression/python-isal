@@ -73,6 +73,10 @@ version 1.8.1-dev
   ``isal_zlib`` decompressors and ``igzip_lib.IgzipDecompressor`` from other
   threads is now safe, and so is calling ``decompress()`` from several
   threads at the same time when ``wbits`` detects the format.
++ ``isal_zlib.crc32_combine`` and the ``read()`` and ``seek()`` methods of the
+  private ``isal_zlib._GzipReader`` class raise ``TypeError`` instead of
+  ``SystemError`` for arguments of the wrong type or number.
+  ``igzip.IGzipFile`` was not affected.
 
 version 1.8.0
 -----------------

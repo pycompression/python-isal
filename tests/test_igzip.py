@@ -82,6 +82,18 @@ def test_igzip_reader_read_zero():
     assert test.read(0) == b""
 
 
+@pytest.mark.parametrize(["method", "args"], [
+    ("read", ("x",)),
+    ("read", (1, 2)),
+    ("seek", ("x",)),
+    ("seek", (0, "x")),
+])
+def test_igzip_reader_wrong_arguments(method, args):
+    test = igzip._IGzipReader(io.BytesIO(COMPRESSED_DATA))
+    with pytest.raises(TypeError):
+        getattr(test, method)(*args)
+
+
 def test_igzipfile_read_truncated():
     # Chop of trailer (8 bytes) and part of DEFLATE stream
     data = io.BytesIO(COMPRESSED_DATA[:-10])
