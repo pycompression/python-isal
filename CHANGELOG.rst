@@ -81,6 +81,9 @@ version 1.8.1-dev
   zlib or gzip data. It failed on gzip data when the first ``decompress()``
   call got fewer than 2 bytes, for example, when the data arrived byte by
   byte.
++ Fix ``isal_zlib.decompressobj`` with a ``wbits`` of 40 to 47 after a
+  ``flush()`` call that came before any data. It then failed on both zlib and
+  gzip data.
 
 version 1.8.0
 -----------------

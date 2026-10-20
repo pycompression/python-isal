@@ -218,6 +218,18 @@ def test_decompressobj_detects_format_after_empty_input(wbits):
         assert decompressor.unused_data == b"unused"
 
 
+@pytest.mark.parametrize("wbits", [15, 31])
+def test_decompressobj_detects_format_after_flush(wbits):
+    data = DATA[:1000]
+    compressor = zlib.compressobj(wbits=wbits)
+    compressed = compressor.compress(data) + compressor.flush()
+    for module in (zlib, isal_zlib):
+        decompressor = module.decompressobj(wbits=47)
+        assert decompressor.flush() == b""
+        assert decompressor.decompress(compressed) == data
+        assert decompressor.eof
+
+
 @pytest.mark.parametrize("data", [b"", b"\x1f", b"\x78"])
 def test_decompress_detect_format_incomplete(data):
     with pytest.raises(zlib.error):

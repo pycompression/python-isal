@@ -1170,6 +1170,14 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 
     ENTER_ZLIB(self);
 
+    if (!self->method_set) {
+        /* No data yet, so the format is unknown. isal_inflate would start a
+           raw deflate block, and then decode the zlib or gzip header that
+           comes next as deflate data. */
+        LEAVE_ZLIB(self);
+        return PyBytes_FromStringAndSize(NULL, 0);
+    }
+
     if (PyObject_GetBuffer(self->unconsumed_tail, &data, PyBUF_SIMPLE) == -1) {
         LEAVE_ZLIB(self);
         return NULL;
