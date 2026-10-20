@@ -96,6 +96,9 @@ version 1.8.1-dev
   ``except isal_zlib.error``, ``except igzip_lib.error``, and
   ``except gzip.BadGzipFile`` caught errors only in the interpreter that
   imported the modules last.
++ Fix ``readinto()`` of the private ``isal_zlib._GzipReader`` class, which
+  wrote into read-only objects such as ``bytes``. It raises ``TypeError`` now.
+  ``igzip.IGzipFile`` was not affected.
 
 version 1.8.0
 -----------------
