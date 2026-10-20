@@ -204,7 +204,10 @@ class IGzipFile(gzip.GzipFile):
             super()._write_gzip_header()
 
     def write(self, data):
-        self._check_not_closed()
+        # GzipFile.closed tests whether fileobj is None, so testing fileobj
+        # here skips two Python calls for each write.
+        if self.fileobj is None:
+            self._check_not_closed()
         if self.mode != WRITE:
             import errno
             raise OSError(errno.EBADF, "write() on read-only IGzipFile object")
