@@ -240,7 +240,15 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.previous_block = b""
         # Deflating random data results in an output a little larger than the
         # input. Making the output buffer 10% larger is sufficient overkill.
-        compress_buffer_size = block_size + max(block_size // 10, 500)
+        # Level 0 is the exception: it codes all data with one precomputed
+        # Huffman table and never falls back to stored blocks, so random data
+        # grows by more than 20%. Deflate uses at most 15 bits per input byte,
+        # so twice the block size plus 500 bytes for the block header, the
+        # end-of-block code, and the sync flush marker always fits.
+        if level == 0:
+            compress_buffer_size = 2 * block_size + 500
+        else:
+            compress_buffer_size = block_size + max(block_size // 10, 500)
         self.block_size = block_size
         self.compressors: List[isal_zlib._ParallelCompress] = [
             isal_zlib._ParallelCompress(buffersize=compress_buffer_size,
