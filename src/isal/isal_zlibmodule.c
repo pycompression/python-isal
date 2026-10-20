@@ -280,7 +280,7 @@ isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
     uint32_t crc2 = 0;
     Py_ssize_t crc2_length = 0;
     static char *format = "IIn:crc32combine";
-    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
+    if (!PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length)) {
         return NULL;
     }
     return PyLong_FromUnsignedLong(
@@ -1974,7 +1974,7 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
     Py_ssize_t whence = SEEK_SET;
     static char *keywords[] = {"offset", "whence", NULL};
     static char format[] = {"n|n:GzipReader.seek"};
-    if (PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence) < 0) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence)) {
         return NULL;
     }
     // Recalculate offset as an absolute file position.
@@ -2133,7 +2133,7 @@ static PyObject *
 GzipReader_read(GzipReader *self, PyObject *args) 
 {
     Py_ssize_t size = -1;
-    if (PyArg_ParseTuple(args, "|n:GzipReader.read", &size) < 0) {
+    if (!PyArg_ParseTuple(args, "|n:GzipReader.read", &size)) {
         return NULL;
     }
     if (size < 0) {
