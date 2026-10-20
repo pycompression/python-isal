@@ -77,6 +77,10 @@ version 1.8.1-dev
   private ``isal_zlib._GzipReader`` class raise ``TypeError`` instead of
   ``SystemError`` for arguments of the wrong type or number.
   ``igzip.IGzipFile`` was not affected.
++ Fix ``isal_zlib.decompressobj`` with a ``wbits`` of 40 to 47, which detects
+  zlib or gzip data. It failed on gzip data when the first ``decompress()``
+  call got fewer than 2 bytes, for example, when the data arrived byte by
+  byte.
 
 version 1.8.0
 -----------------
