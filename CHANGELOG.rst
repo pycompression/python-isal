@@ -10,6 +10,14 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ ``isal_zlib.compressobj`` supports ``strategy=Z_FIXED`` at compression
+  level 0. Level 0 then uses fixed Huffman codes instead of starting each
+  block with a Huffman table of about 110 bytes. This shrinks small flushed
+  writes, such as websocket messages: JSON messages of about 440 bytes, each
+  followed by ``flush(Z_SYNC_FLUSH)``, compress to an average of 75 instead
+  of 188 bytes. Blocks of a few KiB or more can be larger: about 5% for JSON
+  and 10% for Python source code at 64 KiB. Other strategies, and ``Z_FIXED``
+  at levels 1 to 3, still give a warning and use the default strategy.
 + Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by
   importing ``argparse`` and ``shutil`` only when the command line interface
   runs, and by dropping the ``multiprocessing`` import.

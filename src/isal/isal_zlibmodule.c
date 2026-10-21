@@ -715,11 +715,11 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
                       method);
          goto error; 
     }
-    if (strategy != Z_DEFAULT_STRATEGY){
+    if (strategy != Z_DEFAULT_STRATEGY && !(strategy == Z_FIXED && level == 0)){
         err = PyErr_WarnEx(
             PyExc_UserWarning, 
-            "Only one strategy is supported when using isal_zlib. Using the "
-            "default strategy.",
+            "isal_zlib supports only Z_DEFAULT_STRATEGY, and Z_FIXED at "
+            "compression level 0. Using the default strategy.",
             1);
         if (err == -1)
             // Warning was turned into an exception.
@@ -762,6 +762,17 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     self->zst.level = level;
     self->zst.hist_bits = (uint16_t)hist_bits;
     self->zst.gzip_flag = (uint16_t)flag;
+    if (strategy == Z_FIXED && level == 0) {
+        /* Level 0 encodes every block with the stream's Huffman table, so the
+           static table gives fixed Huffman blocks only. Levels 1 to 3 choose
+           the codes for each block themselves and ignore this setting. */
+        err = isal_deflate_set_hufftables(&(self->zst), NULL,
+                                          IGZIP_HUFFTABLE_STATIC);
+        if (err != COMP_OK) {
+            isal_deflate_error(err);
+            goto error;
+        }
+    }
 
     self->is_initialised = 1;
     if (zdict->buf == NULL) {
@@ -1247,8 +1258,10 @@ PyDoc_STRVAR(isal_zlib_compressobj__doc__,
 "    Valid values range from 1 to 9.  Higher values result in higher memory\n"
 "    usage, faster compression, and smaller output.\n"
 "  strategy\n"
-"    Used to tune the compression algorithm. Not supported by ISA-L.\n"
-"    Only a default strategy is used.\n"
+"    Used to tune the compression algorithm. At level 0, Z_FIXED uses fixed\n"
+"    Huffman codes, which gives smaller output when small amounts of data are\n"
+"    flushed. Other strategies, and Z_FIXED at levels 1 to 3, give a warning\n"
+"    and use the default strategy.\n"
 "  zdict\n"
 "    The predefined compression dictionary - a sequence of bytes\n"
 "    containing subsequences that are likely to occur in the input data.");
