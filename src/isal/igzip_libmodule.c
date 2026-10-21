@@ -471,6 +471,9 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
         return NULL;
     }
     IgzipDecompressor *self = PyObject_New(IgzipDecompressor, type); 
+    if (self == NULL) {
+        return NULL;
+    }
     self->eof = 0;
     self->needs_input = 1;
     self->saved_bitbuffer_size = 0;

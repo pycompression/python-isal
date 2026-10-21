@@ -60,6 +60,14 @@ Changes compared to CPython:
 #define MEMORYVIEW_READINTO_FLAGS PyBUF_WRITE
 #endif
 
+/* Only compressobj() and decompressobj() create Compress and Decompress
+   objects. CPython does not let you call a static type without tp_new, but
+   PyPy does, and the uninitialized object crashes when you use it. This flag
+   makes PyPy raise TypeError too. Python 3.9 does not have the flag. */
+#ifndef Py_TPFLAGS_DISALLOW_INSTANTIATION
+#define Py_TPFLAGS_DISALLOW_INSTANTIATION 0
+#endif
+
 static PyTypeObject IsalZlibCompType;
 static PyTypeObject IsalZlibDecompType;
 
@@ -141,10 +149,13 @@ static inline int zlib_mem_level_to_isal(int mem_level) {
     return ZLIB_MEM_LEVEL_TO_ISAL[mem_level];
 }
 
+/* A gzip stream starts with 31, 139. A zlib stream cannot start with 31,
+   because the low 4 bits of its first byte are the compression method 8.
+   So the first byte is enough, even when the data arrives byte by byte. */
 static inline int
 data_is_gzip(Py_buffer *data){
     uint8_t *buf = (uint8_t *)data->buf;
-    return (data->len > 1) && (buf[0] == 31) && (buf[1] == 139);
+    return (data->len > 0) && (buf[0] == 31);
 }
 
 
@@ -280,7 +291,7 @@ isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
     uint32_t crc2 = 0;
     Py_ssize_t crc2_length = 0;
     static char *format = "IIn:crc32combine";
-    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
+    if (!PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length)) {
         return NULL;
     }
     return PyLong_FromUnsignedLong(
@@ -707,11 +718,11 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
                       method);
          goto error; 
     }
-    if (strategy != Z_DEFAULT_STRATEGY){
+    if (strategy != Z_DEFAULT_STRATEGY && !(strategy == Z_FIXED && level == 0)){
         err = PyErr_WarnEx(
             PyExc_UserWarning, 
-            "Only one strategy is supported when using isal_zlib. Using the "
-            "default strategy.",
+            "isal_zlib supports only Z_DEFAULT_STRATEGY, and Z_FIXED at "
+            "compression level 0. Using the default strategy.",
             1);
         if (err == -1)
             // Warning was turned into an exception.
@@ -754,6 +765,17 @@ isal_zlib_compressobj_impl(PyObject *module, int level, int method, int wbits,
     self->zst.level = level;
     self->zst.hist_bits = (uint16_t)hist_bits;
     self->zst.gzip_flag = (uint16_t)flag;
+    if (strategy == Z_FIXED && level == 0) {
+        /* Level 0 encodes every block with the stream's Huffman table, so the
+           static table gives fixed Huffman blocks only. Levels 1 to 3 choose
+           the codes for each block themselves and ignore this setting. */
+        err = isal_deflate_set_hufftables(&(self->zst), NULL,
+                                          IGZIP_HUFFTABLE_STATIC);
+        if (err != COMP_OK) {
+            isal_deflate_error(err);
+            goto error;
+        }
+    }
 
     self->is_initialised = 1;
     if (zdict->buf == NULL) {
@@ -991,6 +1013,11 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
     ENTER_ZLIB(self);
 
     if (!self->method_set) {
+        if (data->len == 0) {
+            /* Detect the format when the first byte arrives. */
+            LEAVE_ZLIB(self);
+            return PyBytes_FromStringAndSize(NULL, 0);
+        }
         if (data_is_gzip(data)){
             self->zst.crc_flag = ISAL_GZIP;
         }
@@ -1162,6 +1189,14 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 
     ENTER_ZLIB(self);
 
+    if (!self->method_set) {
+        /* No data yet, so the format is unknown. isal_inflate would start a
+           raw deflate block, and then decode the zlib or gzip header that
+           comes next as deflate data. */
+        LEAVE_ZLIB(self);
+        return PyBytes_FromStringAndSize(NULL, 0);
+    }
+
     if (PyObject_GetBuffer(self->unconsumed_tail, &data, PyBUF_SIMPLE) == -1) {
         LEAVE_ZLIB(self);
         return NULL;
@@ -1239,8 +1274,10 @@ PyDoc_STRVAR(isal_zlib_compressobj__doc__,
 "    Valid values range from 1 to 9.  Higher values result in higher memory\n"
 "    usage, faster compression, and smaller output.\n"
 "  strategy\n"
-"    Used to tune the compression algorithm. Not supported by ISA-L.\n"
-"    Only a default strategy is used.\n"
+"    Used to tune the compression algorithm. At level 0, Z_FIXED uses fixed\n"
+"    Huffman codes, which gives smaller output when small amounts of data are\n"
+"    flushed. Other strategies, and Z_FIXED at levels 1 to 3, give a warning\n"
+"    and use the default strategy.\n"
 "  zdict\n"
 "    The predefined compression dictionary - a sequence of bytes\n"
 "    containing subsequences that are likely to occur in the input data.");
@@ -1486,7 +1523,7 @@ static PyTypeObject IsalZlibCompType = {
     .tp_name = "isal_zlib.Compress", 
     .tp_doc = "Object returned by isal_zlib.compressobj",
     .tp_basicsize = sizeof(compobject),
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Comp_dealloc,
     .tp_methods = comp_methods,
 };
@@ -1543,7 +1580,7 @@ static PyTypeObject IsalZlibDecompType = {
     .tp_name = "isal_zlib.Decompress",
     .tp_doc = "Object returned by isal_zlib.compressobj.",
     .tp_basicsize = sizeof(decompobject),
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Decomp_dealloc,
     .tp_methods = Decomp_methods,
     .tp_getset = Decomp_properties,
@@ -1971,7 +2008,11 @@ static PyObject *
 GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
 {
     Py_buffer view;
-    if (PyObject_GetBuffer(buffer_obj, &view, PyBUF_SIMPLE) < 0) {
+    if (PyObject_GetBuffer(buffer_obj, &view, PyBUF_WRITABLE) < 0) {
+        /* Raise TypeError, like the readinto() methods of io. */
+        PyErr_Format(PyExc_TypeError,
+                     "readinto() argument must be read-write bytes-like "
+                     "object, not %.200s", Py_TYPE(buffer_obj)->tp_name);
         return NULL;
     }
     uint8_t *buffer = view.buf;
@@ -1993,7 +2034,7 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
     Py_ssize_t whence = SEEK_SET;
     static char *keywords[] = {"offset", "whence", NULL};
     static char format[] = {"n|n:GzipReader.seek"};
-    if (PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence) < 0) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence)) {
         return NULL;
     }
     // Recalculate offset as an absolute file position.
@@ -2152,7 +2193,7 @@ static PyObject *
 GzipReader_read(GzipReader *self, PyObject *args) 
 {
     Py_ssize_t size = -1;
-    if (PyArg_ParseTuple(args, "|n:GzipReader.read", &size) < 0) {
+    if (!PyArg_ParseTuple(args, "|n:GzipReader.read", &size)) {
         return NULL;
     }
     if (size < 0) {
