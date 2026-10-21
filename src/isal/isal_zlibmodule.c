@@ -60,6 +60,14 @@ Changes compared to CPython:
 #define MEMORYVIEW_READINTO_FLAGS PyBUF_WRITE
 #endif
 
+/* Only compressobj() and decompressobj() create Compress and Decompress
+   objects. CPython does not let you call a static type without tp_new, but
+   PyPy does, and the uninitialized object crashes when you use it. This flag
+   makes PyPy raise TypeError too. Python 3.9 does not have the flag. */
+#ifndef Py_TPFLAGS_DISALLOW_INSTANTIATION
+#define Py_TPFLAGS_DISALLOW_INSTANTIATION 0
+#endif
+
 static PyTypeObject IsalZlibCompType;
 static PyTypeObject IsalZlibDecompType;
 
@@ -280,7 +288,7 @@ isal_zlib_crc32_combine(PyObject *module, PyObject *args) {
     uint32_t crc2 = 0;
     Py_ssize_t crc2_length = 0;
     static char *format = "IIn:crc32combine";
-    if (PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length) < 0) {
+    if (!PyArg_ParseTuple(args, format, &crc1, &crc2, &crc2_length)) {
         return NULL;
     }
     return PyLong_FromUnsignedLong(
@@ -1499,7 +1507,7 @@ static PyTypeObject IsalZlibCompType = {
     .tp_name = "isal_zlib.Compress", 
     .tp_doc = "Object returned by isal_zlib.compressobj",
     .tp_basicsize = sizeof(compobject),
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Comp_dealloc,
     .tp_methods = comp_methods,
 };
@@ -1556,7 +1564,7 @@ static PyTypeObject IsalZlibDecompType = {
     .tp_name = "isal_zlib.Decompress",
     .tp_doc = "Object returned by isal_zlib.compressobj.",
     .tp_basicsize = sizeof(decompobject),
-    .tp_flags = Py_TPFLAGS_DEFAULT,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Decomp_dealloc,
     .tp_methods = Decomp_methods,
     .tp_getset = Decomp_properties,
@@ -1965,7 +1973,11 @@ static PyObject *
 GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
 {
     Py_buffer view;
-    if (PyObject_GetBuffer(buffer_obj, &view, PyBUF_SIMPLE) < 0) {
+    if (PyObject_GetBuffer(buffer_obj, &view, PyBUF_WRITABLE) < 0) {
+        /* Raise TypeError, like the readinto() methods of io. */
+        PyErr_Format(PyExc_TypeError,
+                     "readinto() argument must be read-write bytes-like "
+                     "object, not %.200s", Py_TYPE(buffer_obj)->tp_name);
         return NULL;
     }
     uint8_t *buffer = view.buf;
@@ -1987,7 +1999,7 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
     Py_ssize_t whence = SEEK_SET;
     static char *keywords[] = {"offset", "whence", NULL};
     static char format[] = {"n|n:GzipReader.seek"};
-    if (PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence) < 0) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence)) {
         return NULL;
     }
     // Recalculate offset as an absolute file position.
@@ -2146,7 +2158,7 @@ static PyObject *
 GzipReader_read(GzipReader *self, PyObject *args) 
 {
     Py_ssize_t size = -1;
-    if (PyArg_ParseTuple(args, "|n:GzipReader.read", &size) < 0) {
+    if (!PyArg_ParseTuple(args, "|n:GzipReader.read", &size)) {
         return NULL;
     }
     if (size < 0) {

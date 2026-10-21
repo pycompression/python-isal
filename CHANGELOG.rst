@@ -81,6 +81,20 @@ version 1.8.1-dev
   ``isal_zlib`` decompressors and ``igzip_lib.IgzipDecompressor`` from other
   threads is now safe, and so is calling ``decompress()`` from several
   threads at the same time when ``wbits`` detects the format.
++ ``isal_zlib.crc32_combine`` and the ``read()`` and ``seek()`` methods of the
+  private ``isal_zlib._GzipReader`` class raise ``TypeError`` instead of
+  ``SystemError`` for arguments of the wrong type or number.
+  ``igzip.IGzipFile`` was not affected.
++ Fix a crash on PyPy when you create an ``isal_zlib.Compress`` or
+  ``isal_zlib.Decompress`` object by calling the type, for example,
+  ``isal_zlib.Compress()``, and then use it. Calling the type raises
+  ``TypeError`` now, as it does on CPython. Use ``compressobj()`` and
+  ``decompressobj()`` instead.
++ Fix ``readinto()`` of the private ``isal_zlib._GzipReader`` class, which
+  wrote into read-only objects such as ``bytes``. It raises ``TypeError`` now.
+  ``igzip.IGzipFile`` was not affected.
++ Fix a crash when there is not enough memory to create an
+  ``igzip_lib.IgzipDecompressor``. It raises ``MemoryError`` now.
 
 version 1.8.0
 -----------------

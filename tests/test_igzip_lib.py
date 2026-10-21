@@ -12,7 +12,9 @@ import gzip
 import itertools
 import os
 import pickle
+import subprocess
 import sys
+import textwrap
 import zlib
 from typing import NamedTuple
 
@@ -291,6 +293,26 @@ def test_igzip_decompressor_keeps_zdict_reference():
     assert sys.getrefcount(zdict) == refcount + 1
     del decompressor
     assert sys.getrefcount(zdict) == refcount
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython",
+                    reason="Needs _testcapi.set_nomemory")
+def test_igzip_decompressor_no_memory():
+    pytest.importorskip("_testcapi")
+    # Fail the first memory allocation, which is the object itself. A
+    # subprocess keeps the failing allocation away from the test runner.
+    code = textwrap.dedent("""
+        import _testcapi
+        from isal.igzip_lib import IgzipDecompressor
+        _testcapi.set_nomemory(0, 1)
+        try:
+            IgzipDecompressor()
+        except MemoryError:
+            pass
+        finally:
+            _testcapi.remove_mem_hooks()
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 @pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
