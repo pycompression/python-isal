@@ -665,7 +665,10 @@ static struct PyModuleDef igzip_lib_module = {
     PyModuleDef_HEAD_INIT,
     "igzip_lib",   /* name of module */
     igizp_lib_module_documentation, /* module documentation, may be NULL */
-    0,
+    /* -1 because IsalError is a C global. A subinterpreter then gets a copy
+       of this module instead of running PyInit_igzip_lib again, which would
+       replace IsalError with a new class. */
+    -1,
     IgzipLibMethods
 };
 

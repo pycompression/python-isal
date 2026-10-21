@@ -1769,7 +1769,28 @@ GzipReader_read_from_file(GzipReader *self)
 #define FNAME 8
 #define FCOMMENT 16
 
-static PyObject *BadGzipFile; // Import BadGzipFile error for consistency
+/* Raise gzip.BadGzipFile. Look up the class every time, because each
+   interpreter has its own gzip module, but all interpreters share the C
+   globals of this module. */
+static void
+raise_bad_gzip_file(const char *format, ...)
+{
+    PyObject *gzip_module = PyImport_ImportModule("gzip");
+    if (gzip_module == NULL) {
+        return;
+    }
+    PyObject *bad_gzip_file = PyObject_GetAttrString(gzip_module,
+                                                     "BadGzipFile");
+    Py_DECREF(gzip_module);
+    if (bad_gzip_file == NULL) {
+        return;
+    }
+    va_list vargs;
+    va_start(vargs, format);
+    PyErr_FormatV(bad_gzip_file, format, vargs);
+    va_end(vargs);
+    Py_DECREF(bad_gzip_file);
+}
 
 static inline uint32_t load_u32_le(void *address) {    
     #if PY_BIG_ENDIAN
@@ -1824,7 +1845,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     if (!(magic1 == 0x1f && magic2 == 0x8b)) {
                         Py_BLOCK_THREADS;
                         PyObject *magic_obj = PyBytes_FromStringAndSize((char *)current_pos, 2);
-                        PyErr_Format(BadGzipFile,
+                        raise_bad_gzip_file(
                             "Not a gzipped file (%R)", 
                             magic_obj);
                         Py_DECREF(magic_obj);
@@ -1833,7 +1854,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     uint8_t method = current_pos[2];
                     if (method != 8) {
                         Py_BLOCK_THREADS;
-                        PyErr_SetString(BadGzipFile, "Unknown compression method");
+                        raise_bad_gzip_file("Unknown compression method");
                         return -1;
                     }
                     uint8_t flags = current_pos[3];
@@ -1877,8 +1898,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                             0, current_pos, header_cursor - current_pos) & 0xFFFF;
                         if (header_crc != crc) {
                             Py_BLOCK_THREADS;
-                            PyErr_Format(
-                                BadGzipFile,
+                            raise_bad_gzip_file(
                                 "Corrupted gzip header. Checksums do not "
                                 "match: %04x != %04x",
                                 crc, header_crc
@@ -1932,8 +1952,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     current_pos += 4;
                     if (crc != self->state.crc) {
                         Py_BLOCK_THREADS;
-                        PyErr_Format(
-                            BadGzipFile, 
+                        raise_bad_gzip_file(
                             "CRC check failed %u != %u", 
                             crc, self->state.crc
                         );
@@ -1943,7 +1962,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     current_pos += 4; 
                     if (length != self->state.total_out) {
                         Py_BLOCK_THREADS;
-                        PyErr_SetString(BadGzipFile, "Incorrect length of data produced");
+                        raise_bad_gzip_file("Incorrect length of data produced");
                         return -1;
                     }
                     self->stream_phase = GzipReader_NULL_BYTES;
@@ -2319,7 +2338,10 @@ static struct PyModuleDef isal_zlib_module = {
     PyModuleDef_HEAD_INIT,
     "isal_zlib",   /* name of module */
     isal_zlib_module_documentation, /* module documentation, may be NULL */
-    0,
+    /* -1, as in igzip_lib, because IsalError is a C global. A subinterpreter
+       then gets a copy of this module instead of running PyInit_isal_zlib
+       again. */
+    -1,
     IsalZlibMethods,
 };
 
@@ -2344,18 +2366,6 @@ PyInit_isal_zlib(void)
     if (IsalError == NULL) {
         return NULL;
     }
-
-    PyObject *gzip_module = PyImport_ImportModule("gzip");
-    if (gzip_module == NULL) {
-        return NULL;
-    }
-
-    BadGzipFile = PyObject_GetAttrString(gzip_module, "BadGzipFile");
-    if (BadGzipFile == NULL) {
-        return NULL;
-    }
-    Py_INCREF(BadGzipFile);
-
 
     Py_INCREF(IsalError);
     if (PyModule_AddObject(m, "IsalError", IsalError) < 0) {

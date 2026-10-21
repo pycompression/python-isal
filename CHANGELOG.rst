@@ -39,6 +39,13 @@ version 1.8.1-dev
   bytes-like, such as a ``str``. It raises a ``TypeError`` instead.
 + Fix a crash after creating ``igzip_lib.IgzipDecompressor`` objects with a
   ``zdict``.
++ Fix error handling when more than one interpreter imports
+  ``isal.isal_zlib`` or ``isal.igzip_lib``, for example, the main interpreter
+  and a legacy subinterpreter that ``Py_NewInterpreter()`` creates. Each
+  import replaced the error classes that the C code raises, so
+  ``except isal_zlib.error``, ``except igzip_lib.error``, and
+  ``except gzip.BadGzipFile`` caught errors only in the interpreter that
+  imported the modules last.
 + Fix a hang in ``isal_zlib.Compress``: after ``flush()`` raised an error for
   an unsupported mode, the next call on the same object never returned.
 + Fix a crash when you call ``flush(Z_FINISH)`` twice on a level 0
