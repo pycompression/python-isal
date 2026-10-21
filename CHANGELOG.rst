@@ -10,6 +10,14 @@ Changelog
 
 version 1.8.1-dev
 -----------------
++ ``isal_zlib.compressobj`` supports ``strategy=Z_FIXED`` at compression
+  level 0. Level 0 then uses fixed Huffman codes instead of starting each
+  block with a Huffman table of about 110 bytes. This shrinks small flushed
+  writes, such as websocket messages: JSON messages of about 440 bytes, each
+  followed by ``flush(Z_SYNC_FLUSH)``, compress to an average of 75 instead
+  of 188 bytes. Blocks of a few KiB or more can be larger: about 5% for JSON
+  and 10% for Python source code at 64 KiB. Other strategies, and ``Z_FIXED``
+  at levels 1 to 3, still give a warning and use the default strategy.
 + Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by
   importing ``argparse`` and ``shutil`` only when the command line interface
   runs, and by dropping the ``multiprocessing`` import.
@@ -80,6 +88,20 @@ version 1.8.1-dev
   ``isal_zlib`` decompressors and ``igzip_lib.IgzipDecompressor`` from other
   threads is now safe, and so is calling ``decompress()`` from several
   threads at the same time when ``wbits`` detects the format.
++ ``isal_zlib.crc32_combine`` and the ``read()`` and ``seek()`` methods of the
+  private ``isal_zlib._GzipReader`` class raise ``TypeError`` instead of
+  ``SystemError`` for arguments of the wrong type or number.
+  ``igzip.IGzipFile`` was not affected.
++ Fix a crash on PyPy when you create an ``isal_zlib.Compress`` or
+  ``isal_zlib.Decompress`` object by calling the type, for example,
+  ``isal_zlib.Compress()``, and then use it. Calling the type raises
+  ``TypeError`` now, as it does on CPython. Use ``compressobj()`` and
+  ``decompressobj()`` instead.
++ Fix ``readinto()`` of the private ``isal_zlib._GzipReader`` class, which
+  wrote into read-only objects such as ``bytes``. It raises ``TypeError`` now.
+  ``igzip.IGzipFile`` was not affected.
++ Fix a crash when there is not enough memory to create an
+  ``igzip_lib.IgzipDecompressor``. It raises ``MemoryError`` now.
 
 version 1.8.0
 -----------------
