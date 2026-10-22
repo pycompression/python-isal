@@ -299,18 +299,20 @@ def test_igzip_decompressor_keeps_zdict_reference():
                     reason="Needs _testcapi.set_nomemory")
 def test_igzip_decompressor_no_memory():
     pytest.importorskip("_testcapi")
-    # Fail the first memory allocation, which is the object itself. A
-    # subprocess keeps the failing allocation away from the test runner.
+    # Fail each memory allocation in turn, such as the one for the object
+    # itself or for its lock. A subprocess keeps the failing allocations away
+    # from the test runner.
     code = textwrap.dedent("""
         import _testcapi
         from isal.igzip_lib import IgzipDecompressor
-        _testcapi.set_nomemory(0, 1)
-        try:
-            IgzipDecompressor()
-        except MemoryError:
-            pass
-        finally:
-            _testcapi.remove_mem_hooks()
+        for start in range(20):
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                IgzipDecompressor()
+            except MemoryError:
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
     """)
     subprocess.run([sys.executable, "-c", code], check=True)
 

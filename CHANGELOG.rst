@@ -116,6 +116,9 @@ version 1.8.1-dev
   the same object raised ``MemoryError``. The next call used the input of the
   failed call after the caller had released it. This matches the CPython fix
   for gh-148395.
++ Fix a crash on macOS and PyPy when there is not enough memory to create the
+  internal lock of an ``isal_zlib.Compress``, ``isal_zlib.Decompress``, or
+  ``igzip_lib.IgzipDecompressor`` object. It raises ``MemoryError`` now.
 
 version 1.8.0
 -----------------

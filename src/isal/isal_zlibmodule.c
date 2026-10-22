@@ -594,7 +594,9 @@ Comp_dealloc(compobject *self)
 {
     if (self->is_initialised && self->level_buf != NULL)
         PyMem_Free(self->level_buf);
-    PyThread_free_lock(self->lock);
+    if (self->lock != NULL) {
+        PyThread_free_lock(self->lock);
+    }
     Py_XDECREF(self->zdict);
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
@@ -639,7 +641,9 @@ typedef struct
 static void
 Decomp_dealloc(decompobject *self)
 {
-    PyThread_free_lock(self->lock);
+    if (self->lock != NULL) {
+        PyThread_free_lock(self->lock);
+    }
     Py_XDECREF(self->unused_data);
     Py_XDECREF(self->unconsumed_tail);
     Py_XDECREF(self->zdict);
@@ -683,6 +687,9 @@ newdecompobject()
     self->is_initialised = 0;
     self->method_set = 0;
     self->zdict = NULL;
+    // Decomp_dealloc uses these members when initialization fails
+    self->unconsumed_tail = NULL;
+    self->lock = NULL;
     self->unused_data = PyBytes_FromStringAndSize("", 0);
     if (self->unused_data == NULL) {
         Py_DECREF(self);
@@ -693,7 +700,7 @@ newdecompobject()
         Py_DECREF(self);
         return NULL;
     }
-        self->lock = PyThread_allocate_lock();
+    self->lock = PyThread_allocate_lock();
     if (self->lock == NULL) {
         Py_DECREF(self);
         PyErr_SetString(PyExc_MemoryError, "Unable to allocate lock");
