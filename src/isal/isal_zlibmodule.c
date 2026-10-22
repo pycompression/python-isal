@@ -1585,7 +1585,7 @@ static PyGetSetDef Decomp_properties[] = {
 
 static PyTypeObject IsalZlibDecompType = {
     .tp_name = "isal_zlib.Decompress",
-    .tp_doc = "Object returned by isal_zlib.compressobj.",
+    .tp_doc = "Object returned by isal_zlib.decompressobj.",
     .tp_basicsize = sizeof(decompobject),
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Decomp_dealloc,
