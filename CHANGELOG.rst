@@ -112,6 +112,10 @@ version 1.8.1-dev
 + Fix a crash when there is not enough memory to raise ``BadGzipFile`` for
   data that is not in the gzip format, for example, in ``igzip.decompress``.
   It raises ``MemoryError`` now.
++ Fix a crash in ``igzip_lib.IgzipDecompressor.decompress()`` after a call on
+  the same object raised ``MemoryError``. The next call used the input of the
+  failed call after the caller had released it. This matches the CPython fix
+  for gh-148395.
 
 version 1.8.0
 -----------------

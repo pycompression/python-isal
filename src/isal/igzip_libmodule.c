@@ -298,6 +298,10 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
     return result;
 
 error:
+    /* next_in can point to the buffer of the caller, which is released after
+       this call. Reset it so the next call does not use it, as CPython does
+       since gh-148395. */
+    self->state.next_in = NULL;
     Py_XDECREF(result);
     return NULL;
 }

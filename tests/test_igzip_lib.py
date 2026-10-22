@@ -315,6 +315,37 @@ def test_igzip_decompressor_no_memory():
     subprocess.run([sys.executable, "-c", code], check=True)
 
 
+@pytest.mark.skipif(sys.implementation.name != "cpython",
+                    reason="Needs _testcapi.set_nomemory")
+def test_igzip_decompressor_decompress_no_memory():
+    pytest.importorskip("_testcapi")
+    # After a MemoryError, the next call must not use the input of the failed
+    # call. That input is in an mmap, so using it after close() crashes.
+    code = textwrap.dedent("""
+        import mmap
+        import os
+        import _testcapi
+        from isal import igzip_lib
+        # Random data does not compress, so most of the input is left over
+        # after 10 bytes of output. decompress() copies it to a new buffer.
+        compressed = igzip_lib.compress(os.urandom(256 * 1024))
+        for start in range(20):
+            decompressor = igzip_lib.IgzipDecompressor()
+            buffer = mmap.mmap(-1, len(compressed))
+            buffer.write(compressed)
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                decompressor.decompress(buffer, 10)
+            except MemoryError:
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
+            buffer.close()
+            decompressor.decompress(b"")
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
 @pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
                          itertools.product([26], FLAGS,
                                            [128 * 1024 - 3, 874, 81923, 9111]))
