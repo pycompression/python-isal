@@ -1845,6 +1845,9 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     if (!(magic1 == 0x1f && magic2 == 0x8b)) {
                         Py_BLOCK_THREADS;
                         PyObject *magic_obj = PyBytes_FromStringAndSize((char *)current_pos, 2);
+                        if (magic_obj == NULL) {
+                            return -1;
+                        }
                         raise_bad_gzip_file(
                             "Not a gzipped file (%R)", 
                             magic_obj);

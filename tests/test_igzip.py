@@ -19,6 +19,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import textwrap
 import zlib
 from gzip import FCOMMENT, FEXTRA, FHCRC, FNAME, FTEXT  # type: ignore
 from pathlib import Path
@@ -455,6 +456,28 @@ def test_decompress_not_a_gzip():
     with pytest.raises(igzip.BadGzipFile) as error:
         igzip.decompress(b"This is not a gzip data stream.")
     assert error.match(re.escape("Not a gzipped file (b'Th')"))
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython",
+                    reason="Needs _testcapi.set_nomemory")
+def test_decompress_not_a_gzip_no_memory():
+    pytest.importorskip("_testcapi")
+    # Fail each memory allocation in turn, such as the one for the bytes in
+    # the error message. A subprocess keeps the failing allocations away from
+    # the test runner. Each call raises MemoryError or BadGzipFile.
+    code = textwrap.dedent("""
+        import _testcapi
+        from isal import igzip
+        for start in range(50):
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                igzip.decompress(b"This is not a gzip data stream.")
+            except (MemoryError, igzip.BadGzipFile):
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def test_decompress_unknown_compression_method():

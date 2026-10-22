@@ -109,6 +109,9 @@ version 1.8.1-dev
   ``igzip.IGzipFile`` was not affected.
 + Fix a crash when there is not enough memory to create an
   ``igzip_lib.IgzipDecompressor``. It raises ``MemoryError`` now.
++ Fix a crash when there is not enough memory to raise ``BadGzipFile`` for
+  data that is not in the gzip format, for example, in ``igzip.decompress``.
+  It raises ``MemoryError`` now.
 
 version 1.8.0
 -----------------
