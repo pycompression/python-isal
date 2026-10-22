@@ -462,3 +462,51 @@ def test_reader_error_does_not_wait_for_queue_timeouts(queue_monitor):
         with pytest.raises(EOFError):
             f.read()
     assert queue_monitor.expired == []
+
+
+@pytest.mark.timeout(5)
+@pytest.mark.parametrize("threads", [1, 2, 3])
+def test_threaded_compression_error(monkeypatch, threads):
+    isal_zlib = igzip_threaded.isal_zlib
+    ParallelCompress = isal_zlib._ParallelCompress
+    all_written = threading.Event()
+
+    class FailingCompressor:
+        """Fails on the block b"bad" after the test wrote all blocks."""
+        def __init__(self, **kwargs):
+            self.compressor = ParallelCompress(**kwargs)
+
+        def compress_and_crc(self, data, zdict):
+            if data == b"bad":
+                all_written.wait()
+                raise MemoryError()
+            return self.compressor.compress_and_crc(data, zdict)
+
+    monkeypatch.setattr(isal_zlib, "_ParallelCompress", FailingCompressor)
+    raw = io.BytesIO()
+    f = igzip_threaded._ThreadedGzipWriter(raw, threads=threads)
+    # Block 0 fails, so the writer thread must take the blocks of the other
+    # threads from their output queues and drop them. Write as many blocks
+    # as fit without waiting: two for each thread. The first thread works on
+    # block 0, and its next block waits in its input queue, so one more block
+    # would make write() wait for the first thread.
+    try:
+        f.write(b"bad")
+        for _ in range(2 * threads - 1):
+            f.write(b"good")
+    finally:
+        # Set the event even if a write fails, so the first thread does not
+        # wait forever.
+        all_written.set()
+    with pytest.raises(MemoryError):
+        f.flush()
+    # Later calls raise the error again.
+    with pytest.raises(MemoryError):
+        f.write(b"good")
+    with pytest.raises(MemoryError):
+        f.close()
+    assert_writer_closed(f)
+    assert not raw.closed
+    # raw holds only the gzip header. The writer thread dropped all blocks,
+    # and close() did not end the stream.
+    assert len(raw.getvalue()) == 10
