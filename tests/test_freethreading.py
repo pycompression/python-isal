@@ -1,4 +1,5 @@
 import concurrent.futures
+import io
 import random
 import string
 import threading
@@ -243,3 +244,22 @@ def test_igzip_decompressor_attributes_while_decompressing():
     assert run_in_threads(run)[0] == data
     assert decompressor.unused_data == b"unused"
     assert decompressor.crc == isal_zlib.crc32(data)
+
+
+def test_gzip_reader_seek_while_reading():
+    # Each number appears once, so a chunk that mixes up parts is not in it.
+    data = b"".join(b"%08d" % i for i in range(128 * 1024))
+    compressed = isal_zlib.compress(data, wbits=31)
+    reader = isal_zlib._GzipReader(io.BytesIO(compressed))
+
+    def run(index):
+        for i in range(NUM_ITERATIONS):
+            if index % 2:
+                reader.seek(len(data) // 2 if i % 2 else 0)
+            else:
+                # seek() can come between two reads, but not during one.
+                assert reader.read(64 * 1024) in data
+
+    run_in_threads(run)
+    reader.seek(0)
+    assert reader.read() == data

@@ -99,6 +99,9 @@ version 1.8.1-dev
   private ``isal_zlib._GzipReader`` class raise ``TypeError`` instead of
   ``SystemError`` for arguments of the wrong type or number.
   ``igzip.IGzipFile`` was not affected.
++ Fix crashes and wrong data when one thread calls ``seek()`` of the
+  private ``isal_zlib._GzipReader`` class while another thread reads from the
+  same object. ``igzip.IGzipFile`` was not affected.
 + Fix a crash on PyPy when you create an ``isal_zlib.Compress`` or
   ``isal_zlib.Decompress`` object by calling the type, for example,
   ``isal_zlib.Compress()``, and then use it. Calling the type raises
