@@ -342,15 +342,19 @@ def test_threaded_program_can_exit_on_error(tmp_path, mode, threads):
     test_file.write_bytes(gzip.compress(b"test" * (10 * 1024 * 1024)))
     with open(program, "wt") as f:
         f.write("from isal import igzip_threaded\n")
+        # ascii() escapes backslashes and non-ASCII characters in the path.
         f.write(
-            f"f = igzip_threaded.open('{test_file}', "
+            f"f = igzip_threaded.open({str(test_file)!a}, "
             f"mode='{mode}', threads={threads})\n"
         )
-        f.write("raise Exception('Error')\n")
+        f.write("raise Exception('Reached the end')\n")
     result = subprocess.run([sys.executable, str(program)],
                             capture_output=True)
     # A sanitizer report changes the exit code.
     assert result.returncode == 1, result.stderr.decode()
+    # A SyntaxError or a failed open() also exits with 1. FORCE_COLOR can
+    # color the exception type, so check only the message.
+    assert b"Reached the end" in result.stderr, result.stderr.decode()
 
 
 @pytest.mark.parametrize("threads", [1, 2])
