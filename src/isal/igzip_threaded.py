@@ -354,6 +354,8 @@ class _ThreadedGzipWriter(io.RawIOBase):
         # Wait for all data to be written
         for out_q in self.output_queues:
             out_q.join()
+        # The threads store an error before they call task_done(), so after
+        # the joins, this check sees an error in any block written so far.
         if self.exception:
             raise self.exception
         self.raw.flush()
@@ -375,11 +377,6 @@ class _ThreadedGzipWriter(io.RawIOBase):
             self._closed = True
             if self.closefd:
                 self.raw.close()
-        # flush() can miss a compression error because the worker threads
-        # call task_done() before they set the error. Check again now that
-        # the threads have stopped.
-        if self.exception:
-            raise self.exception
 
     @property
     def closed(self) -> bool:
@@ -403,9 +400,11 @@ class _ThreadedGzipWriter(io.RawIOBase):
             try:
                 compressed, crc = compressor.compress_and_crc(data, zdict)
             except Exception as e:
-                in_queue.task_done()
-                self._set_error_and_empty_queue(e, in_queue)
-                return
+                with self.lock:
+                    self.exception = e
+                # Pass on an empty block, so the writer thread keeps taking
+                # blocks from the output queues in order. It drops the block.
+                compressed, crc = b"", 0
             data_length = len(data)
             out_queue.put((compressed, crc, data_length))
             in_queue.task_done()
@@ -451,9 +450,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
             try:
                 compressed, crc = compressor.compress_and_crc(data, zdict)
             except Exception as e:
-                in_queue.task_done()
-                self._set_error_and_empty_queue(e, in_queue)
-                return
+                with self.lock:
+                    self.exception = e
+                # _write_compressed() drops the block.
+                compressed, crc = b"", 0
             data_length = len(data)
             self._crc = isal_zlib.crc32_combine(self._crc, crc, data_length)
             self._size += data_length
@@ -461,10 +461,11 @@ class _ThreadedGzipWriter(io.RawIOBase):
             in_queue.task_done()
 
     def _write_compressed(self, compressed: bytes):
-        # After a write error, this thread keeps taking blocks from the queues
-        # and drops them until stop() sends the None sentinel. That way, no
-        # thread waits forever on a full queue, and write(), flush(), and
-        # close() can raise the error in the calling thread.
+        # After a compression or write error, the threads keep taking blocks
+        # from the queues, and this method drops them until stop() sends the
+        # None sentinel. That way, no thread waits forever on a full queue,
+        # and write(), flush(), and close() can raise the error in the
+        # calling thread.
         if self.exception:
             return
         try:
@@ -472,18 +473,6 @@ class _ThreadedGzipWriter(io.RawIOBase):
         except Exception as e:
             with self.lock:
                 self.exception = e
-
-    def _set_error_and_empty_queue(self, error, q):
-        with self.lock:
-            self.exception = error
-            # Abort everything and empty the queue
-            self.running = False
-            while True:
-                try:
-                    _ = q.get(timeout=0.05)
-                    q.task_done()
-                except queue.Empty:
-                    return
 
     def writable(self) -> bool:
         return True

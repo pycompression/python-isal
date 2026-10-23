@@ -89,6 +89,10 @@ version 1.8.1-dev
   to ``write()``, ``flush()``, or ``close()`` raises the error. After an error,
   ``close()`` no longer closes a file object that you passed to
   ``igzip_threaded.open``.
++ Fix ``igzip_threaded`` writers with more than one thread that waited
+  forever when compressing a block failed, for example, because there was not
+  enough memory. A later call to ``write()``, ``flush()``, or ``close()``
+  raises the error.
 + Fix a crash on the free-threaded build when one thread reads
   ``unused_data`` or ``unconsumed_tail`` of an ``isal_zlib`` decompressor
   while another thread decompresses with it. Reading the attributes of
