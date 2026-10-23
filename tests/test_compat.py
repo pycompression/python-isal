@@ -12,6 +12,9 @@
 import gzip
 import itertools
 import random
+import subprocess
+import sys
+import textwrap
 import threading
 import warnings
 import zlib
@@ -64,6 +67,28 @@ def test_crc32_combine_wrong_arguments(args):
 def test_compress_and_decompress_types_cannot_be_called(factory):
     with pytest.raises(TypeError):
         type(factory())()
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython",
+                    reason="Needs _testcapi.set_nomemory")
+@pytest.mark.parametrize("factory", ["compressobj", "decompressobj"])
+def test_compressobj_decompressobj_no_memory(factory):
+    pytest.importorskip("_testcapi")
+    # Fail each memory allocation in turn, such as the one for the lock. A
+    # subprocess keeps the failing allocations away from the test runner.
+    code = textwrap.dedent(f"""
+        import _testcapi
+        from isal import isal_zlib
+        for start in range(20):
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                isal_zlib.{factory}()
+            except MemoryError:
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 @pytest.mark.parametrize(["data_size", "level"],

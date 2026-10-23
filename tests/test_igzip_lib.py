@@ -299,18 +299,51 @@ def test_igzip_decompressor_keeps_zdict_reference():
                     reason="Needs _testcapi.set_nomemory")
 def test_igzip_decompressor_no_memory():
     pytest.importorskip("_testcapi")
-    # Fail the first memory allocation, which is the object itself. A
-    # subprocess keeps the failing allocation away from the test runner.
+    # Fail each memory allocation in turn, such as the one for the object
+    # itself or for its lock. A subprocess keeps the failing allocations away
+    # from the test runner.
     code = textwrap.dedent("""
         import _testcapi
         from isal.igzip_lib import IgzipDecompressor
-        _testcapi.set_nomemory(0, 1)
-        try:
-            IgzipDecompressor()
-        except MemoryError:
-            pass
-        finally:
-            _testcapi.remove_mem_hooks()
+        for start in range(20):
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                IgzipDecompressor()
+            except MemoryError:
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython",
+                    reason="Needs _testcapi.set_nomemory")
+def test_igzip_decompressor_decompress_no_memory():
+    pytest.importorskip("_testcapi")
+    # After a MemoryError, the next call must not use the input of the failed
+    # call. That input is in an mmap, so using it after close() crashes.
+    code = textwrap.dedent("""
+        import mmap
+        import os
+        import _testcapi
+        from isal import igzip_lib
+        # Random data does not compress, so most of the input is left over
+        # after 10 bytes of output. decompress() copies it to a new buffer.
+        compressed = igzip_lib.compress(os.urandom(256 * 1024))
+        for start in range(20):
+            decompressor = igzip_lib.IgzipDecompressor()
+            buffer = mmap.mmap(-1, len(compressed))
+            buffer.write(compressed)
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                decompressor.decompress(buffer, 10)
+            except MemoryError:
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
+            buffer.close()
+            decompressor.decompress(b"")
     """)
     subprocess.run([sys.executable, "-c", code], check=True)
 

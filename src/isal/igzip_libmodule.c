@@ -44,7 +44,9 @@ typedef struct {
 static void
 IgzipDecompressor_dealloc(IgzipDecompressor *self)
 {
-    PyThread_free_lock(self->lock);
+    if (self->lock != NULL) {
+        PyThread_free_lock(self->lock);
+    }
     PyMem_Free(self->input_buffer);
     Py_CLEAR(self->unused_data);
     Py_CLEAR(self->zdict);
@@ -298,6 +300,10 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
     return result;
 
 error:
+    /* next_in can point to the buffer of the caller, which is released after
+       this call. Reset it so the next call does not use it, as CPython does
+       since gh-148395. */
+    self->state.next_in = NULL;
     Py_XDECREF(result);
     return NULL;
 }
@@ -480,6 +486,7 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
     self->avail_in_real = 0;
     self->input_buffer = NULL;
     self->input_buffer_size = 0;
+    self->lock = NULL;
     Py_XINCREF(zdict);
     self->zdict = zdict;
     self->unused_data = PyBytes_FromStringAndSize(NULL, 0);
