@@ -109,6 +109,16 @@ version 1.8.1-dev
   ``igzip.IGzipFile`` was not affected.
 + Fix a crash when there is not enough memory to create an
   ``igzip_lib.IgzipDecompressor``. It raises ``MemoryError`` now.
++ Fix a crash when there is not enough memory to raise ``BadGzipFile`` for
+  data that is not in the gzip format, for example, in ``igzip.decompress``.
+  It raises ``MemoryError`` now.
++ Fix a crash in ``igzip_lib.IgzipDecompressor.decompress()`` after a call on
+  the same object raised ``MemoryError``. The next call used the input of the
+  failed call after the caller had released it. This matches the CPython fix
+  for gh-148395.
++ Fix a crash on macOS and PyPy when there is not enough memory to create the
+  internal lock of an ``isal_zlib.Compress``, ``isal_zlib.Decompress``, or
+  ``igzip_lib.IgzipDecompressor`` object. It raises ``MemoryError`` now.
 
 version 1.8.0
 -----------------
