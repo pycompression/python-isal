@@ -2037,16 +2037,10 @@ GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
     return PyLong_FromSsize_t((Py_ssize_t)written_size);
 }
 
+/* Called with self->lock held */
 static PyObject *
-GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs) 
+GzipReader_seek_impl(GzipReader *self, Py_ssize_t offset, Py_ssize_t whence)
 {
-    Py_ssize_t offset;
-    Py_ssize_t whence = SEEK_SET;
-    static char *keywords[] = {"offset", "whence", NULL};
-    static char format[] = {"n|n:GzipReader.seek"};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence)) {
-        return NULL;
-    }
     // Recalculate offset as an absolute file position.
     if (whence == SEEK_SET) {
         ;
@@ -2125,6 +2119,24 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
         PyMem_Free(tmp_buffer);
     }
     return PyLong_FromLongLong(self->_pos);
+}
+
+static PyObject *
+GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
+{
+    Py_ssize_t offset;
+    Py_ssize_t whence = SEEK_SET;
+    static char *keywords[] = {"offset", "whence", NULL};
+    static char format[] = {"n|n:GzipReader.seek"};
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, format, keywords, &offset, &whence)) {
+        return NULL;
+    }
+    /* Take the lock like read() does. Decompression releases the GIL, so
+       another thread could otherwise read while seek() changes the state. */
+    ENTER_ZLIB(self);
+    PyObject *result = GzipReader_seek_impl(self, offset, whence);
+    LEAVE_ZLIB(self);
+    return result;
 }
 
 static PyObject *
