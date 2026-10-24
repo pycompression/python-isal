@@ -36,7 +36,7 @@ def test_threaded_read():
 
 
 @pytest.mark.parametrize(["mode", "threads"],
-                         itertools.product(["wb", "wt"], [1, 3, -1]))
+                         list(itertools.product(["wb", "wt"], [1, 3, -1])))
 def test_threaded_write(tmp_path, mode, threads):
     with open(tmp_path / "output.gz", "wb") as tmp:
         # Use a small block size to simulate many writes.
