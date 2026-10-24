@@ -202,12 +202,12 @@ def test_igzipfile_iteration_in_write_mode_like_gzipfile():
 
 
 @pytest.mark.parametrize("level", range(1, 10))
-def test_decompress_stdin_stdout(capsysbinary, level):
+def test_decompress_stdin_stdout(monkeypatch, capsysbinary, level):
     """Test if the command line can decompress data that has been compressed
     by gzip at all levels."""
     mock_stdin = io.BytesIO(gzip.compress(DATA, level))
-    sys.stdin = io.TextIOWrapper(mock_stdin)
-    sys.argv = ["", "-d"]
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(mock_stdin))
+    monkeypatch.setattr(sys, "argv", ["", "-d"])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert err == b''
@@ -215,21 +215,21 @@ def test_decompress_stdin_stdout(capsysbinary, level):
 
 
 @pytest.mark.parametrize("level", [str(x) for x in range(4)])
-def test_compress_stdin_stdout(capsysbinary, level):
+def test_compress_stdin_stdout(monkeypatch, capsysbinary, level):
     mock_stdin = io.BytesIO(DATA)
-    sys.stdin = io.TextIOWrapper(mock_stdin)
-    sys.argv = ["", f"-{level}"]
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(mock_stdin))
+    monkeypatch.setattr(sys, "argv", ["", f"-{level}"])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert err == b''
     assert gzip.decompress(out) == DATA
 
 
-def test_decompress_infile_outfile(tmp_path, capsysbinary):
+def test_decompress_infile_outfile(monkeypatch, tmp_path, capsysbinary):
     test_file = tmp_path / "test"
     compressed_temp = test_file.with_suffix(".gz")
     compressed_temp.write_bytes(gzip.compress(DATA))
-    sys.argv = ['', '-d', str(compressed_temp)]
+    monkeypatch.setattr(sys, "argv", ['', '-d', str(compressed_temp)])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert err == b''
@@ -238,10 +238,10 @@ def test_decompress_infile_outfile(tmp_path, capsysbinary):
     assert test_file.read_bytes() == DATA
 
 
-def test_compress_infile_outfile(tmp_path, capsysbinary):
+def test_compress_infile_outfile(monkeypatch, tmp_path, capsysbinary):
     test_file = tmp_path / "test"
     test_file.write_bytes(DATA)
-    sys.argv = ['', str(test_file)]
+    monkeypatch.setattr(sys, "argv", ['', str(test_file)])
     igzip.main()
     out, err = capsysbinary.readouterr()
     out_file = test_file.with_suffix(".gz")
@@ -251,8 +251,8 @@ def test_compress_infile_outfile(tmp_path, capsysbinary):
     assert gzip.decompress(out_file.read_bytes()) == DATA
 
 
-def test_decompress_infile_outfile_error(capsysbinary):
-    sys.argv = ['', '-d', 'thisisatest.out']
+def test_decompress_infile_outfile_error(monkeypatch, capsysbinary):
+    monkeypatch.setattr(sys, "argv", ['', '-d', 'thisisatest.out'])
     with pytest.raises(SystemExit) as error:
         igzip.main()
     assert error.match("filename doesn't end")
@@ -260,40 +260,42 @@ def test_decompress_infile_outfile_error(capsysbinary):
     assert out == b''
 
 
-def test_decompress_infile_stdout_noerror(capsysbinary, tmp_path):
+def test_decompress_infile_stdout_noerror(monkeypatch, capsysbinary,
+                                          tmp_path):
     test_file = tmp_path / "test"
     test_file.write_bytes(COMPRESSED_DATA)
-    sys.argv = ['', '-cd', str(tmp_path / 'test')]
+    monkeypatch.setattr(sys, "argv", ['', '-cd', str(tmp_path / 'test')])
     igzip.main()
     result = capsysbinary.readouterr()
     assert DATA == result.out
 
 
-def test_decompress_infile_stdout(capsysbinary, tmp_path):
+def test_decompress_infile_stdout(monkeypatch, capsysbinary, tmp_path):
     test_gz = tmp_path / "test.gz"
     test_gz.write_bytes(gzip.compress(DATA))
-    sys.argv = ['', '-cd', str(test_gz)]
+    monkeypatch.setattr(sys, "argv", ['', '-cd', str(test_gz)])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert out == DATA
     assert err == b''
 
 
-def test_compress_infile_stdout(capsysbinary, tmp_path):
+def test_compress_infile_stdout(monkeypatch, capsysbinary, tmp_path):
     test = tmp_path / "test"
     test.write_bytes(DATA)
-    sys.argv = ['', '-c', str(test)]
+    monkeypatch.setattr(sys, "argv", ['', '-c', str(test)])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert gzip.decompress(out) == DATA
     assert err == b''
 
 
-def test_decompress_infile_out_file(tmp_path, capsysbinary):
+def test_decompress_infile_out_file(monkeypatch, tmp_path, capsysbinary):
     test_gz = tmp_path / "test.gz"
     test_gz.write_bytes(gzip.compress(DATA))
     out_file = tmp_path / "out"
-    sys.argv = ['', '-d', '-o', str(out_file), str(test_gz)]
+    monkeypatch.setattr(sys, "argv",
+                        ['', '-d', '-o', str(out_file), str(test_gz)])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert out_file.read_bytes() == DATA
@@ -301,12 +303,12 @@ def test_decompress_infile_out_file(tmp_path, capsysbinary):
     assert out == b''
 
 
-def test_compress_infile_out_file(tmp_path, capsysbinary):
+def test_compress_infile_out_file(monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
     args = ['-o', str(out_file), str(test)]
-    sys.argv = ['', *args]
+    monkeypatch.setattr(sys, "argv", ['', *args])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert gzip.decompress(out_file.read_bytes()) == DATA
@@ -314,13 +316,13 @@ def test_compress_infile_out_file(tmp_path, capsysbinary):
     assert out == b''
 
 
-def test_compress_infile_out_file_force(tmp_path, capsysbinary):
+def test_compress_infile_out_file_force(monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
     out_file.touch()
     args = ['-f', '-o', str(out_file), str(test)]
-    sys.argv = ['', *args]
+    monkeypatch.setattr(sys, "argv", ['', *args])
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert gzip.decompress(out_file.read_bytes()) == DATA
@@ -328,14 +330,15 @@ def test_compress_infile_out_file_force(tmp_path, capsysbinary):
     assert out == b''
 
 
-def test_compress_infile_out_file_prompt(tmp_path, capsysbinary):
+def test_compress_infile_out_file_prompt(monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
     out_file.touch()
-    sys.argv = ['', '-o', str(out_file), str(test)]
+    monkeypatch.setattr(sys, "argv", ['', '-o', str(out_file), str(test)])
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO()))
     with pytest.raises(EOFError):
-        # EOFError because prompt cannot be answered non-interactively.
+        # EOFError because the prompt gets no answer from the empty stdin.
         igzip.main()
     out, err = capsysbinary.readouterr()
     assert b"compressed.gz already exists; do you wish to overwrite (y/n)?" \
@@ -343,14 +346,14 @@ def test_compress_infile_out_file_prompt(tmp_path, capsysbinary):
 
 
 def test_compress_infile_out_file_inmplicit_name_prompt_refuse(
-        tmp_path, capsysbinary):
+        monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "test.gz"
     out_file.touch()
-    sys.argv = ['', str(test)]
+    monkeypatch.setattr(sys, "argv", ['', str(test)])
     mock_stdin = io.BytesIO(b"n")
-    sys.stdin = io.TextIOWrapper(mock_stdin)
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(mock_stdin))
     with pytest.raises(SystemExit) as error:
         igzip.main()
     error.match("not overwritten")
@@ -360,14 +363,14 @@ def test_compress_infile_out_file_inmplicit_name_prompt_refuse(
 
 
 def test_compress_infile_out_file_inmplicit_name_prompt_accept(
-        tmp_path, capsysbinary):
+        monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "test.gz"
     out_file.touch()
-    sys.argv = ['', str(test)]
+    monkeypatch.setattr(sys, "argv", ['', str(test)])
     mock_stdin = io.BytesIO(b"y")
-    sys.stdin = io.TextIOWrapper(mock_stdin)
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(mock_stdin))
     igzip.main()
     out, err = capsysbinary.readouterr()
     assert b"already exists; do you wish to overwrite" in out
@@ -375,11 +378,12 @@ def test_compress_infile_out_file_inmplicit_name_prompt_accept(
     assert gzip.decompress(out_file.read_bytes()) == DATA
 
 
-def test_compress_infile_out_file_no_name(tmp_path, capsysbinary):
+def test_compress_infile_out_file_no_name(monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
     out_file = tmp_path / "compressed.gz"
-    sys.argv = ['', '-n', '-o', str(out_file), str(test)]
+    monkeypatch.setattr(sys, "argv",
+                        ['', '-n', '-o', str(out_file), str(test)])
     igzip.main()
     out, err = capsysbinary.readouterr()
     output = out_file.read_bytes()
