@@ -34,6 +34,7 @@ import unittest
 from subprocess import PIPE, Popen
 from test.support import _4G, bigmemtest  # type: ignore
 from test.support.script_helper import assert_python_failure, assert_python_ok  # type: ignore  # noqa: E501
+from unittest import mock
 
 from isal import igzip
 
@@ -837,8 +838,8 @@ class TestCommandLine(unittest.TestCase):
 
         with igzip.open(igzipname, mode='wb') as fp:
             fp.write(self.data)
-        sys.argv = ['', '-d', igzipname]
-        igzip.main()
+        with mock.patch.object(sys, 'argv', ['', '-d', igzipname]):
+            igzip.main()
 
         with open(os.path.join(TEMPDIR, "testigzip"), "rb") as gunziped:
             self.assertEqual(gunziped.read(), self.data)
