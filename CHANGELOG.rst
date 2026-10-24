@@ -31,6 +31,15 @@ version 1.8.1-dev
 + Speed up each ``write()`` call to binary ``igzip`` files on CPython. On an
   AMD Ryzen 7 9800X3D with Python 3.14.8, writing FASTQ data or Python source
   code one line at a time is 1.1 times faster.
++ Speed up ``igzip.decompress`` and reading a whole ``igzip`` file with
+  ``read()``. When the size of the compressed data is known, as for bytes and
+  regular files, they decompress into one buffer that grows to the expected
+  size, instead of into chunks that are joined at the end. On Linux, reading
+  32 MiB of output with ``read()`` needs about 1.14 times the output in memory
+  instead of 2 times. On an AMD Ryzen 7 9800X3D, ``igzip.decompress`` of 4 to
+  32 MiB of JSON is 1.8 to 2.0 times faster in a Linux container and 1.5 to
+  1.8 times faster on Windows. Reading a small file no longer allocates a
+  2 MiB buffer. On PyPy, large outputs can be up to 10% slower.
 + Fix zlib streams compressed with a preset dictionary so they can be decoded
   by standard zlib, including builds linked against older ISA-L releases.
 + Fix backward seeking in igzip files by discarding buffered compressed data
