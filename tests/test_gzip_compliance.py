@@ -65,14 +65,11 @@ class UnseekableIO(io.BytesIO):
 
 class BaseTest(unittest.TestCase):
 
-    def __init__(self, methodName):
+    def setUp(self):
+        # Make a unique file name. The tests create the file themselves.
         fileno, self.filename = tempfile.mkstemp()
         os.close(fileno)
-        super().__init__(methodName)
-
-    def setUp(self):
-        if os.path.exists(self.filename):
-            os.unlink(self.filename)
+        os.unlink(self.filename)
 
     def tearDown(self):
         if os.path.exists(self.filename):
