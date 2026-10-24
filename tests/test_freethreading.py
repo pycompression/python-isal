@@ -75,10 +75,9 @@ LAERTES
 NUM_THREADS = 10
 NUM_ITERATIONS = 20
 NUM_JOBS = 50  # To simulate 50 jobs running in 10 threads
-barrier = threading.Barrier(parties=NUM_THREADS)
 
 
-def isal_compress_decompress(compress, decompress):
+def isal_compress_decompress(compress, decompress, barrier):
     for _ in range(NUM_ITERATIONS):
         barrier.wait()
         x = compress(HAMLET_SCENE)
@@ -101,9 +100,14 @@ def isal_compress_decompress(compress, decompress):
     ]
 )
 def test_isal_compress_decompress_threaded(compress, decompress):
+    # A failed job makes fewer barrier waits than the others, so when the
+    # jobs run out, the other threads would wait at the barrier forever.
+    # The timeout makes them fail instead.
+    barrier = threading.Barrier(parties=NUM_THREADS, timeout=10)
     with concurrent.futures.ThreadPoolExecutor(NUM_THREADS) as executor:
         futures = [
-            executor.submit(isal_compress_decompress, compress, decompress)
+            executor.submit(isal_compress_decompress, compress, decompress,
+                            barrier)
             for _ in range(NUM_JOBS)
         ]
         for future in concurrent.futures.as_completed(futures):
