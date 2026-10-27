@@ -59,8 +59,8 @@ MEM_LEVELS = [MEM_LEVEL_DEFAULT, MEM_LEVEL_MIN, MEM_LEVEL_SMALL,
 
 
 @pytest.mark.parametrize(["level", "flag", "mem_level", "hist_bits"],
-                         itertools.product(
-                             COMPRESS_LEVELS, FLAGS, MEM_LEVELS, HIST_BITS))
+                         list(itertools.product(
+                             COMPRESS_LEVELS, FLAGS, MEM_LEVELS, HIST_BITS)))
 def test_compress_decompress(level, flag: Flag, mem_level, hist_bits):
     comp = igzip_lib.compress(DATA, level, flag.comp, mem_level, hist_bits)
     decomp = igzip_lib.decompress(comp, flag.decomp, hist_bits)
@@ -238,12 +238,13 @@ def test_igzip_decompressor_raw_deflate_unused_data_zlib(test_offset):
     data = zlib.compress(b"bla")
     no_header = data[2:]
     trailer = data[-4:]
-    raw_deflate_incomplete_trailer = no_header[:-test_offset]
-    true_unused_data = trailer[:-test_offset]
+    # no_header[:-test_offset] would be empty when test_offset is 0
+    raw_deflate_incomplete_trailer = no_header[:len(no_header) - test_offset]
+    true_unused_data = trailer[:len(trailer) - test_offset]
     igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
-    if igzd.eof:
-        assert igzd.unused_data == true_unused_data
+    assert igzd.eof
+    assert igzd.unused_data == true_unused_data
 
 
 @pytest.mark.parametrize("test_offset", range(9))
@@ -251,12 +252,13 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
     data = gzip.compress(b"bla")
     no_header = data[10:]
     trailer = data[-8:]
-    raw_deflate_incomplete_trailer = no_header[:-test_offset]
-    true_unused_data = trailer[:-test_offset]
+    # no_header[:-test_offset] would be empty when test_offset is 0
+    raw_deflate_incomplete_trailer = no_header[:len(no_header) - test_offset]
+    true_unused_data = trailer[:len(trailer) - test_offset]
     igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
-    if igzd.eof:
-        assert igzd.unused_data == true_unused_data
+    assert igzd.eof
+    assert igzd.unused_data == true_unused_data
 
 
 @pytest.mark.parametrize(["flag", "wbits"], [(DECOMP_DEFLATE, -15),
@@ -349,8 +351,8 @@ def test_igzip_decompressor_decompress_no_memory():
 
 
 @pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
-                         itertools.product([26], FLAGS,
-                                           [128 * 1024 - 3, 874, 81923, 9111]))
+                         list(itertools.product(
+                             [26], FLAGS, [128 * 1024 - 3, 874, 81923, 9111])))
 def test_decompression_flags(unused_size, flag_pair, data_size):
     comp_flag, decomp_flag = flag_pair
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]

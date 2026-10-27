@@ -14,7 +14,6 @@ import io
 import itertools
 import os
 import re
-import shutil
 import struct
 import subprocess
 import sys
@@ -39,11 +38,9 @@ def test_wrong_compresslevel_igzipfile():
     error.match("Compression level should be between 0 and 3")
 
 
-def test_repr():
-    tempdir = tempfile.mkdtemp()
-    with igzip.IGzipFile(os.path.join(tempdir, "test.gz"), "wb") as test:
+def test_repr(tmp_path):
+    with igzip.IGzipFile(str(tmp_path / "test.gz"), "wb") as test:
         assert "<igzip _io.BufferedWriter name='" in repr(test)
-    shutil.rmtree(tempdir)
 
 
 def test_write_readonly_file():
@@ -606,9 +603,9 @@ def test_concatenated_gzip():
     assert data == result
 
 
-def test_seek():
+def test_seek(tmp_path):
     from io import SEEK_CUR, SEEK_END, SEEK_SET
-    with tempfile.NamedTemporaryFile("wb", delete=False) as tmpfile:
+    with open(tmp_path / "test.gz", "wb") as tmpfile:
         tmpfile.write(gzip.compress(b"X" * 500 + b"A" + b"X" * 499))
         tmpfile.write(gzip.compress(b"X" * 500 + b"B" + b"X" * 499))
         tmpfile.write(gzip.compress(b"X" * 500 + b"C" + b"X" * 499))
@@ -641,7 +638,6 @@ def test_seek():
         assert gzip_file.read(1) == b""
         gzip_file.seek(-1500, SEEK_END)
         assert gzip_file.read(1) == b"C"
-    os.remove(tmpfile.name)
 
 
 def test_bgzip():
