@@ -238,12 +238,13 @@ def test_igzip_decompressor_raw_deflate_unused_data_zlib(test_offset):
     data = zlib.compress(b"bla")
     no_header = data[2:]
     trailer = data[-4:]
-    raw_deflate_incomplete_trailer = no_header[:-test_offset]
-    true_unused_data = trailer[:-test_offset]
+    # no_header[:-test_offset] would be empty when test_offset is 0
+    raw_deflate_incomplete_trailer = no_header[:len(no_header) - test_offset]
+    true_unused_data = trailer[:len(trailer) - test_offset]
     igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
-    if igzd.eof:
-        assert igzd.unused_data == true_unused_data
+    assert igzd.eof
+    assert igzd.unused_data == true_unused_data
 
 
 @pytest.mark.parametrize("test_offset", range(9))
@@ -251,12 +252,13 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
     data = gzip.compress(b"bla")
     no_header = data[10:]
     trailer = data[-8:]
-    raw_deflate_incomplete_trailer = no_header[:-test_offset]
-    true_unused_data = trailer[:-test_offset]
+    # no_header[:-test_offset] would be empty when test_offset is 0
+    raw_deflate_incomplete_trailer = no_header[:len(no_header) - test_offset]
+    true_unused_data = trailer[:len(trailer) - test_offset]
     igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
-    if igzd.eof:
-        assert igzd.unused_data == true_unused_data
+    assert igzd.eof
+    assert igzd.unused_data == true_unused_data
 
 
 @pytest.mark.parametrize(["flag", "wbits"], [(DECOMP_DEFLATE, -15),
