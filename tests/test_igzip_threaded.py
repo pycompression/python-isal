@@ -36,9 +36,9 @@ def test_threaded_read():
 
 
 @pytest.mark.parametrize(["mode", "threads"],
-                         itertools.product(["wb", "wt"], [1, 3, -1]))
-def test_threaded_write(mode, threads):
-    with tempfile.NamedTemporaryFile("wb", delete=False) as tmp:
+                         list(itertools.product(["wb", "wt"], [1, 3, -1])))
+def test_threaded_write(tmp_path, mode, threads):
+    with open(tmp_path / "output.gz", "wb") as tmp:
         # Use a small block size to simulate many writes.
         with igzip_threaded.open(tmp, mode, threads=threads,
                                  block_size=8*1024) as out_file:
@@ -87,12 +87,12 @@ def test_threaded_read_error():
 
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize("threads", [1, 3])
-def test_threaded_write_oversized_block_no_error(threads):
+def test_threaded_write_oversized_block_no_error(tmp_path, threads):
     # Random bytes are incompressible, and therefore are guaranteed to
     # trigger a buffer overflow when larger than block size unless handled
     # correctly.
     data = os.urandom(1024 * 63)  # not a multiple of block_size
-    with tempfile.NamedTemporaryFile(mode="wb", delete=False) as tmp:
+    with open(tmp_path / "output.gz", "wb") as tmp:
         with igzip_threaded.open(
                 tmp, "wb", compresslevel=3, threads=threads,
                 block_size=8 * 1024
