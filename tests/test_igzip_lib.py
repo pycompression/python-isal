@@ -286,6 +286,20 @@ def test_igzip_decompressor_unused_data_after_max_length(flag, wbits):
         assert decompressor.unused_data == compressed[stream_end:position]
 
 
+@pytest.mark.parametrize("max_length", [100, 8192])
+def test_igzip_decompressor_needs_input_after_all_input_is_read(max_length):
+    # When the output is full, ISA-L can read all of the input and keep the
+    # decompressed data in its own buffer. needs_input must stay False until
+    # decompress() has returned that data.
+    compressed = igzip_lib.compress(DATA)
+    decompressor = IgzipDecompressor()
+    result = [decompressor.decompress(compressed, max_length)]
+    while not decompressor.eof:
+        assert not decompressor.needs_input
+        result.append(decompressor.decompress(b"", max_length))
+    assert b"".join(result) == DATA
+
+
 @pytest.mark.skipif(not hasattr(sys, "getrefcount"),
                     reason="Needs reference counting")
 def test_igzip_decompressor_keeps_zdict_reference():

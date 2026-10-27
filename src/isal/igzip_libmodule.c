@@ -260,7 +260,11 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
     }
     else if (self->avail_in_real == 0) {
         self->state.next_in = NULL;
-        self->needs_input = 1;
+        /* When the output is full, isal_inflate can still read all of the
+           input and keep the decompressed data in its own buffer. Ask for
+           more input only when the output was not full, like CPython's
+           LZMADecompressor does. */
+        self->needs_input = (self->state.avail_out != 0);
     }
     else {
         self->needs_input = 0;

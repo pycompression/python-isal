@@ -55,6 +55,11 @@ version 1.8.1-dev
   input buffer when ``max_length`` split the end of a stream. At the end of a
   stream, ``isal_zlib.Decompress.unconsumed_tail`` is empty, matching the
   CPython fix for gh-158169.
++ Fix ``igzip_lib.IgzipDecompressor.needs_input``, which could be ``True``
+  after ``decompress()`` returned ``max_length`` bytes while more output was
+  still available. Readers that stop at the end of the file when
+  ``needs_input`` is ``True``, such as CPython's ``DecompressReader``, raised
+  ``EOFError`` for valid data.
 + Fix ``isal_zlib.decompressobj`` with a ``wbits`` of 40 to 47, which detects
   zlib or gzip data. It failed on gzip data when the first ``decompress()``
   call got fewer than 2 bytes, for example, when the data arrived byte by
