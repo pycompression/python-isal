@@ -211,7 +211,7 @@ def test_threaded_close_error(monkeypatch, threads):
 
 def test_close_reader():
     tmp = io.BytesIO(Path(TEST_FILE).read_bytes())
-    f = igzip_threaded._ThreadedGzipReader(tmp, "rb")
+    f = igzip_threaded._ThreadedGzipReader(tmp)
     f.close()
     assert f.closed
     # Make sure double closing does not raise errors
