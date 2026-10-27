@@ -305,7 +305,8 @@ def _argument_parser():
         "-3", "--best", action="store_const", dest="compresslevel",
         const=_COMPRESS_LEVEL_BEST,
         help="use compression level 3 (best)")
-    compress_group.set_defaults(compress=True)
+    compress_group.set_defaults(compress=True,
+                                compresslevel=_COMPRESS_LEVEL_TRADEOFF)
     compress_group.add_argument(
         "-d", "--decompress", action="store_const",
         dest="compress",
@@ -333,7 +334,7 @@ def main():
     import shutil  # Only the command line interface needs it
     args = _argument_parser().parse_args()
 
-    compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
+    compresslevel = args.compresslevel
 
     if args.output:
         out_filepath = args.output
