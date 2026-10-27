@@ -220,10 +220,10 @@ class TestIgzipDecompressor():
 
     def test_failure(self):
         igzd = IgzipDecompressor()
-        with pytest.raises(Exception):
+        with pytest.raises(igzip_lib.IsalError):
             igzd.decompress(self.BAD_DATA * 30)
         # Make sure there are no internal consistencies
-        with pytest.raises(Exception):
+        with pytest.raises(igzip_lib.IsalError):
             igzd.decompress(self.BAD_DATA * 30)
 
     def test_dictionary(self):
