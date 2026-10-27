@@ -105,7 +105,8 @@ def test_threaded_write_oversized_block_no_error(tmp_path, threads):
 
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize(["threads", "block_size"],
-                         itertools.product([1, 3], [8 * 1024, 1024 * 1024]))
+                         list(itertools.product([1, 3],
+                                                [8 * 1024, 1024 * 1024])))
 def test_threaded_write_incompressible_level_0(tmp_path, threads, block_size):
     # Level 0 codes all data with one precomputed Huffman table and never
     # falls back to stored blocks, so random bytes grow by more than 20%.
@@ -333,7 +334,7 @@ def test_threaded_writer_does_not_close_stream():
 
 @pytest.mark.timeout(5)
 @pytest.mark.parametrize(
-    ["mode", "threads"], itertools.product(["rb", "wb"], [1, 2]))
+    ["mode", "threads"], list(itertools.product(["rb", "wb"], [1, 2])))
 def test_threaded_program_can_exit_on_error(tmp_path, mode, threads):
     program = tmp_path / "no_context_manager.py"
     test_file = tmp_path / "output.gz"

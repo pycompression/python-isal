@@ -42,14 +42,14 @@ WBITS_RANGE = list(range(9, 16)) + list(range(25, 32)) + list(range(-15, -8))
 
 
 @pytest.mark.parametrize(["data_size", "value"],
-                         itertools.product(DATA_SIZES, SEEDS))
+                         list(itertools.product(DATA_SIZES, SEEDS)))
 def test_crc32(data_size, value):
     data = DATA[:data_size]
     assert zlib.crc32(data, value) == isal_zlib.crc32(data, value)
 
 
 @pytest.mark.parametrize(["data_size", "value"],
-                         itertools.product(DATA_SIZES, SEEDS))
+                         list(itertools.product(DATA_SIZES, SEEDS)))
 def test_adler32(data_size, value):
     data = DATA[:data_size]
     assert zlib.adler32(data, value) == isal_zlib.adler32(data, value)
@@ -92,7 +92,7 @@ def test_compressobj_decompressobj_no_memory(factory):
 
 
 @pytest.mark.parametrize(["data_size", "level"],
-                         itertools.product(DATA_SIZES, range(4)))
+                         list(itertools.product(DATA_SIZES, range(4))))
 def test_compress(data_size, level):
     data = DATA[:data_size]
     compressed = isal_zlib.compress(data, level=level)
@@ -100,7 +100,7 @@ def test_compress(data_size, level):
 
 
 @pytest.mark.parametrize(["data_size", "level"],
-                         itertools.product(DATA_SIZES, range(10)))
+                         list(itertools.product(DATA_SIZES, range(10))))
 def test_decompress_zlib(data_size, level):
     data = DATA[:data_size]
     compressed = zlib.compress(data, level=level)
@@ -109,8 +109,8 @@ def test_decompress_zlib(data_size, level):
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product([128 * 1024], range(4),
-                                           WBITS_RANGE, range(1, 10)))
+                         list(itertools.product([128 * 1024], range(4),
+                                                WBITS_RANGE, range(1, 10))))
 def test_decompress_wbits(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
     compressobj = zlib.compressobj(level=level, wbits=wbits, memLevel=memLevel)
@@ -120,7 +120,7 @@ def test_decompress_wbits(data_size, level, wbits, memLevel):
 
 
 @pytest.mark.parametrize(["data_size", "level"],
-                         itertools.product(DATA_SIZES, range(4)))
+                         list(itertools.product(DATA_SIZES, range(4))))
 def test_decompress_isal_zlib(data_size, level):
     data = DATA[:data_size]
     compressed = isal_zlib.compress(data, level=level)
@@ -130,8 +130,8 @@ def test_decompress_isal_zlib(data_size, level):
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product([128 * 1024], range(4),
-                                           WBITS_RANGE, range(1, 10)))
+                         list(itertools.product([128 * 1024], range(4),
+                                                WBITS_RANGE, range(1, 10))))
 def test_compress_compressobj(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
     compressobj = isal_zlib.compressobj(level=level,
@@ -227,8 +227,8 @@ def test_compressobj_unsupported_strategy(level, strategy):
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
-                         itertools.product([128 * 1024], range(4),
-                                           WBITS_RANGE, range(1, 10)))
+                         list(itertools.product([128 * 1024], range(4),
+                                                WBITS_RANGE, range(1, 10))))
 def test_decompress_decompressobj(data_size, level, wbits, memLevel):
     data = DATA[:data_size]
     compressobj = zlib.compressobj(level=level, wbits=wbits, memLevel=memLevel)
@@ -249,7 +249,7 @@ def test_decompressobj_unconsumed_tail():
 
 
 @pytest.mark.parametrize(["data_size", "level"],
-                         itertools.product(DATA_SIZES, range(4)))
+                         list(itertools.product(DATA_SIZES, range(4))))
 def test_igzip_compress(data_size, level):
     data = DATA[:data_size]
     compressed = igzip.compress(data, compresslevel=level)
@@ -257,7 +257,7 @@ def test_igzip_compress(data_size, level):
 
 
 @pytest.mark.parametrize(["data_size", "level"],
-                         itertools.product(DATA_SIZES, range(10)))
+                         list(itertools.product(DATA_SIZES, range(10))))
 def test_decompress_gzip(data_size, level):
     data = DATA[:data_size]
     compressed = gzip.compress(data, compresslevel=level)
@@ -266,7 +266,7 @@ def test_decompress_gzip(data_size, level):
 
 
 @pytest.mark.parametrize(["data_size", "level"],
-                         itertools.product(DATA_SIZES, range(4)))
+                         list(itertools.product(DATA_SIZES, range(4))))
 def test_decompress_igzip(data_size, level):
     data = DATA[:data_size]
     compressed = igzip.compress(data, compresslevel=level)
@@ -276,7 +276,7 @@ def test_decompress_igzip(data_size, level):
 
 
 @pytest.mark.parametrize(["unused_size", "wbits"],
-                         itertools.product([26], [-15, 15, 31]))
+                         list(itertools.product([26], [-15, 15, 31])))
 def test_unused_data(unused_size, wbits):
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
     compressor = zlib.compressobj(wbits=wbits)

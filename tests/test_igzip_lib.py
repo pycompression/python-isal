@@ -59,8 +59,8 @@ MEM_LEVELS = [MEM_LEVEL_DEFAULT, MEM_LEVEL_MIN, MEM_LEVEL_SMALL,
 
 
 @pytest.mark.parametrize(["level", "flag", "mem_level", "hist_bits"],
-                         itertools.product(
-                             COMPRESS_LEVELS, FLAGS, MEM_LEVELS, HIST_BITS))
+                         list(itertools.product(
+                             COMPRESS_LEVELS, FLAGS, MEM_LEVELS, HIST_BITS)))
 def test_compress_decompress(level, flag: Flag, mem_level, hist_bits):
     comp = igzip_lib.compress(DATA, level, flag.comp, mem_level, hist_bits)
     decomp = igzip_lib.decompress(comp, flag.decomp, hist_bits)
@@ -351,8 +351,8 @@ def test_igzip_decompressor_decompress_no_memory():
 
 
 @pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
-                         itertools.product([26], FLAGS,
-                                           [128 * 1024 - 3, 874, 81923, 9111]))
+                         list(itertools.product(
+                             [26], FLAGS, [128 * 1024 - 3, 874, 81923, 9111])))
 def test_decompression_flags(unused_size, flag_pair, data_size):
     comp_flag, decomp_flag = flag_pair
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]
