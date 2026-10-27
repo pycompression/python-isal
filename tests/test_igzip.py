@@ -535,6 +535,26 @@ def headers():
     yield header + crc.to_bytes(2, "little")
 
 
+@pytest.mark.parametrize("header", list(headers()))
+def test_decompress_header(header):
+    data = b"hello world" * 100
+    compressed = (header + isal_zlib.compress(data, wbits=-15) +
+                  struct.pack("<II", zlib.crc32(data), len(data)))
+    assert gzip.decompress(compressed) == data
+    assert igzip.decompress(compressed) == data
+    with igzip.open(io.BytesIO(compressed), "rb") as gzip_file:
+        assert gzip_file.read() == data
+
+
+def test_seek_from_end_before_reading():
+    # The size is not known before the end of the stream, so seek() has to
+    # decompress all of the data first.
+    data = b"X" * 100_000 + b"END"
+    with igzip.open(io.BytesIO(gzip.compress(data)), "rb") as gzip_file:
+        assert gzip_file.seek(-3, io.SEEK_END) == 100_000
+        assert gzip_file.read() == b"END"
+
+
 def test_header_too_short():
     with pytest.raises(igzip.BadGzipFile):
         gzip.decompress(b"00")
