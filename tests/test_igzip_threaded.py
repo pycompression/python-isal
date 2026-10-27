@@ -224,9 +224,7 @@ def test_close_writer(threads):
     f = igzip_threaded._ThreadedGzipWriter(
         io.BytesIO(), threads=threads)
     f.close()
-    assert f.closed
-    # Make sure double closing does not raise errors
-    f.close()
+    assert_writer_closed(f)
 
 
 def test_reader_not_writable():
