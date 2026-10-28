@@ -131,6 +131,8 @@ version 1.8.1-dev
 + Fix a crash on macOS and PyPy when there is not enough memory to create the
   internal lock of an ``isal_zlib.Compress``, ``isal_zlib.Decompress``, or
   ``igzip_lib.IgzipDecompressor`` object. It raises ``MemoryError`` now.
++ Fix the ``-0`` and ``--fast`` options of ``python -m isal.igzip``, which
+  compressed at level 2 instead of level 0.
 
 version 1.8.0
 -----------------

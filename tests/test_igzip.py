@@ -220,6 +220,8 @@ def test_compress_stdin_stdout(monkeypatch, capsysbinary, level):
     out, err = capsysbinary.readouterr()
     assert err == b''
     assert gzip.decompress(out) == DATA
+    # The XFL byte of the gzip header is 4 only at the fastest level.
+    assert out[8] == (4 if level == "0" else 0)
 
 
 def test_decompress_infile_outfile(monkeypatch, tmp_path, capsysbinary):
