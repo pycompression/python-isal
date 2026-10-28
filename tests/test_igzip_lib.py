@@ -12,6 +12,7 @@ import gzip
 import itertools
 import os
 import pickle
+import random
 import subprocess
 import sys
 import textwrap
@@ -72,6 +73,12 @@ class TestIgzipDecompressor():
     TEXT = DATA
     DATA = igzip_lib.compress(DATA)
     BAD_DATA = b"Not a valid deflate block"
+    # isal_inflate decompresses up to about 64 KiB ahead into its own buffer
+    # and reads the input it needs for that. For the input buffer tests to
+    # leave input over, they use inputs of 100 KB or more of incompressible
+    # data, which needs about as much input as output.
+    RANDOM_DATA = random.Random(0).randbytes(512 * 1024)
+    COMPRESSED_RANDOM_DATA = igzip_lib.compress(RANDOM_DATA)
 
     def test_decompress(self):
         decomp = IgzipDecompressor()
@@ -168,19 +175,21 @@ class TestIgzipDecompressor():
         out = []
 
         # Create input buffer and fill it
-        assert igzd.decompress(self.DATA[:100], max_length=0) == b''
+        assert igzd.decompress(self.COMPRESSED_RANDOM_DATA[:100_000],
+                               max_length=0) == b''
 
         # Retrieve some results, freeing capacity at beginning
         # of input buffer
-        out.append(igzd.decompress(b'', 2))
+        out.append(igzd.decompress(b'', 80_000))
 
         # Add more data that fits into input buffer after
         # moving existing data to beginning
-        out.append(igzd.decompress(self.DATA[100:105], 15))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[100_000:105_000], 15))
 
         # Decompress rest of data
-        out.append(igzd.decompress(self.DATA[105:]))
-        assert b''.join(out) == self.TEXT
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[105_000:]))
+        assert b''.join(out) == self.RANDOM_DATA
 
     def test_decompressor_inputbuf_2(self):
         # Test reusing input buffer by appending data at the
@@ -189,18 +198,21 @@ class TestIgzipDecompressor():
         out = []
 
         # Create input buffer and empty it
-        assert igzd.decompress(self.DATA[:200], max_length=0) == b''
+        assert igzd.decompress(self.COMPRESSED_RANDOM_DATA[:200_000],
+                               max_length=0) == b''
         out.append(igzd.decompress(b''))
 
         # Fill buffer with new data
-        out.append(igzd.decompress(self.DATA[200:280], 2))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[200_000:280_000], 2))
 
         # Append some more data, not enough to require resize
-        out.append(igzd.decompress(self.DATA[280:300], 2))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[280_000:300_000], 2))
 
         # Decompress rest of data
-        out.append(igzd.decompress(self.DATA[300:]))
-        assert b''.join(out) == self.TEXT
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[300_000:]))
+        assert b''.join(out) == self.RANDOM_DATA
 
     def test_decompressor_inputbuf_3(self):
         # Test reusing input buffer after extending it
@@ -209,14 +221,15 @@ class TestIgzipDecompressor():
         out = []
 
         # Create almost full input buffer
-        out.append(igzd.decompress(self.DATA[:200], 5))
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[:200_000], 5))
 
         # Add even more data to it, requiring resize
-        out.append(igzd.decompress(self.DATA[200:300], 5))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[200_000:300_000], 5))
 
         # Decompress rest of data
-        out.append(igzd.decompress(self.DATA[300:]))
-        assert b''.join(out) == self.TEXT
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[300_000:]))
+        assert b''.join(out) == self.RANDOM_DATA
 
     def test_failure(self):
         igzd = IgzipDecompressor()
