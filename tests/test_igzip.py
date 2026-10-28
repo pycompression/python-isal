@@ -389,7 +389,7 @@ def test_compress_infile_out_file_no_name(monkeypatch, tmp_path, capsysbinary):
     assert gzip.decompress(output) == DATA
     assert err == b''
     assert out == b''
-    assert output[4] & gzip.FNAME == 0  # No filename set.
+    assert output[3] & gzip.FNAME == 0  # No filename set.
     assert output[4:8] == b"\x00\x00\x00\x00"  # No timestamp set.
 
 
