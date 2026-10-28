@@ -230,14 +230,16 @@ def test_close_writer(threads):
     assert_writer_closed(f)
 
 
+# io.BufferedReader.writable() and io.BufferedWriter.readable() are always
+# False, so check the raw streams.
 def test_reader_not_writable():
     with igzip_threaded.open(TEST_FILE, "rb") as f:
-        assert not f.writable()
+        assert not f.raw.writable()
 
 
 def test_writer_not_readable():
     with igzip_threaded.open(io.BytesIO(), "wb") as f:
-        assert not f.readable()
+        assert not f.raw.readable()
 
 
 def test_writer_wrong_level():
