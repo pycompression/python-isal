@@ -35,13 +35,16 @@ def test_threaded_read():
     assert thread_data == data
 
 
+@pytest.mark.parametrize("block_size", [8 * 1024, 64 * 1024])
 @pytest.mark.parametrize(["mode", "threads"],
                          list(itertools.product(["wb", "wt"], [1, 3, -1])))
-def test_threaded_write(tmp_path, mode, threads):
+def test_threaded_write(tmp_path, mode, threads, block_size):
     with open(tmp_path / "output.gz", "wb") as tmp:
-        # Use a small block size to simulate many writes.
+        # Use small block sizes to simulate many writes. Each block uses up
+        # to 32 KiB from the end of the previous block as a dictionary, so
+        # also test a block size above 32 KiB.
         with igzip_threaded.open(tmp, mode, threads=threads,
-                                 block_size=8*1024) as out_file:
+                                 block_size=block_size) as out_file:
             gzip_open_mode = "rb" if "b" in mode else "rt"
             with gzip.open(TEST_FILE, gzip_open_mode) as in_file:
                 while True:
