@@ -25,6 +25,8 @@ Changes compared to CPython:
 
 #include "isal_shared.h"
 
+#include <sys/stat.h>
+
 #include <isa-l/crc.h>
 #include "crc32_combine.h"
 
@@ -1612,6 +1614,9 @@ typedef struct _GzipReaderStruct {
     char all_bytes_read;
     char closed;
     uint32_t _last_mtime;
+    /* Compressed bytes read from fp so far. readall() uses it to find the
+       compression ratio. */
+    Py_ssize_t compressed_read;
     PyThread_type_lock lock;
     struct inflate_state state;
 } GzipReader;
@@ -1710,6 +1715,7 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->stream_phase = GzipReader_HEADER;
     self->closed = 0;
     self->_last_mtime = 0;
+    self->compressed_read = 0;
     self->lock = PyThread_allocate_lock();
     if (self->lock == NULL) {
         Py_DECREF(self);
@@ -1765,6 +1771,7 @@ GzipReader_read_from_file(GzipReader *self)
         self->all_bytes_read = 1;
     }
     buffer_end += new_size;
+    self->compressed_read += new_size;
     self->current_pos = current_pos;
     self->buffer_end = buffer_end;
     return 0;
@@ -2121,6 +2128,81 @@ GzipReader_seek_impl(GzipReader *self, Py_ssize_t offset, Py_ssize_t whence)
     return PyLong_FromLongLong(self->_pos);
 }
 
+/* Return the number of compressed bytes that are not decompressed yet, or -1
+   if that is unknown. It is known for bytes-like objects, for regular files,
+   and for streams that were read to the end. readall() uses it only to choose
+   how much memory to allocate. */
+static Py_ssize_t
+GzipReader_compressed_left(GzipReader *self)
+{
+    Py_ssize_t left = self->buffer_end - self->current_pos;
+    if (self->all_bytes_read) {
+        return left;
+    }
+    int fd = PyObject_AsFileDescriptor(self->fp);
+    if (fd == -1) {
+        PyErr_Clear();
+        return -1;
+    }
+#ifdef MS_WINDOWS
+    struct _stat64 st;
+    if (_fstat64(fd, &st) != 0 || (st.st_mode & _S_IFMT) != _S_IFREG) {
+        return -1;
+    }
+#else
+    struct stat st;
+    if (fstat(fd, &st) != 0 || !S_ISREG(st.st_mode)) {
+        return -1;
+    }
+#endif
+    PyObject *pos_obj = PyObject_CallMethod(self->fp, "tell", NULL);
+    if (pos_obj == NULL) {
+        PyErr_Clear();
+        return -1;
+    }
+    long long pos = PyLong_AsLongLong(pos_obj);
+    Py_DECREF(pos_obj);
+    if (pos == -1 && PyErr_Occurred()) {
+        PyErr_Clear();
+        return -1;
+    }
+    if (pos < 0 || pos > (long long)st.st_size) {
+        return left;
+    }
+    long long file_left = (long long)st.st_size - pos;
+    if (file_left > PY_SSIZE_T_MAX - left) {
+        return -1;
+    }
+    return left + (Py_ssize_t)file_left;
+}
+
+/* Return the size for the readall() buffer when it is full: the output so
+   far scaled by the input it came from, plus an eighth. The buffer grows by
+   at least a quarter, so a low estimate still converges, and to at most 8
+   times its size, which limits the allocation when the rest of the data
+   compresses less well. */
+static Py_ssize_t
+readall_new_size(Py_ssize_t written, Py_ssize_t consumed, Py_ssize_t left)
+{
+    double size = (double)written;
+    if (consumed > 0) {
+        size += size * (double)left / (double)consumed;
+    }
+    size += size / 8;
+    double min_size = (double)written + (double)(written / 4);
+    double max_size = (double)written * 8;
+    if (size < min_size) {
+        size = min_size;
+    }
+    if (size > max_size) {
+        size = max_size;
+    }
+    if (size >= (double)PY_SSIZE_T_MAX) {
+        return PY_SSIZE_T_MAX;
+    }
+    return (Py_ssize_t)size;
+}
+
 static PyObject *
 GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
 {
@@ -2142,73 +2224,122 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
 static PyObject *
 GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
 {
-    /* Try to consume the entire buffer without too much overallocation */
-    Py_ssize_t chunk_size = self->buffer_size * 4;
-    /* Rather than immediately creating a list, read one chunk first and
-       only create a list when more read operations are necessary. */
-    PyObject *first_chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
-    if (first_chunk == NULL) {
-        return NULL;
-    }
-    ENTER_ZLIB(self);
-    Py_ssize_t written_size = GzipReader_read_into_buffer(
-        self, (uint8_t *)PyBytes_AS_STRING(first_chunk), chunk_size);
-    LEAVE_ZLIB(self);
-    if (written_size < 0) {
-        Py_DECREF(first_chunk);
-        return NULL;
-    }
-    if (written_size < chunk_size) {
-        if (_PyBytes_Resize(&first_chunk, written_size) < 0) {
-            return NULL;
-        }
-        return first_chunk;
-    }
+    PyObject *result = NULL;
+    PyObject *chunks = NULL;
+    Py_ssize_t written = 0;
 
-    PyObject *chunk_list = PyList_New(1);
-    if (chunk_list == NULL) {
-        return NULL;
+    ENTER_ZLIB(self);
+    /* Fill the input buffer first, so that a small file gets a buffer for
+       its own size rather than for the size of the input buffer, and its size
+       is known without calling fstat(). Only do this with an empty buffer
+       outside a deflate block: the end of a member can still need the bytes
+       just before current_pos, which reading would overwrite. */
+    if (self->current_pos == self->buffer_end &&
+        self->stream_phase != GzipReader_DEFLATE_BLOCK) {
+        while (!self->all_bytes_read && (size_t)(self->buffer_end -
+                                                 self->input_buffer) <
+                                            self->buffer_size) {
+            if (GzipReader_read_from_file(self) < 0) {
+                goto error;
+            }
+        }
     }
-    PyList_SET_ITEM(chunk_list, 0, first_chunk);
+    Py_ssize_t available = self->buffer_end - self->current_pos;
+    Py_ssize_t read_at_start = self->compressed_read;
+    int size_known = 1;
+    Py_ssize_t size = DEF_BUF_SIZE;
+    if (available > PY_SSIZE_T_MAX / 4) {
+        size = PY_SSIZE_T_MAX;
+    } else if (available * 4 > size) {
+        size = available * 4;
+    }
+    result = PyBytes_FromStringAndSize(NULL, size);
+    if (result == NULL) {
+        goto error;
+    }
     while (1) {
-        PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
-        if (chunk == NULL) {
-            Py_DECREF(chunk_list);
-            return NULL;
+        Py_ssize_t written_now = GzipReader_read_into_buffer(
+            self, (uint8_t *)PyBytes_AS_STRING(result) + written,
+            size - written);
+        if (written_now < 0) {
+            goto error;
         }
-        ENTER_ZLIB(self);
-        written_size = GzipReader_read_into_buffer(
-            self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
-        LEAVE_ZLIB(self);
-        if (written_size < 0) {
-            Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        if (written_size == 0) {
-            Py_DECREF(chunk);
+        written += written_now;
+        if (written < size) {
+            // The end of the stream.
             break;
         }
-        if (_PyBytes_Resize(&chunk, written_size) < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
+        Py_ssize_t left = -1;
+        if (size_known) {
+            left = GzipReader_compressed_left(self);
+            size_known = left >= 0;
         }
-        int ret = PyList_Append(chunk_list, chunk);
-        Py_DECREF(chunk);
-        if (ret < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
+        if (left >= 0) {
+            /* Grow the buffer to the expected size. Unlike joining chunks,
+               this does not copy all of the output into new memory at the
+               end. On Linux, realloc() usually moves large blocks without
+               copying them. */
+            Py_ssize_t consumed = self->compressed_read - read_at_start +
+                                  available - (self->buffer_end -
+                                               self->current_pos);
+            size = readall_new_size(written, consumed, left);
+            if (_PyBytes_Resize(&result, size) < 0) {
+                goto error;
+            }
+            continue;
         }
+        /* With an unknown amount of input, for example from a pipe, collect
+           chunks and join them at the end. Doubling one buffer was slower on
+           Windows. */
+        if (chunks == NULL) {
+            chunks = PyList_New(0);
+            if (chunks == NULL) {
+                goto error;
+            }
+        }
+        if (PyList_Append(chunks, result) < 0) {
+            goto error;
+        }
+        Py_ssize_t chunk_size = (Py_ssize_t)self->buffer_size * 4;
+        if (chunk_size > size) {
+            size = chunk_size;
+        }
+        Py_SETREF(result, PyBytes_FromStringAndSize(NULL, size));
+        if (result == NULL) {
+            goto error;
+        }
+        written = 0;
+    }
+    LEAVE_ZLIB(self);
+
+    if (_PyBytes_Resize(&result, written) < 0) {
+        Py_XDECREF(chunks);
+        return NULL;
+    }
+    if (chunks == NULL) {
+        return result;
+    }
+    int ret = PyList_Append(chunks, result);
+    Py_DECREF(result);
+    if (ret < 0) {
+        Py_DECREF(chunks);
+        return NULL;
     }
     PyObject *empty_bytes = PyBytes_FromStringAndSize(NULL, 0);
     if (empty_bytes == NULL) {
-        Py_DECREF(chunk_list);
+        Py_DECREF(chunks);
         return NULL;
     }
-    PyObject *ret = PyObject_CallMethod(empty_bytes, "join", "O", chunk_list);
+    result = PyObject_CallMethod(empty_bytes, "join", "O", chunks);
     Py_DECREF(empty_bytes);
-    Py_DECREF(chunk_list);
-    return ret;
+    Py_DECREF(chunks);
+    return result;
+
+error:
+    LEAVE_ZLIB(self);
+    Py_XDECREF(result);
+    Py_XDECREF(chunks);
+    return NULL;
 }
 
 static PyObject *
