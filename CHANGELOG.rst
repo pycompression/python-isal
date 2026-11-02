@@ -8,8 +8,22 @@ Changelog
 .. that users understand how the changes affect the new version.
 
 
-version 1.8.1-dev
+version 1.9.0
 -----------------
+
+Major changes:
+
++ Updated included ISA-L library to 2.32.1.
++ Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
+  3.12 and Python 3.15.
++ Restore PyPy wheel builds.
++ Fix builds on macOS with Apple Silicon, which used the portable C code of
+  ISA-L rather than its optimized aarch64 assembly. On an Apple M4,
+  decompression is 1.6 to 3 times faster, CRC-32 is 50 times faster, and
+  Adler-32 is 7 times faster.
+
+Optimizations:
+
 + ``isal_zlib.compressobj`` supports ``strategy=Z_FIXED`` at compression
   level 0. Level 0 then uses fixed Huffman codes instead of starting each
   block with a Huffman table of about 110 bytes. This shrinks small flushed
@@ -21,17 +35,19 @@ version 1.8.1-dev
 + Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by
   importing ``argparse`` and ``shutil`` only when the command line interface
   runs, and by dropping the ``multiprocessing`` import.
-+ Updated ISA-L to 2.32.1.
-+ Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
-  3.12 and Python 3.15.
-+ Restore PyPy wheel builds.
 + Speed up reading lines from binary ``igzip`` files through iteration,
   ``readlines()``, and ``readline()``. On an Apple M4, reading FASTQ data is
   1.13 times faster, and reading lines of a few bytes is 1.5 times faster.
 + Speed up each ``write()`` call to binary ``igzip`` files on CPython. On an
   AMD Ryzen 7 9800X3D with Python 3.14.8, writing FASTQ data or Python source
   code one line at a time is 1.1 times faster.
-+ Fix zlib streams compressed with a preset dictionary so they can be decoded
++ Speed up many small writes to ``igzip.IGzipFile`` on Python 3.12 and later.
+  ``IGzipFile`` collects these writes in the write buffer of
+  ``gzip.GzipFile`` and compresses them in large chunks, which makes writing
+  lines 1.4 times faster.
+
+Bug fixes:
+ + Fix zlib streams compressed with a preset dictionary so they can be decoded
   by standard zlib, including builds linked against older ISA-L releases.
 + Fix backward seeking in igzip files by discarding buffered compressed data
   when rewinding the underlying file.
@@ -81,14 +97,6 @@ version 1.8.1-dev
 + Fix ``igzip_threaded`` readers and writers that waited for a polling timeout
   of up to 50 ms at the end of the stream or when closed. Writing and closing
   a small file takes less than a millisecond instead of 60 ms.
-+ Speed up many small writes to ``igzip.IGzipFile`` on Python 3.12 and later.
-  ``IGzipFile`` collects these writes in the write buffer of
-  ``gzip.GzipFile`` and compresses them in large chunks, which makes writing
-  lines 1.4 times faster.
-+ Fix builds on macOS with Apple Silicon, which used the portable C code of
-  ISA-L rather than its optimized aarch64 assembly. On an Apple M4,
-  decompression is 1.6 to 3 times faster, CRC-32 is 50 times faster, and
-  Adler-32 is 7 times faster.
 + Fix ``igzip_threaded`` writers that waited forever when writing to the
   underlying file failed, for example, because the disk was full. A later call
   to ``write()``, ``flush()``, or ``close()`` raises the error. After an error,
@@ -108,9 +116,6 @@ version 1.8.1-dev
   private ``isal_zlib._GzipReader`` class raise ``TypeError`` instead of
   ``SystemError`` for arguments of the wrong type or number.
   ``igzip.IGzipFile`` was not affected.
-+ Fix crashes and wrong data when one thread calls ``seek()`` of the
-  private ``isal_zlib._GzipReader`` class while another thread reads from the
-  same object. ``igzip.IGzipFile`` was not affected.
 + Fix a crash on PyPy when you create an ``isal_zlib.Compress`` or
   ``isal_zlib.Decompress`` object by calling the type, for example,
   ``isal_zlib.Compress()``, and then use it. Calling the type raises
@@ -138,6 +143,10 @@ version 1.8.1-dev
   ``igzip_lib.IgzipDecompressor`` object. It raises ``MemoryError`` now.
 + Fix the ``-0`` and ``--fast`` options of ``python -m isal.igzip``, which
   compressed at level 2 instead of level 0.
++ Fix crashes and wrong data when one thread calls ``seek()`` of the
+  private ``isal_zlib._GzipReader`` class while another thread reads from the
+  same object. ``igzip.IGzipFile`` was not affected.
+
 
 version 1.8.0
 -----------------
