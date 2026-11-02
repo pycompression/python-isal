@@ -44,20 +44,20 @@ def test_repr(tmp_path):
 
 
 @pytest.mark.parametrize("level", range(4))
-def test_igzipfile_compresses_with_isal_zlib(level):
-    # 30,000 bytes fit in the write buffer that GzipFile has on Python 3.12
-    # and later (32 KiB or more), so IGzipFile compresses them with one
-    # compress() call.
-    with gzip.open(TEST_FILE, "rb") as f:
-        data = f.read(30_000)
-    buffer = io.BytesIO()
-    with igzip.IGzipFile(fileobj=buffer, mode="wb", compresslevel=level,
-                         mtime=0) as f:
-        f.write(data)
-    compressor = isal_zlib.compressobj(level, wbits=-isal_zlib.MAX_WBITS)
-    expected = compressor.compress(data) + compressor.flush()
-    # Leave out the 10-byte header and the 8-byte trailer.
-    assert buffer.getvalue()[10:-8] == expected
+def test_igzipfile_compressobj_parameters(monkeypatch, level):
+    calls = []
+    compressobj = isal_zlib.compressobj
+
+    def recording_compressobj(*args, **kwargs):
+        calls.append((args, kwargs))
+        return compressobj(*args, **kwargs)
+
+    monkeypatch.setattr(isal_zlib, "compressobj", recording_compressobj)
+    with igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb",
+                         compresslevel=level) as f:
+        assert isinstance(f.compress, isal_zlib.Compress)
+    assert calls == [((level, isal_zlib.DEFLATED, -isal_zlib.MAX_WBITS,
+                       isal_zlib.DEF_MEM_LEVEL, 0), {})]
 
 
 def test_write_readonly_file():
