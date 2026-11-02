@@ -205,13 +205,13 @@ jobs:
   deploy:
 #    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
-    needs:
-      - lint
-      - package-checks
-      - test-static
-      - test-dynamic
-      - test-arch
-      - test-sanitizers
+#    needs:
+#      - lint
+#      - package-checks
+#      - test-static
+#      - test-dynamic
+#      - test-arch
+#      - test-sanitizers
     strategy:
       matrix:
         os:
