@@ -43,6 +43,23 @@ def test_repr(tmp_path):
         assert "<igzip _io.BufferedWriter name='" in repr(test)
 
 
+@pytest.mark.parametrize("level", range(4))
+def test_igzipfile_compressobj_parameters(monkeypatch, level):
+    calls = []
+    compressobj = isal_zlib.compressobj
+
+    def recording_compressobj(*args, **kwargs):
+        calls.append((args, kwargs))
+        return compressobj(*args, **kwargs)
+
+    monkeypatch.setattr(isal_zlib, "compressobj", recording_compressobj)
+    with igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb",
+                         compresslevel=level) as f:
+        assert isinstance(f.compress, isal_zlib.Compress)
+    assert calls == [((level, isal_zlib.DEFLATED, -isal_zlib.MAX_WBITS,
+                       isal_zlib.DEF_MEM_LEVEL, 0), {})]
+
+
 def test_write_readonly_file():
     with igzip.IGzipFile(TEST_FILE, "rb") as test:
         with pytest.raises(OSError) as error:
