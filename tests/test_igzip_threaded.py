@@ -66,6 +66,13 @@ def test_threaded_open_no_threads():
         assert isinstance(klass, gzip.GzipFile)
 
 
+def test_threaded_open_threads():
+    with igzip_threaded.open(io.BytesIO(), "wb", threads=3) as f:
+        workers = f.raw.compression_workers
+        assert len(workers) == 3
+        assert all(worker.is_alive() for worker in workers)
+
+
 def test_threaded_open_not_a_file_or_pathlike():
     i_am_a_tuple = (1, 2, 3)
     with pytest.raises(TypeError) as error:
