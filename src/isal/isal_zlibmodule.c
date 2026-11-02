@@ -1611,6 +1611,9 @@ typedef struct _GzipReaderStruct {
     char stream_phase;
     char all_bytes_read;
     char closed;
+    /* Set when the first gzip header is read. A modification time of 0 is
+       valid, so _last_mtime cannot tell whether a header was read. */
+    char has_last_mtime;
     uint32_t _last_mtime;
     PyThread_type_lock lock;
     struct inflate_state state;
@@ -1709,6 +1712,7 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->fp = fp;
     self->stream_phase = GzipReader_HEADER;
     self->closed = 0;
+    self->has_last_mtime = 0;
     self->_last_mtime = 0;
     self->lock = PyThread_allocate_lock();
     if (self->lock == NULL) {
@@ -1869,6 +1873,7 @@ GzipReader_read_into_buffer(GzipReader *self, uint8_t *out_buffer, size_t out_bu
                     }
                     uint8_t flags = current_pos[3];
                     self->_last_mtime = load_u32_le(current_pos + 4);
+                    self->has_last_mtime = 1;
                     // Skip XFL and header flag
                     uint8_t *header_cursor = current_pos + 10;
                     if (flags & FEXTRA) {
@@ -2280,7 +2285,7 @@ GzipReader_flush(GzipReader *self, PyObject *Py_UNUSED(ignore)) {
 static PyObject *
 GzipReader_get_last_mtime(GzipReader *self, void *Py_UNUSED(closure)) 
 {
-    if (self->_last_mtime) {
+    if (self->has_last_mtime) {
         return PyLong_FromUnsignedLong(self->_last_mtime);
     }
     Py_RETURN_NONE;

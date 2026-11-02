@@ -119,6 +119,11 @@ version 1.8.1-dev
 + Fix ``readinto()`` of the private ``isal_zlib._GzipReader`` class, which
   wrote into read-only objects such as ``bytes``. It raises ``TypeError`` now.
   ``igzip.IGzipFile`` was not affected.
++ Fix the ``mtime`` attribute of ``igzip.IGzipFile`` objects in read mode,
+  which was ``None`` for gzip files with a modification time of 0. It is 0 now,
+  as in the ``gzip`` module. ``gzip -n``, ``python -m isal.igzip -n``, and
+  ``igzip_threaded`` writers make such files, and so does ``gzip.compress`` by
+  default on Python 3.14.
 + Fix a crash when there is not enough memory to create an
   ``igzip_lib.IgzipDecompressor``. It raises ``MemoryError`` now.
 + Fix a crash when there is not enough memory to raise ``BadGzipFile`` for

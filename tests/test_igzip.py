@@ -80,6 +80,15 @@ def test_igzip_reader_read_zero():
     assert test.read(0) == b""
 
 
+@pytest.mark.parametrize("mtime", [0, 1, 2**32 - 1])
+def test_igzipfile_mtime(mtime):
+    data = gzip.compress(DATA, mtime=mtime)
+    with igzip.IGzipFile(fileobj=io.BytesIO(data)) as test:
+        assert test.mtime is None
+        assert test.read() == DATA
+        assert test.mtime == mtime
+
+
 @pytest.mark.parametrize(["method", "args"], [
     ("read", ("x",)),
     ("read", (1, 2)),
