@@ -20,7 +20,7 @@ import warnings
 import zlib
 from pathlib import Path
 
-from isal import igzip, isal_zlib
+from isal import igzip, igzip_lib, isal_zlib
 
 import pytest
 
@@ -127,6 +127,16 @@ def test_decompress_isal_zlib(data_size, level):
     decompressed = isal_zlib.decompress(compressed)
     print(len(decompressed))
     assert decompressed == data
+
+
+@pytest.mark.parametrize("module", [isal_zlib, igzip_lib])
+def test_decompress_bufsize(module):
+    data = DATA[:10_000]
+    compressed = module.compress(data)
+    # Like zlib.decompress, decompress accepts a bufsize of 0.
+    assert module.decompress(compressed, bufsize=0) == data
+    with pytest.raises(ValueError, match="bufsize must be non-negative"):
+        module.decompress(compressed, bufsize=-1)
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
