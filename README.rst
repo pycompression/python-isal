@@ -113,12 +113,12 @@ your project please list a python-isal dependency as follows.
 ``setup.cfg``::
 
     install_requires =
-        isal; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64"
+        isal; platform.machine == "x86_64" or platform.machine == "AMD64" or platform.machine == "aarch64" or platform.machine == "arm64"
 
 ``setup.py``::
 
     extras_require={
-        ":platform.machine == 'x86_64' or platform.machine == 'AMD64' or platform.machine == 'aarch64'": ['isal']
+        ":platform.machine == 'x86_64' or platform.machine == 'AMD64' or platform.machine == 'aarch64' or platform.machine == 'arm64'": ['isal']
     },
 
 .. dependency end
@@ -139,8 +139,9 @@ Differences with zlib and gzip modules
   ``FINISH_FLUSH``. Other flush modes are not supported and will raise errors.
 + ``zlib.Z_DEFAULT_STRATEGY``, ``zlib.Z_RLE`` etc. are exposed as
   ``isal_zlib.Z_DEFAULT_STRATEGY``, ``isal_zlib.Z_RLE`` etc. for compatibility
-  reasons. However, ``isal_zlib`` only supports a default strategy and will
-  give warnings when other strategies are used.
+  reasons. However, ``isal_zlib`` supports only the default strategy, and
+  ``Z_FIXED`` at compression level 0. It gives a warning and uses the default
+  strategy for other strategies, and for ``Z_FIXED`` at levels 1 to 3.
 + ``zlib`` supports different memory levels from 1 to 9 (with 8 default).
   ``isal_zlib`` supports memory levels smallest, small, medium, large and
   largest. These have been mapped to levels 1, 2-3, 4-6, 7-8 and 9. So
@@ -223,6 +224,8 @@ This project builds upon the software and experience of many.  Many thanks to:
 + The `github actions team <https://github.com/orgs/actions/people>`_ for
   creating the actions CI service that enables building and testing on all
   three major operating systems.
++ `@ptweezy <https://github.com/ptweezy>`_ for discovering and fixing lots and
+  lots of bugs as well as suggesting and implementing quite a few improvements.
 + `@animalize <https://github.com/animalize>`_ for explaining how to test and
   build python-isal for ARM 64-bit platforms.
 + And last but not least: everyone who submitted a bug report or a feature

@@ -1,4 +1,5 @@
 import concurrent.futures
+import io
 import random
 import string
 import threading
@@ -75,10 +76,9 @@ LAERTES
 NUM_THREADS = 10
 NUM_ITERATIONS = 20
 NUM_JOBS = 50  # To simulate 50 jobs running in 10 threads
-barrier = threading.Barrier(parties=NUM_THREADS)
 
 
-def isal_compress_decompress(compress, decompress):
+def isal_compress_decompress(compress, decompress, barrier):
     for _ in range(NUM_ITERATIONS):
         barrier.wait()
         x = compress(HAMLET_SCENE)
@@ -101,10 +101,169 @@ def isal_compress_decompress(compress, decompress):
     ]
 )
 def test_isal_compress_decompress_threaded(compress, decompress):
+    # A failed job makes fewer barrier waits than the others, so when the
+    # jobs run out, the other threads would wait at the barrier forever.
+    # The timeout makes them fail instead.
+    barrier = threading.Barrier(parties=NUM_THREADS, timeout=10)
     with concurrent.futures.ThreadPoolExecutor(NUM_THREADS) as executor:
         futures = [
-            executor.submit(isal_compress_decompress, compress, decompress)
+            executor.submit(isal_compress_decompress, compress, decompress,
+                            barrier)
             for _ in range(NUM_JOBS)
         ]
         for future in concurrent.futures.as_completed(futures):
             future.result()  # To fire assertion error if there is one
+
+
+def run_in_threads(function):
+    """Call function(index) in NUM_THREADS threads at the same time."""
+    start = threading.Barrier(parties=NUM_THREADS)
+
+    def run(index):
+        start.wait()
+        return function(index)
+
+    with concurrent.futures.ThreadPoolExecutor(NUM_THREADS) as executor:
+        return list(executor.map(run, range(NUM_THREADS)))
+
+
+def test_compressobj_shared_between_threads():
+    compressobj = isal_zlib.compressobj()
+
+    def compress(index):
+        for _ in range(NUM_ITERATIONS):
+            compressobj.compress(HAMLET_SCENE)
+            if index == 0:
+                compressobj.flush(isal_zlib.Z_SYNC_FLUSH)
+
+    # The order of the calls is unknown, so the output cannot be checked.
+    # This test is for ThreadSanitizer.
+    run_in_threads(compress)
+    compressobj.flush()
+
+
+def test_decompressobj_shared_between_threads():
+    decompressobj = isal_zlib.decompressobj()
+    decompressobj.decompress(isal_zlib.compress(HAMLET_SCENE))
+    assert decompressobj.eof
+
+    def decompress(index):
+        # Data after the end of the stream is added to unused_data.
+        for _ in range(NUM_ITERATIONS):
+            assert decompressobj.decompress(bytes([index]) * 10) == b""
+
+    run_in_threads(decompress)
+    unused_data = decompressobj.unused_data
+    blocks = [unused_data[i:i + 10] for i in range(0, len(unused_data), 10)]
+    assert sorted(blocks) == sorted(
+        bytes([index]) * 10
+        for index in range(NUM_THREADS)
+        for _ in range(NUM_ITERATIONS)
+    )
+
+
+def test_igzip_decompressor_shared_between_threads():
+    data = HAMLET_SCENE * 100
+    decompressor = igzip_lib.IgzipDecompressor()
+    first = decompressor.decompress(igzip_lib.compress(data), 100)
+
+    def decompress(index):
+        size = 0
+        while True:
+            try:
+                size += len(decompressor.decompress(b"", 100))
+            except EOFError:
+                return size
+
+    assert len(first) + sum(run_in_threads(decompress)) == len(data)
+
+
+def test_decompressobj_shared_between_threads_detects_format():
+    compressed = isal_zlib.compress(HAMLET_SCENE, wbits=31)
+    for _ in range(NUM_ITERATIONS):
+        # wbits=47 detects gzip or zlib in the first decompress() call.
+        decompressobj = isal_zlib.decompressobj(wbits=47)
+        results = run_in_threads(
+            lambda index: decompressobj.decompress(compressed))
+        assert sorted(results) == [b""] * (NUM_THREADS - 1) + [HAMLET_SCENE]
+        assert decompressobj.unused_data == compressed * (NUM_THREADS - 1)
+
+
+def test_decompressobj_attributes_while_decompressing():
+    data = HAMLET_SCENE * 100
+    compressed = isal_zlib.compress(data) + b"unused"
+    decompressobj = isal_zlib.decompressobj()
+    done = threading.Event()
+
+    def decompress():
+        output = []
+        unconsumed = compressed
+        while not decompressobj.eof:
+            output.append(decompressobj.decompress(unconsumed, 100))
+            unconsumed = decompressobj.unconsumed_tail
+        # Each call replaces unused_data with a longer bytes object.
+        for _ in range(NUM_ITERATIONS):
+            decompressobj.decompress(b"!")
+        return b"".join(output)
+
+    def run(index):
+        if index == 0:
+            try:
+                return decompress()
+            finally:
+                done.set()
+        while not done.is_set():
+            decompressobj.eof
+            decompressobj.unused_data
+            decompressobj.unconsumed_tail
+
+    assert run_in_threads(run)[0] == data
+    assert decompressobj.unused_data == b"unused" + b"!" * NUM_ITERATIONS
+
+
+def test_igzip_decompressor_attributes_while_decompressing():
+    data = HAMLET_SCENE * 100
+    compressed = igzip_lib.compress(data, flag=igzip_lib.COMP_GZIP)
+    decompressor = igzip_lib.IgzipDecompressor(flag=igzip_lib.DECOMP_GZIP)
+    done = threading.Event()
+
+    def decompress():
+        output = [decompressor.decompress(compressed + b"unused", 100)]
+        while not decompressor.eof:
+            output.append(decompressor.decompress(b"", 100))
+        return b"".join(output)
+
+    def run(index):
+        if index == 0:
+            try:
+                return decompress()
+            finally:
+                done.set()
+        while not done.is_set():
+            decompressor.eof
+            decompressor.unused_data
+            decompressor.needs_input
+            decompressor.crc
+
+    assert run_in_threads(run)[0] == data
+    assert decompressor.unused_data == b"unused"
+    assert decompressor.crc == isal_zlib.crc32(data)
+
+
+def test_gzip_reader_seek_while_reading():
+    # Each number appears once, so a chunk that mixes up parts is not in it.
+    data = b"".join(b"%08d" % i for i in range(128 * 1024))
+    compressed = isal_zlib.compress(data, wbits=31)
+    reader = isal_zlib._GzipReader(io.BytesIO(compressed))
+
+    def run(index):
+        for i in range(NUM_ITERATIONS):
+            if index % 2:
+                reader.seek(len(data) // 2 if i % 2 else 0)
+            else:
+                # seek() can come between two reads, but not during one.
+                assert reader.read(64 * 1024) in data
+
+    run_in_threads(run)
+    reader.seek(0)
+    assert reader.read() == data

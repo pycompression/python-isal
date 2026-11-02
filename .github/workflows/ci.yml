@@ -16,10 +16,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Install tox
         run: pip install tox
       - name: Lint
@@ -31,15 +31,17 @@ jobs:
         tox_env:
           - docs
           - twine_check
-    runs-on: ubuntu-latest
+    # Use the same Ubuntu release as build.os in .readthedocs.yml, so the
+    # documentation is checked against the libisal that Read the Docs uses.
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Set up Python 3.10
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Install isal
         run: sudo apt-get install libisal-dev
       - name: Install tox and upgrade setuptools and pip
@@ -54,28 +56,29 @@ jobs:
     strategy:
       matrix:
         python-version:
-          - "3.10"
           - "3.11"
           - "3.12"
           - "3.13"
           - "3.14"
           - "3.14t"
-          - "pypy-3.10"
+          - "3.15"
+          - "3.15t"
           - "pypy-3.11"
+          - "pypy-3.12"
         os: ["ubuntu-latest"]
         include:
-          - os: "macos-13"
-            python-version: "3.10"
+          - os: "macos-15-intel"
+            python-version: "3.11"
           - os: "macos-latest"
-            python-version: "3.10"
+            python-version: "3.11"
           - os: "windows-latest"
-            python-version: "3.10"
+            python-version: "3.11"
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           allow-prereleases: true
@@ -106,7 +109,7 @@ jobs:
     strategy:
       matrix:
         python_version:
-          - "3.10"
+          - "3.11"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -136,17 +139,14 @@ jobs:
         shell: bash -l {0}
     strategy:
       matrix:
-        os: ["ubuntu-latest", "macos-13", "windows-latest"]
-        python_version: [ "python" ]
-        include:
-          - os: "ubuntu-latest"
-            python_version: "pypy"
+        os: ["ubuntu-latest", "macos-15-intel", "windows-latest"]
+        python_version: [ "python==3.11" ]
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Install miniconda.
-        uses: conda-incubator/setup-miniconda@v3 # https://github.com/conda-incubator/setup-miniconda.
+        uses: conda-incubator/setup-miniconda@v4 # https://github.com/conda-incubator/setup-miniconda.
         with:
           channels: conda-forge,defaults
       - name: Install requirements (universal)
@@ -159,6 +159,49 @@ jobs:
         env:
           PYTHON_ISAL_LINK_DYNAMIC: True
 
+  # Run the tests on CPython builds with AddressSanitizer and ThreadSanitizer
+  # from https://github.com/nascheme/cpython_sanity.
+  test-sanitizers:
+    runs-on: ubuntu-latest
+    # A crash under ThreadSanitizer can hang instead of exiting.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: address
+            image: ghcr.io/nascheme/cpython-asan:3.14
+          # The free-threaded build runs Python threads in parallel.
+          - sanitizer: thread
+            image: ghcr.io/nascheme/cpython-tsan:3.14t
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build dependencies
+        run: apt-get update && apt-get install -y nasm
+      - name: Install python-isal with ${{ matrix.sanitizer }} sanitizer
+        # setuptools-scm needs git, and the container user does not own the
+        # repository.
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          python -m pip install . pytest pytest-timeout
+        env:
+          # The extension modules get -fsanitize from CPython. CFLAGS adds it
+          # to the C code of ISA-L.
+          CFLAGS: -fsanitize=${{ matrix.sanitizer }} -fno-omit-frame-pointer -g
+      - name: Run tests
+        # Do not set PYTHONDEVMODE. Its debug allocator pads each allocation,
+        # so AddressSanitizer misses small overflows. --capture=sys prints
+        # sanitizer reports from C code even when they end the process, and
+        # -v prints the name of the test before its report.
+        run: python -m pytest -v tests --capture=sys
+        env:
+          # Exit at the first data race. A crash after a race can hang.
+          TSAN_OPTIONS: halt_on_error=1
+
   deploy:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
@@ -168,12 +211,13 @@ jobs:
       - test-static
       - test-dynamic
       - test-arch
+      - test-sanitizers
     strategy:
       matrix:
         os:
           - ubuntu-latest
-          - macos-13
-          - macos-14
+          - macos-15-intel
+          - macos-latest
           - windows-latest
         cibw_archs_linux: ["x86_64"]
         cibw_before_all_linux:
@@ -195,7 +239,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0  # Fetch everything to get accurately versioned tag.
-      - uses: actions/setup-python@v2  # Some issues where caused by higher versions.
+      - uses: actions/setup-python@v7
         name: Install Python
       - name: Install cibuildwheel twine wheel
         run: python -m pip install cibuildwheel twine wheel
@@ -216,6 +260,7 @@ jobs:
       - name: Build wheels
         run: cibuildwheel --output-dir dist
         env:
+          CIBW_ENABLE: "pypy"
           CIBW_SKIP: "*-win32 *-manylinux_i686 cp38-macosx_*arm64 cp39-macosx_*arm64"  # Skip 32 bit and problematic mac builds.
           CIBW_ARCHS_LINUX: ${{ matrix.cibw_archs_linux }}
           CIBW_BEFORE_ALL_LINUX: ${{ matrix.cibw_before_all_linux }}

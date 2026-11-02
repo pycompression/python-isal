@@ -34,6 +34,7 @@ import unittest
 from subprocess import PIPE, Popen
 from test.support import _4G, bigmemtest  # type: ignore
 from test.support.script_helper import assert_python_failure, assert_python_ok  # type: ignore  # noqa: E501
+from unittest import mock
 
 from isal import igzip
 
@@ -65,14 +66,11 @@ class UnseekableIO(io.BytesIO):
 
 class BaseTest(unittest.TestCase):
 
-    def __init__(self, methodName):
+    def setUp(self):
+        # Make a unique file name. The tests create the file themselves.
         fileno, self.filename = tempfile.mkstemp()
         os.close(fileno)
-        super().__init__(methodName)
-
-    def setUp(self):
-        if os.path.exists(self.filename):
-            os.unlink(self.filename)
+        os.unlink(self.filename)
 
     def tearDown(self):
         if os.path.exists(self.filename):
@@ -837,8 +835,8 @@ class TestCommandLine(unittest.TestCase):
 
         with igzip.open(igzipname, mode='wb') as fp:
             fp.write(self.data)
-        sys.argv = ['', '-d', igzipname]
-        igzip.main()
+        with mock.patch.object(sys, 'argv', ['', '-d', igzipname]):
+            igzip.main()
 
         with open(os.path.join(TEMPDIR, "testigzip"), "rb") as gunziped:
             self.assertEqual(gunziped.read(), self.data)

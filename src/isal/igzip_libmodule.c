@@ -32,8 +32,10 @@ typedef struct {
        separately. Conversion and looping is encapsulated in
        decompress_buf() */
     Py_ssize_t avail_in_real;
-    char eof;           /* T_BOOL expects a char */
+    char eof;
     char needs_input;
+    uint8_t saved_bitbuffer[8];
+    Py_ssize_t saved_bitbuffer_size;
     /* Struct inflate state contains a massive buffer at the end. Put it at
        the end of the IgzipDecompressor so members can be accessed easily. */
     struct inflate_state state;
@@ -42,7 +44,9 @@ typedef struct {
 static void
 IgzipDecompressor_dealloc(IgzipDecompressor *self)
 {
-    PyThread_free_lock(self->lock);
+    if (self->lock != NULL) {
+        PyThread_free_lock(self->lock);
+    }
     PyMem_Free(self->input_buffer);
     Py_CLEAR(self->unused_data);
     Py_CLEAR(self->zdict);
@@ -161,8 +165,10 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
 
     self->avail_in_real += self->state.avail_in;
 
-    if (_PyBytes_Resize(&RetVal, self->state.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) != 0)
+    /* Prevent empty string object from being resized. */
+    if (PyBytes_GET_SIZE(RetVal) != 0 &&
+        _PyBytes_Resize(&RetVal, self->state.next_out -
+            (uint8_t *)PyBytes_AS_STRING(RetVal)) != 0)
         goto error;
 
     return RetVal;
@@ -224,6 +230,7 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
         input_buffer_in_use = 0;
     }
 
+    uint8_t *input_start = self->state.next_in;
     result = decompress_buf(self, max_length);
     if(result == NULL) {
         self->state.next_in = NULL;
@@ -240,14 +247,24 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
                 goto error;
             char *new_data_ptr = PyBytes_AS_STRING(new_data);
             bitbuffer_copy(&(self->state), new_data_ptr, bytes_in_bitbuffer);
-            memcpy(new_data_ptr + bytes_in_bitbuffer, self->state.next_in, 
-                   self->avail_in_real);
+            if (copy_from_next_in(&(self->state), input_start,
+                                  self->saved_bitbuffer,
+                                  self->saved_bitbuffer_size,
+                                  new_data_ptr + bytes_in_bitbuffer,
+                                  self->avail_in_real) < 0) {
+                Py_DECREF(new_data);
+                goto error;
+            }
             Py_XSETREF(self->unused_data, new_data);
         }
     }
     else if (self->avail_in_real == 0) {
         self->state.next_in = NULL;
-        self->needs_input = 1;
+        /* When the output is full, isal_inflate can still read all of the
+           input and keep the decompressed data in its own buffer. Ask for
+           more input only when the output was not full, like CPython's
+           LZMADecompressor does. */
+        self->needs_input = (self->state.avail_out != 0);
     }
     else {
         self->needs_input = 0;
@@ -280,9 +297,17 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
             self->state.next_in = self->input_buffer;
         }
     }
+    if (!self->eof) {
+        save_bitbuffer(&(self->state), self->saved_bitbuffer,
+                       &self->saved_bitbuffer_size);
+    }
     return result;
 
 error:
+    /* next_in can point to the buffer of the caller, which is released after
+       this call. Reset it so the next call does not use it, as CPython does
+       since gh-148395. */
+    self->state.next_in = NULL;
     Py_XDECREF(result);
     return NULL;
 }
@@ -456,11 +481,17 @@ igzip_lib_IgzipDecompressor__new__(PyTypeObject *type,
         return NULL;
     }
     IgzipDecompressor *self = PyObject_New(IgzipDecompressor, type); 
+    if (self == NULL) {
+        return NULL;
+    }
     self->eof = 0;
     self->needs_input = 1;
+    self->saved_bitbuffer_size = 0;
     self->avail_in_real = 0;
     self->input_buffer = NULL;
     self->input_buffer_size = 0;
+    self->lock = NULL;
+    Py_XINCREF(zdict);
     self->zdict = zdict;
     self->unused_data = PyBytes_FromStringAndSize(NULL, 0);
     if (self->unused_data == NULL) {
@@ -502,16 +533,56 @@ PyDoc_STRVAR(IgzipDecompressor_needs_input_doc,
 PyDoc_STRVAR(IgzipDecompressor_crc_doc,
 "The checksum that is saved if DECOMP_ZLIB* or DECOMP_GZIP* flags are used.");
 
-static PyMemberDef IgzipDecompressor_members[] = {
-    {"eof", T_BOOL, offsetof(IgzipDecompressor, eof),
-     READONLY, IgzipDecompressor_eof__doc__},
-    {"unused_data", T_OBJECT_EX, offsetof(IgzipDecompressor, unused_data),
-     READONLY, IgzipDecompressor_unused_data__doc__},
-    {"needs_input", T_BOOL, offsetof(IgzipDecompressor, needs_input), READONLY,
-     IgzipDecompressor_needs_input_doc},
-    {"crc", T_UINT, 
-     offsetof(IgzipDecompressor, state) + offsetof(struct inflate_state, crc), 
-     READONLY, IgzipDecompressor_crc_doc},
+/* The getters take the lock, because without the GIL another thread can
+   change these attributes in decompress(). */
+static PyObject *
+IgzipDecompressor_get_eof(IgzipDecompressor *self, void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    char eof = self->eof;
+    LEAVE_ZLIB(self);
+    return PyBool_FromLong(eof);
+}
+
+static PyObject *
+IgzipDecompressor_get_unused_data(IgzipDecompressor *self,
+                                  void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    PyObject *unused_data = self->unused_data;
+    Py_INCREF(unused_data);
+    LEAVE_ZLIB(self);
+    return unused_data;
+}
+
+static PyObject *
+IgzipDecompressor_get_needs_input(IgzipDecompressor *self,
+                                  void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    char needs_input = self->needs_input;
+    LEAVE_ZLIB(self);
+    return PyBool_FromLong(needs_input);
+}
+
+static PyObject *
+IgzipDecompressor_get_crc(IgzipDecompressor *self, void *Py_UNUSED(closure))
+{
+    ENTER_ZLIB(self);
+    uint32_t crc = self->state.crc;
+    LEAVE_ZLIB(self);
+    return PyLong_FromUnsignedLong(crc);
+}
+
+static PyGetSetDef IgzipDecompressor_properties[] = {
+    {"eof", (getter)IgzipDecompressor_get_eof, NULL,
+     IgzipDecompressor_eof__doc__, NULL},
+    {"unused_data", (getter)IgzipDecompressor_get_unused_data, NULL,
+     IgzipDecompressor_unused_data__doc__, NULL},
+    {"needs_input", (getter)IgzipDecompressor_get_needs_input, NULL,
+     IgzipDecompressor_needs_input_doc, NULL},
+    {"crc", (getter)IgzipDecompressor_get_crc, NULL,
+     IgzipDecompressor_crc_doc, NULL},
     {NULL}
 };
 
@@ -523,7 +594,7 @@ static PyTypeObject IgzipDecompressor_Type = {
     .tp_flags = Py_TPFLAGS_DEFAULT,
     .tp_doc = igzip_lib_IgzipDecompressor___init____doc__,
     .tp_methods = IgzipDecompressor_methods,
-    .tp_members =  IgzipDecompressor_members,
+    .tp_getset = IgzipDecompressor_properties,
     .tp_new = igzip_lib_IgzipDecompressor__new__,
 };
 
@@ -605,7 +676,10 @@ static struct PyModuleDef igzip_lib_module = {
     PyModuleDef_HEAD_INIT,
     "igzip_lib",   /* name of module */
     igizp_lib_module_documentation, /* module documentation, may be NULL */
-    0,
+    /* -1 because IsalError is a C global. A subinterpreter then gets a copy
+       of this module instead of running PyInit_igzip_lib again, which would
+       replace IsalError with a new class. */
+    -1,
     IgzipLibMethods
 };
 

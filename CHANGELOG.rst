@@ -8,6 +8,151 @@ Changelog
 .. that users understand how the changes affect the new version.
 
 
+version 1.9.0
+-----------------
+
+By far most of the work on this release has been done by
+`@ptweezy <https://github.com/ptweezy>`_. Almost all bug fixes and improvements
+are their work.
+
+Major changes:
+
++ Updated included ISA-L library to 2.32.1.
++ Python 3.10 and PyPy 3.10 are no longer supported. Added support for PyPy
+  3.12 and Python 3.15.
++ Restore PyPy wheel builds.
++ Fix builds on macOS with Apple Silicon, which used the portable C code of
+  ISA-L rather than its optimized aarch64 assembly. On an Apple M4,
+  decompression is 1.6 to 3 times faster, CRC-32 is 50 times faster, and
+  Adler-32 is 7 times faster.
+
+Optimizations and features:
+
++ ``isal_zlib.compressobj`` supports ``strategy=Z_FIXED`` at compression
+  level 0. Level 0 then uses fixed Huffman codes instead of starting each
+  block with a Huffman table of about 110 bytes. This shrinks small flushed
+  writes, such as websocket messages: JSON messages of about 440 bytes, each
+  followed by ``flush(Z_SYNC_FLUSH)``, compress to an average of 75 instead
+  of 188 bytes. Blocks of a few KiB or more can be larger: about 5% for JSON
+  and 10% for Python source code at 64 KiB. Other strategies, and ``Z_FIXED``
+  at levels 1 to 3, still give a warning and use the default strategy.
++ Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by
+  importing ``argparse`` and ``shutil`` only when the command line interface
+  runs, and by dropping the ``multiprocessing`` import.
++ Speed up reading lines from binary ``igzip`` files through iteration,
+  ``readlines()``, and ``readline()``. On an Apple M4, reading FASTQ data is
+  1.13 times faster, and reading lines of a few bytes is 1.5 times faster.
++ Speed up each ``write()`` call to binary ``igzip`` files on CPython. On an
+  AMD Ryzen 7 9800X3D with Python 3.14.8, writing FASTQ data or Python source
+  code one line at a time is 1.1 times faster.
++ Speed up many small writes to ``igzip.IGzipFile`` on Python 3.12 and later.
+  ``IGzipFile`` collects these writes in the write buffer of
+  ``gzip.GzipFile`` and compresses them in large chunks, which makes writing
+  lines 1.4 times faster.
+
+Bug fixes:
+
++ Fix zlib streams compressed with a preset dictionary so they can be decoded
+  by standard zlib, including builds linked against older ISA-L releases.
++ Fix backward seeking in igzip files by discarding buffered compressed data
+  when rewinding the underlying file.
++ Fix a crash when ``igzip.decompress`` gets an object that is not
+  bytes-like, such as a ``str``. It raises a ``TypeError`` instead.
++ Fix a crash after creating ``igzip_lib.IgzipDecompressor`` objects with a
+  ``zdict``.
++ Fix error handling when more than one interpreter imports
+  ``isal.isal_zlib`` or ``isal.igzip_lib``, for example, the main interpreter
+  and a legacy subinterpreter that ``Py_NewInterpreter()`` creates. Each
+  import replaced the error classes that the C code raises, so
+  ``except isal_zlib.error``, ``except igzip_lib.error``, and
+  ``except gzip.BadGzipFile`` caught errors only in the interpreter that
+  imported the modules last.
++ Fix a hang in ``isal_zlib.Compress``: after ``flush()`` raised an error for
+  an unsupported mode, the next call on the same object never returned.
++ Fix a crash when you call ``flush(Z_FINISH)`` twice on a level 0
+  ``isal_zlib.Compress`` object.
++ Fix ``unused_data`` of ``isal_zlib.Decompress`` and
+  ``igzip_lib.IgzipDecompressor``, which could contain bytes from outside the
+  input buffer when ``max_length`` split the end of a stream. At the end of a
+  stream, ``isal_zlib.Decompress.unconsumed_tail`` is empty, matching the
+  CPython fix for gh-158169.
++ Fix ``igzip_lib.IgzipDecompressor.needs_input``, which could be ``True``
+  after ``decompress()`` returned ``max_length`` bytes while more output was
+  still available. Readers that stop at the end of the file when
+  ``needs_input`` is ``True``, such as CPython's ``DecompressReader``, raised
+  ``EOFError`` for valid data.
++ Fix ``isal_zlib.decompressobj`` with a ``wbits`` of 40 to 47, which detects
+  zlib or gzip data. It failed on gzip data when the first ``decompress()``
+  call got fewer than 2 bytes, for example, when the data arrived byte by
+  byte.
++ Fix ``isal_zlib.decompressobj`` with a ``wbits`` of 40 to 47 after a
+  ``flush()`` call that came before any data. It then failed on both zlib and
+  gzip data.
++ ``igzip_threaded.open`` raises ``ValueError`` for a ``block_size`` of about
+  3.6 GiB or more and ``TypeError`` for a ``compresslevel`` that is not an
+  integer. Both raised ``SystemError`` before.
++ Fix ``igzip_threaded`` writers at compression level 0, which raised
+  ``OverflowError`` for data that does not compress, such as random bytes or
+  already compressed files. At compression level 0, ``block_size`` must now be
+  less than about 2 GiB.
++ Extraordinarily large gzip headers with either a very long comment or
+  filename will now cause an ``OverflowError`` rather than use more and more
+  memory. The size is limited to the internal buffer size which is currently
+  set at 512 KiB.
++ Fix ``igzip_threaded`` readers and writers that waited for a polling timeout
+  of up to 50 ms at the end of the stream or when closed. Writing and closing
+  a small file takes less than a millisecond instead of 60 ms.
++ Fix ``igzip_threaded`` writers that waited forever when writing to the
+  underlying file failed, for example, because the disk was full. A later call
+  to ``write()``, ``flush()``, or ``close()`` raises the error. After an error,
+  ``close()`` no longer closes a file object that you passed to
+  ``igzip_threaded.open``.
++ Fix ``igzip_threaded`` writers with more than one thread that waited
+  forever when compressing a block failed, for example, because there was not
+  enough memory. A later call to ``write()``, ``flush()``, or ``close()``
+  raises the error.
++ Fix a crash on the free-threaded build when one thread reads
+  ``unused_data`` or ``unconsumed_tail`` of an ``isal_zlib`` decompressor
+  while another thread decompresses with it. Reading the attributes of
+  ``isal_zlib`` decompressors and ``igzip_lib.IgzipDecompressor`` from other
+  threads is now safe, and so is calling ``decompress()`` from several
+  threads at the same time when ``wbits`` detects the format.
++ ``isal_zlib.crc32_combine`` and the ``read()`` and ``seek()`` methods of the
+  private ``isal_zlib._GzipReader`` class raise ``TypeError`` instead of
+  ``SystemError`` for arguments of the wrong type or number.
+  ``igzip.IGzipFile`` was not affected.
++ Fix a crash on PyPy when you create an ``isal_zlib.Compress`` or
+  ``isal_zlib.Decompress`` object by calling the type, for example,
+  ``isal_zlib.Compress()``, and then use it. Calling the type raises
+  ``TypeError`` now, as it does on CPython. Use ``compressobj()`` and
+  ``decompressobj()`` instead.
++ Fix ``readinto()`` of the private ``isal_zlib._GzipReader`` class, which
+  wrote into read-only objects such as ``bytes``. It raises ``TypeError`` now.
+  ``igzip.IGzipFile`` was not affected.
++ Fix the ``mtime`` attribute of ``igzip.IGzipFile`` objects in read mode,
+  which was ``None`` for gzip files with a modification time of 0. It is 0 now,
+  as in the ``gzip`` module. ``gzip -n``, ``python -m isal.igzip -n``, and
+  ``igzip_threaded`` writers make such files, and so does ``gzip.compress`` by
+  default on Python 3.14.
++ Fix a crash when there is not enough memory to create an
+  ``igzip_lib.IgzipDecompressor``. It raises ``MemoryError`` now.
++ Fix a crash when there is not enough memory to raise ``BadGzipFile`` for
+  data that is not in the gzip format, for example, in ``igzip.decompress``.
+  It raises ``MemoryError`` now.
++ Fix a crash in ``igzip_lib.IgzipDecompressor.decompress()`` after a call on
+  the same object raised ``MemoryError``. The next call used the input of the
+  failed call after the caller had released it. This matches the CPython fix
+  for gh-148395.
++ Fix a crash on macOS and PyPy when there is not enough memory to create the
+  internal lock of an ``isal_zlib.Compress``, ``isal_zlib.Decompress``, or
+  ``igzip_lib.IgzipDecompressor`` object. It raises ``MemoryError`` now.
++ Fix the ``-0`` and ``--fast`` options of ``python -m isal.igzip``, which
+  compressed at level 2 instead of level 0.
++ Fix crashes and wrong data when one thread calls ``seek()`` of the
+  private ``isal_zlib._GzipReader`` class while another thread reads from the
+  same object. ``igzip.IGzipFile`` was not affected.
+
+
 version 1.8.0
 -----------------
 + Python 3.14 is supported.

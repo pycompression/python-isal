@@ -12,7 +12,10 @@ import gzip
 import itertools
 import os
 import pickle
+import random
+import subprocess
 import sys
+import textwrap
 import zlib
 from typing import NamedTuple
 
@@ -57,8 +60,8 @@ MEM_LEVELS = [MEM_LEVEL_DEFAULT, MEM_LEVEL_MIN, MEM_LEVEL_SMALL,
 
 
 @pytest.mark.parametrize(["level", "flag", "mem_level", "hist_bits"],
-                         itertools.product(
-                             COMPRESS_LEVELS, FLAGS, MEM_LEVELS, HIST_BITS))
+                         list(itertools.product(
+                             COMPRESS_LEVELS, FLAGS, MEM_LEVELS, HIST_BITS)))
 def test_compress_decompress(level, flag: Flag, mem_level, hist_bits):
     comp = igzip_lib.compress(DATA, level, flag.comp, mem_level, hist_bits)
     decomp = igzip_lib.decompress(comp, flag.decomp, hist_bits)
@@ -70,6 +73,12 @@ class TestIgzipDecompressor():
     TEXT = DATA
     DATA = igzip_lib.compress(DATA)
     BAD_DATA = b"Not a valid deflate block"
+    # isal_inflate decompresses up to about 64 KiB ahead into its own buffer
+    # and reads the input it needs for that. For the input buffer tests to
+    # leave input over, they use inputs of 100 KB or more of incompressible
+    # data, which needs about as much input as output.
+    RANDOM_DATA = random.Random(0).randbytes(512 * 1024)
+    COMPRESSED_RANDOM_DATA = igzip_lib.compress(RANDOM_DATA)
 
     def test_decompress(self):
         decomp = IgzipDecompressor()
@@ -166,19 +175,21 @@ class TestIgzipDecompressor():
         out = []
 
         # Create input buffer and fill it
-        assert igzd.decompress(self.DATA[:100], max_length=0) == b''
+        assert igzd.decompress(self.COMPRESSED_RANDOM_DATA[:100_000],
+                               max_length=0) == b''
 
         # Retrieve some results, freeing capacity at beginning
         # of input buffer
-        out.append(igzd.decompress(b'', 2))
+        out.append(igzd.decompress(b'', 80_000))
 
         # Add more data that fits into input buffer after
         # moving existing data to beginning
-        out.append(igzd.decompress(self.DATA[100:105], 15))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[100_000:105_000], 15))
 
         # Decompress rest of data
-        out.append(igzd.decompress(self.DATA[105:]))
-        assert b''.join(out) == self.TEXT
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[105_000:]))
+        assert b''.join(out) == self.RANDOM_DATA
 
     def test_decompressor_inputbuf_2(self):
         # Test reusing input buffer by appending data at the
@@ -187,18 +198,21 @@ class TestIgzipDecompressor():
         out = []
 
         # Create input buffer and empty it
-        assert igzd.decompress(self.DATA[:200], max_length=0) == b''
+        assert igzd.decompress(self.COMPRESSED_RANDOM_DATA[:200_000],
+                               max_length=0) == b''
         out.append(igzd.decompress(b''))
 
         # Fill buffer with new data
-        out.append(igzd.decompress(self.DATA[200:280], 2))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[200_000:280_000], 2))
 
         # Append some more data, not enough to require resize
-        out.append(igzd.decompress(self.DATA[280:300], 2))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[280_000:300_000], 2))
 
         # Decompress rest of data
-        out.append(igzd.decompress(self.DATA[300:]))
-        assert b''.join(out) == self.TEXT
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[300_000:]))
+        assert b''.join(out) == self.RANDOM_DATA
 
     def test_decompressor_inputbuf_3(self):
         # Test reusing input buffer after extending it
@@ -207,21 +221,22 @@ class TestIgzipDecompressor():
         out = []
 
         # Create almost full input buffer
-        out.append(igzd.decompress(self.DATA[:200], 5))
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[:200_000], 5))
 
         # Add even more data to it, requiring resize
-        out.append(igzd.decompress(self.DATA[200:300], 5))
+        out.append(igzd.decompress(
+            self.COMPRESSED_RANDOM_DATA[200_000:300_000], 5))
 
         # Decompress rest of data
-        out.append(igzd.decompress(self.DATA[300:]))
-        assert b''.join(out) == self.TEXT
+        out.append(igzd.decompress(self.COMPRESSED_RANDOM_DATA[300_000:]))
+        assert b''.join(out) == self.RANDOM_DATA
 
     def test_failure(self):
         igzd = IgzipDecompressor()
-        with pytest.raises(Exception):
+        with pytest.raises(igzip_lib.IsalError):
             igzd.decompress(self.BAD_DATA * 30)
         # Make sure there are no internal consistencies
-        with pytest.raises(Exception):
+        with pytest.raises(igzip_lib.IsalError):
             igzd.decompress(self.BAD_DATA * 30)
 
     def test_dictionary(self):
@@ -236,12 +251,13 @@ def test_igzip_decompressor_raw_deflate_unused_data_zlib(test_offset):
     data = zlib.compress(b"bla")
     no_header = data[2:]
     trailer = data[-4:]
-    raw_deflate_incomplete_trailer = no_header[:-test_offset]
-    true_unused_data = trailer[:-test_offset]
+    # no_header[:-test_offset] would be empty when test_offset is 0
+    raw_deflate_incomplete_trailer = no_header[:len(no_header) - test_offset]
+    true_unused_data = trailer[:len(trailer) - test_offset]
     igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
-    if igzd.eof:
-        assert igzd.unused_data == true_unused_data
+    assert igzd.eof
+    assert igzd.unused_data == true_unused_data
 
 
 @pytest.mark.parametrize("test_offset", range(9))
@@ -249,17 +265,121 @@ def test_igzip_decompressor_raw_deflate_unused_data_gzip(test_offset):
     data = gzip.compress(b"bla")
     no_header = data[10:]
     trailer = data[-8:]
-    raw_deflate_incomplete_trailer = no_header[:-test_offset]
-    true_unused_data = trailer[:-test_offset]
+    # no_header[:-test_offset] would be empty when test_offset is 0
+    raw_deflate_incomplete_trailer = no_header[:len(no_header) - test_offset]
+    true_unused_data = trailer[:len(trailer) - test_offset]
     igzd = IgzipDecompressor(flag=DECOMP_DEFLATE)
     igzd.decompress(raw_deflate_incomplete_trailer)
-    if igzd.eof:
-        assert igzd.unused_data == true_unused_data
+    assert igzd.eof
+    assert igzd.unused_data == true_unused_data
+
+
+@pytest.mark.parametrize(["flag", "wbits"], [(DECOMP_DEFLATE, -15),
+                                             (DECOMP_ZLIB, 15),
+                                             (DECOMP_GZIP, 31)])
+def test_igzip_decompressor_unused_data_after_max_length(flag, wbits):
+    data = b"hello world " * 300
+    unused_data = b"0123456789"
+    compressor = zlib.compressobj(wbits=wbits)
+    compressed = compressor.compress(data) + compressor.flush() + unused_data
+    stream_end = len(compressed) - len(unused_data)
+    # The stream can end in bytes that an earlier call read
+    for chunk_size in range(1, 25):
+        decompressor = IgzipDecompressor(flag=flag)
+        result = b""
+        position = 0
+        while not decompressor.eof:
+            chunk = b""
+            if decompressor.needs_input:
+                assert position < len(compressed)
+                chunk = compressed[position:position + chunk_size]
+                position += chunk_size
+            result += decompressor.decompress(chunk, 7)
+        assert result == data
+        assert decompressor.unused_data == compressed[stream_end:position]
+
+
+@pytest.mark.parametrize("max_length", [100, 8192])
+def test_igzip_decompressor_needs_input_after_all_input_is_read(max_length):
+    # When the output is full, ISA-L can read all of the input and keep the
+    # decompressed data in its own buffer. needs_input must stay False until
+    # decompress() has returned that data.
+    compressed = igzip_lib.compress(DATA)
+    decompressor = IgzipDecompressor()
+    result = [decompressor.decompress(compressed, max_length)]
+    while not decompressor.eof:
+        assert not decompressor.needs_input
+        result.append(decompressor.decompress(b"", max_length))
+    assert b"".join(result) == DATA
+
+
+@pytest.mark.skipif(not hasattr(sys, "getrefcount"),
+                    reason="Needs reference counting")
+def test_igzip_decompressor_keeps_zdict_reference():
+    zdict = bytes(range(256))
+    refcount = sys.getrefcount(zdict)
+    decompressor = IgzipDecompressor(flag=DECOMP_ZLIB, zdict=zdict)
+    assert sys.getrefcount(zdict) == refcount + 1
+    del decompressor
+    assert sys.getrefcount(zdict) == refcount
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython",
+                    reason="Needs _testcapi.set_nomemory")
+def test_igzip_decompressor_no_memory():
+    pytest.importorskip("_testcapi")
+    # Fail each memory allocation in turn, such as the one for the object
+    # itself or for its lock. A subprocess keeps the failing allocations away
+    # from the test runner.
+    code = textwrap.dedent("""
+        import _testcapi
+        from isal.igzip_lib import IgzipDecompressor
+        for start in range(20):
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                IgzipDecompressor()
+            except MemoryError:
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython",
+                    reason="Needs _testcapi.set_nomemory")
+def test_igzip_decompressor_decompress_no_memory():
+    pytest.importorskip("_testcapi")
+    # After a MemoryError, the next call must not use the input of the failed
+    # call. That input is in an mmap, so using it after close() crashes.
+    code = textwrap.dedent("""
+        import mmap
+        import os
+        import _testcapi
+        from isal import igzip_lib
+        # Random data does not compress, so most of the input is left over
+        # after 10 bytes of output. decompress() copies it to a new buffer.
+        compressed = igzip_lib.compress(os.urandom(256 * 1024))
+        for start in range(20):
+            decompressor = igzip_lib.IgzipDecompressor()
+            buffer = mmap.mmap(-1, len(compressed))
+            buffer.write(compressed)
+            _testcapi.set_nomemory(start, start + 1)
+            try:
+                decompressor.decompress(buffer, 10)
+            except MemoryError:
+                pass
+            finally:
+                _testcapi.remove_mem_hooks()
+            buffer.close()
+            decompressor.decompress(b"")
+    """)
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 @pytest.mark.parametrize(["unused_size", "flag_pair", "data_size"],
-                         itertools.product([26], FLAGS,
-                                           [128 * 1024 - 3, 874, 81923, 9111]))
+                         list(itertools.product(
+                             [26], FLAGS, [128 * 1024 - 3, 874, 81923, 9111])))
 def test_decompression_flags(unused_size, flag_pair, data_size):
     comp_flag, decomp_flag = flag_pair
     unused_data = b"abcdefghijklmnopqrstuvwxyz"[:unused_size]

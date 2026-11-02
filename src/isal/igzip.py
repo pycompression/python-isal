@@ -24,12 +24,10 @@
 """Similar to the stdlib gzip module. But using the Intel Storage Accelaration
 Library to speed up its methods."""
 
-import argparse
 import builtins
 import gzip
 import io
 import os
-import shutil
 import struct
 import sys
 import time
@@ -56,6 +54,10 @@ READ = gzip.READ
 WRITE = gzip.WRITE
 
 BadGzipFile = gzip.BadGzipFile  # type: ignore
+
+# Since Python 3.12 GzipFile.write buffers small writes and passes them to
+# _write_raw in large chunks, which compress much faster.
+_GZIP_BUFFERS_WRITES = hasattr(gzip.GzipFile, "_write_raw")
 
 
 # The open method was copied from the CPython source with minor adjustments.
@@ -166,6 +168,14 @@ class IGzipFile(gzip.GzipFile):
             raw = _GzipReader(self.fileobj, READ_BUFFER_SIZE)
             self._buffer = io.BufferedReader(raw)
 
+    def readline(self, size=-1):
+        """Read a line of decompressed data, or at most size bytes of it."""
+        # GzipFile.closed tests whether fileobj is None, so testing fileobj
+        # here skips the two Python calls GzipFile.readline makes per line.
+        if self.fileobj is None:
+            self._check_not_closed()
+        return self._buffer.readline(size)
+
     def __repr__(self):
         s = repr(self.fileobj)
         return '<igzip ' + s[1:-1] + ' ' + hex(id(self)) + '>'
@@ -194,7 +204,10 @@ class IGzipFile(gzip.GzipFile):
             super()._write_gzip_header()
 
     def write(self, data):
-        self._check_not_closed()
+        # GzipFile.closed tests whether fileobj is None, so testing fileobj
+        # here skips two Python calls for each write.
+        if self.fileobj is None:
+            self._check_not_closed()
         if self.mode != WRITE:
             import errno
             raise OSError(errno.EBADF, "write() on read-only IGzipFile object")
@@ -202,7 +215,12 @@ class IGzipFile(gzip.GzipFile):
         if self.fileobj is None:
             raise ValueError("write() on closed IGzipFile object")
 
-        if isinstance(data, bytes):
+        if _GZIP_BUFFERS_WRITES:
+            return self._buffer.write(data)
+        return self._write_raw(data)
+
+    def _write_raw(self, data):
+        if isinstance(data, (bytes, bytearray)):
             length = len(data)
         else:
             # accept any data that supports the buffer protocol
@@ -215,6 +233,15 @@ class IGzipFile(gzip.GzipFile):
             self.crc = isal_zlib.crc32(data, self.crc)
             self.offset += length
         return length
+
+    def seek(self, offset, whence=io.SEEK_SET):
+        position = super().seek(offset, whence)
+        if self.mode == WRITE and _GZIP_BUFFERS_WRITES:
+            # GzipFile.seek returns the offset before the zeros it writes
+            # leave the write buffer.
+            self._buffer.flush()
+            return self.offset
+        return position
 
 
 # Aliases for improved compatibility with CPython gzip module.
@@ -255,6 +282,7 @@ def decompress(data):
 
 
 def _argument_parser():
+    import argparse  # Only the command line interface needs it
     parser = argparse.ArgumentParser()
     parser.description = (
         "A simple command line interface for the igzip module. "
@@ -277,7 +305,8 @@ def _argument_parser():
         "-3", "--best", action="store_const", dest="compresslevel",
         const=_COMPRESS_LEVEL_BEST,
         help="use compression level 3 (best)")
-    compress_group.set_defaults(compress=True)
+    compress_group.set_defaults(compress=True,
+                                compresslevel=_COMPRESS_LEVEL_TRADEOFF)
     compress_group.add_argument(
         "-d", "--decompress", action="store_const",
         dest="compress",
@@ -302,9 +331,10 @@ def _argument_parser():
 
 
 def main():
+    import shutil  # Only the command line interface needs it
     args = _argument_parser().parse_args()
 
-    compresslevel = args.compresslevel or _COMPRESS_LEVEL_TRADEOFF
+    compresslevel = args.compresslevel
 
     if args.output:
         out_filepath = args.output
