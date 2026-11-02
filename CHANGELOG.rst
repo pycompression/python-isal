@@ -11,6 +11,10 @@ Changelog
 version 1.9.0
 -----------------
 
+By far most of the work on this release has been done by
+`@ptweezy <https://github.com/ptweezy>`_. Almost all bug fixes and improvements
+are their work.
+
 Major changes:
 
 + Updated included ISA-L library to 2.32.1.
@@ -22,7 +26,7 @@ Major changes:
   decompression is 1.6 to 3 times faster, CRC-32 is 50 times faster, and
   Adler-32 is 7 times faster.
 
-Optimizations:
+Optimizations abd features:
 
 + ``isal_zlib.compressobj`` supports ``strategy=Z_FIXED`` at compression
   level 0. Level 0 then uses fixed Huffman codes instead of starting each

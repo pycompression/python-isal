@@ -224,6 +224,8 @@ This project builds upon the software and experience of many.  Many thanks to:
 + The `github actions team <https://github.com/orgs/actions/people>`_ for
   creating the actions CI service that enables building and testing on all
   three major operating systems.
++ `@ptweezy <https://github.com/ptweezy>`_ for discovering and fixing lots and
+  lots of bugs as well as suggesting and implementing quite a few improvements.
 + `@animalize <https://github.com/animalize>`_ for explaining how to test and
   build python-isal for ARM 64-bit platforms.
 + And last but not least: everyone who submitted a bug report or a feature
