@@ -769,3 +769,11 @@ def test_small_writes_tell_and_flush():
         assert decompressor.decompress(output.getvalue()) == b"abcdef"
         gzip_file.write(b"gh")
     assert gzip.decompress(output.getvalue()) == b"abcdefgh"
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="bash required")
+def test_no_broken_pipe():
+      subprocess.run([
+          "bash", "-c", "-e", "-o", "pipefail",
+          f"{sys.executable} -m isal.igzip -cd {TEST_FILE} | head -n 10"] ,
+          check=True)
