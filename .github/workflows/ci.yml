@@ -202,7 +202,32 @@ jobs:
           # Exit at the first data race. A crash after a race can hang.
           TSAN_OPTIONS: halt_on_error=1
 
-  deploy:
+  make_sdist:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    needs:
+      - lint
+      - package-checks
+      - test-static
+      - test-dynamic
+      - test-arch
+      - test-sanitizers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Optional, use if you use setuptools_scm
+          submodules: true  # Optional, use if you have submodules
+          persist-credentials: false # Highly recommended as a good security practice to not store credentials in disk, unless you need this for your specific use case
+
+      - name: Build SDist
+        run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cibw-sdist
+          path: dist/*.tar.gz
+
+  build_wheels:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
     runs-on: ${{ matrix.os }}
     needs:
@@ -297,30 +322,35 @@ jobs:
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}/build_cache
             CFLAGS="-O3 -DNDEBUG"
-      - name: Build sdist
-        if: ${{runner.os == 'Linux' && matrix.cibw_archs_linux == 'x86_64'}}
-        run: |
-            pip install build
-            python -m build --sdist
       - uses: actions/upload-artifact@v4
         with:
           name: "dist-${{ runner.os }}-${{ runner.arch }}-${{ matrix.cibw_archs_linux }}"
           path: "dist/"
-      - name: Publish package to TestPyPI
-        # pypa/gh-action-pypi-publish@master does not work on OSX
+
+  upload_to_pypi:
+    needs: [ build_wheels, make_sdist ]
+    environment: pypi
+    permissions:
+      id-token: write
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: cibw-*
+          path: dist
+          merge-multiple: true
+
+      - name: Publish to test PyPI
         # Alpha, Beta and dev releases contain a - in the tag.
-        if: contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')
-        run: |
-          pip install twine
-          twine upload --skip-existing --repository-url https://test.pypi.org/legacy/ dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      - name: Publish package to PyPI
+        if: "contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')"
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+      - name: Publish to PyPI
         if: "!contains(github.ref, '-') && startsWith(github.ref, 'refs/tags')"
-        run: |
-          pip install twine
-          twine upload --skip-existing dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
