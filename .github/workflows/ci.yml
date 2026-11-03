@@ -324,7 +324,7 @@ jobs:
             CFLAGS="-O3 -DNDEBUG"
       - uses: actions/upload-artifact@v4
         with:
-          name: "dist-${{ runner.os }}-${{ runner.arch }}-${{ matrix.cibw_archs_linux }}"
+          name: "cibw-${{ runner.os }}-${{ runner.arch }}-${{ matrix.cibw_archs_linux }}"
           path: "dist/"
 
   upload_to_pypi:
