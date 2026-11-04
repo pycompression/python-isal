@@ -1,0 +1,14 @@
+{
+  "baseline": {
+    "peak": 16864737,
+    "output": 16777216
+  },
+  "abi3-fast": {
+    "peak": 33641953,
+    "output": 16777216
+  },
+  "abi3-bounded": {
+    "peak": 16864737,
+    "output": 16777216
+  }
+}

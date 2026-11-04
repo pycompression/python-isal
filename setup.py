@@ -12,10 +12,12 @@ import platform
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from pathlib import Path
 
 from setuptools import Extension, setup
+from setuptools.command.bdist_wheel import bdist_wheel
 from setuptools.command.build_ext import build_ext
 
 ISA_L_SOURCE = os.path.join("src", "isal", "isa-l")
@@ -36,11 +38,30 @@ BUILD_CACHE = os.environ.get("PYTHON_ISAL_BUILD_CACHE")
 BUILD_CACHE_FILE = Path(os.environ.get("PYTHON_ISAL_BUILD_CACHE_FILE",
                                        DEFAULT_CACHE_FILE))
 
+USE_LIMITED_API = (sys.implementation.name == "cpython" and
+                   not sysconfig.get_config_var("Py_GIL_DISABLED"))
+EXTENSION_MACROS = ([('Py_LIMITED_API', '0x030B0000')]
+                    if USE_LIMITED_API else [])
+if sysconfig.get_config_var("Py_GIL_DISABLED"):
+    # The Windows interpreter's headers do not define this automatically.
+    EXTENSION_MACROS.append(('Py_GIL_DISABLED', '1'))
+
 EXTENSIONS = [
-    Extension("isal.isal_zlib", ["src/isal/isal_zlibmodule.c"]),
-    Extension("isal.igzip_lib", ["src/isal/igzip_libmodule.c"]),
-    Extension("isal._isal", ["src/isal/_isalmodule.c"]),
-    ]
+    Extension(
+        f"isal.{name}", [f"src/isal/{name}module.c"],
+        depends=["src/isal/isal_shared.h"],
+        py_limited_api=USE_LIMITED_API,
+        define_macros=EXTENSION_MACROS.copy(),
+    )
+    for name in ("isal_zlib", "igzip_lib", "_isal")
+]
+
+
+class BuildIsalWheel(bdist_wheel):
+    def finalize_options(self):
+        if USE_LIMITED_API:
+            self.py_limited_api = "cp311"
+        super().finalize_options()
 
 
 class BuildIsalExt(build_ext):
@@ -142,6 +163,6 @@ def build_isa_l():
 
 
 setup(
-    cmdclass={"build_ext": BuildIsalExt},
+    cmdclass={"build_ext": BuildIsalExt, "bdist_wheel": BuildIsalWheel},
     ext_modules=EXTENSIONS
 )

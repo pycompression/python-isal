@@ -7,6 +7,17 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+Unreleased
+----------
++ Regular CPython wheels use the stable ABI for Python 3.11 and later, so new
+  Python versions can use them without a new python-isal release. PyPy and
+  free-threaded CPython retain separate wheels and the full C API.
++ Limited API builds copy unbounded compression and decompression output into
+  the returned bytes object. This can reduce throughput and increase peak memory.
+  ``igzip_lib.IgzipDecompressor`` can return a filled bounded output buffer
+  directly, and full gzip read chunks avoid this extra copy.
++ Avoid growing decompression output after the stream has already finished.
+
 version 1.9.1
 -----------------
 + Fix BrokenPipeError when piping ``python -m isal.igzip`` into ``head``,

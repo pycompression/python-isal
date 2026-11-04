@@ -36,15 +36,23 @@ PyInit__isal(void)
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
 #endif
 
-    PyModule_AddIntMacro(m, ISAL_MAJOR_VERSION);
-    PyModule_AddIntMacro(m, ISAL_MINOR_VERSION);
-    PyModule_AddIntMacro(m, ISAL_PATCH_VERSION);
+    if (PyModule_AddIntMacro(m, ISAL_MAJOR_VERSION) < 0 ||
+            PyModule_AddIntMacro(m, ISAL_MINOR_VERSION) < 0 ||
+            PyModule_AddIntMacro(m, ISAL_PATCH_VERSION) < 0)
+        goto error;
 
     PyObject *isal_version = PyUnicode_FromFormat(
         "%d.%d.%d", ISAL_MAJOR_VERSION, ISAL_MINOR_VERSION, ISAL_PATCH_VERSION);  
     if (isal_version == NULL) {
-        return NULL;
+        goto error;
     }
-    PyModule_AddObject(m, "ISAL_VERSION", isal_version);
+    int ret = PyModule_AddObjectRef(m, "ISAL_VERSION", isal_version);
+    Py_DECREF(isal_version);
+    if (ret < 0)
+        goto error;
     return m;
+
+error:
+    Py_DECREF(m);
+    return NULL;
 }

@@ -1,0 +1,24 @@
+{
+  "baseline_commit": "2498167283fb4598d3daf757bc2a80b53d798c52",
+  "compiler": "cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "cflags": "-O3 -DNDEBUG -Werror=implicit-function-declaration",
+  "vendor": "ISA-L 2.32.1",
+  "wheels": {
+    "baseline": {
+      "name": "isal-1.9.1-cp311-cp311-linux_x86_64.whl",
+      "sha256": "8d3e589e815213d26ba66e9e3e288b5d2b1550fca485ab030d7d17d5ac2989bf"
+    },
+    "candidate": {
+      "name": "isal-1.9.1-cp311-abi3-linux_x86_64.whl",
+      "sha256": "44062a3d1c08b131808a4c1057079aac80271664c95e80fce7c1de96f9650e6b"
+    },
+    "ft": {
+      "name": "isal-1.9.1-cp313-cp313t-linux_x86_64.whl",
+      "sha256": "f4fe47ff25c35552990c75ae5fd5733c193e1495fa2b274c895548026009f2f5"
+    },
+    "pypy": {
+      "name": "isal-1.9.1-pp311-pypy311_pp80-linux_x86_64.whl",
+      "sha256": "79fb36724a32fdf76c5892785b3686442742ca3a08a28efb3c6b73b87a428578"
+    }
+  }
+}

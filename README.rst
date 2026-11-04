@@ -101,6 +101,12 @@ Installation is supported on Linux, Windows and MacOS. For more advanced
 installation options check the `documentation
 <https://python-isal.readthedocs.io/en/stable/index.html#installation>`_.
 
+Regular CPython wheels use the Python 3.11 stable ABI and work on Python 3.11
+and later. PyPy and free-threaded CPython use separate version-specific wheels.
+Stable ABI builds need an extra copy for unbounded output, which can reduce
+throughput and increase peak memory. ``igzip_lib.IgzipDecompressor`` can return
+a filled bounded buffer directly. ``readinto()`` writes into the caller's buffer.
+
 python-isal as a dependency in your project
 -------------------------------------------
 

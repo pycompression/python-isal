@@ -1,0 +1,53 @@
+Linux x86_64 validation, 2026-11-04
+
+All runtime checks below use wheels built by setup.py, installed separately
+from the repository's source directory. Standard CPython uses the SAME
+isal-1.9.1-cp311-abi3-linux_x86_64.whl, SHA-256 in build-metadata.json.
+
+CPython 3.14.4: full suite 9802 passed, 11 skipped, 16 subtests passed.
+CPython 3.11.15: 9668 passed, 20 skipped.
+CPython 3.12.14: 9669 passed, 19 skipped.
+CPython 3.13.12: 9669 passed, 19 skipped.
+CPython 3.15.0a8: 9669 passed, 19 skipped.
+The managed 3.11/3.12/3.13/3.15 installations lack stdlib test modules;
+the two compliance files are excluded there. They run on system 3.14.
+The 3.15 run emits integer-range deprecations and one unraisable warning
+from the existing IGzipFile Python destructor after invalid construction.
+No Python-level gzip implementation changes are included in this migration.
+
+Free-threaded CPython 3.13.11t, cp313-cp313t wheel, PYTHON_GIL=0:
+full suite 9790 passed, 16 skipped, 16 subtests passed; latest focused tests
+30 passed, 7 skipped (allocation injection unavailable). A fresh subprocess
+also verifies importing all C modules leaves the default GIL disabled.
+
+PyPy 3.11.17, pp311-pypy311_pp80 wheel:
+full suite 9783 passed, 23 skipped, 16 subtests passed; latest focused tests
+28 passed, 9 skipped. Static types remain immutable and non-subclassable,
+and factory-only classes reject direct calls.
+
+Allocation-failure injection: all seven new output-path sweeps pass on
+system CPython 3.14 using _testcapi.set_nomemory. Each sweep fails the first 40 Python-allocator
+positions in turn, observes both failures and successful completion, and
+checks a clean roundtrip afterwards. Existing mmap-backed failure tests pass.
+
+AddressSanitizer + UndefinedBehaviorSanitizer: 9342 passed, 2 skipped,
+11 allocation-injection tests deselected; PYTHONMALLOC=malloc, leak checks off.
+Wrappers compiled with -fsanitize=address,undefined -fno-sanitize=alignment.
+Alignment checks are excluded for existing unaligned gzip-header loads
+(the initial run reports the unchanged load_u32_le implementation).
+The cached ISA-L archive and Python interpreter are not instrumented.
+These results cover stable-ABI boundaries, gzip reader ownership and codec
+roundtrips; they do not claim whole-runtime sanitizer coverage.
+
+Strict abi3audit on all three extensions in the cp311-abi3 wheel: PASS.
+Compile with -Werror=implicit-function-declaration: PASS.
+flake8 src tests setup.py benchmark_scripts: PASS.
+mypy src/ tests benchmark_scripts: PASS (31 files).
+Sphinx -a -W -n --keep-going: PASS with requirements-docs.txt dependencies.
+Wheel/sdist build and twine check: PASS.
+CI YAML parses, git diff --check: PASS.
+
+CI configuration covers shared-wheel reuse across 3.11-3.15 on Linux,
+Windows, macOS Intel and macOS ARM, plus existing FT/PyPy test jobs and a
+Windows 3.14t job. Those remote jobs, ARM/macOS/Windows runtime checks,
+release cibuildwheel and thread sanitization have not run locally.
