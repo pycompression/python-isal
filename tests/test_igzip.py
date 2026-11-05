@@ -355,6 +355,29 @@ def test_compress_infile_out_file_force(monkeypatch, tmp_path, capsysbinary):
     assert out == b''
 
 
+@pytest.mark.parametrize("args", [
+    ['-f', '-o', 'test', 'test'],
+    ['-f', '-o', os.path.join('.', 'test'), 'test'],
+    ['-o', 'test', 'test'],  # Refused before the overwrite prompt.
+    ['-d', '-f', '-o', 'test.gz', 'test.gz'],
+])
+def test_infile_out_file_same_file(monkeypatch, tmp_path, capsysbinary, args):
+    monkeypatch.chdir(tmp_path)
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    test_gz = tmp_path / "test.gz"
+    test_gz.write_bytes(COMPRESSED_DATA)
+    monkeypatch.setattr(sys, "argv", ['', *args])
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(b"y")))
+    with pytest.raises(SystemExit) as error:
+        igzip.main()
+    assert error.match("are the same file")
+    assert test.read_bytes() == DATA
+    assert test_gz.read_bytes() == COMPRESSED_DATA
+    out, err = capsysbinary.readouterr()
+    assert out == b''
+
+
 def test_compress_infile_out_file_prompt(monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)

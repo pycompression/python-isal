@@ -7,6 +7,13 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.10.0-dev
+------------------
++ Fix ``python -m isal.igzip`` replacing the input file with empty output and
+  exiting with status 0 when the output file is the input file, as in
+  ``-f -o data data``. It exits with an error now.
+
+
 version 1.9.1
 -----------------
 + Fix BrokenPipeError when piping ``python -m isal.igzip`` into ``head``,
