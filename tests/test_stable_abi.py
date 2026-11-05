@@ -9,7 +9,7 @@ import sys
 import sysconfig
 import zlib
 
-from isal import igzip_lib, isal_zlib
+from isal import _isal, igzip_lib, isal_zlib
 
 import pytest
 
@@ -172,6 +172,76 @@ def test_gzip_reader_readall_at_chunk_boundaries(size):
     assert reader.readall() == b""
 
 
+@needs_tracemalloc
+@pytest.mark.parametrize("decoder", ["decompressobj", "IgzipDecompressor"])
+def test_output_ending_at_the_first_buffer_size_does_not_grow_it(decoder):
+    size = 16384  # DEF_BUF_SIZE, the first output allocation.
+    data = random.Random(240).randbytes(size)
+    if decoder == "decompressobj":
+        obj = isal_zlib.decompressobj()
+        packed = zlib.compress(data)
+    else:
+        obj = igzip_lib.IgzipDecompressor()
+        packed = zlib.compress(data, wbits=-15)
+    output, peak = allocation_peak(lambda: obj.decompress(packed))
+    assert output == data
+    assert obj.eof
+    # Growing to 32 KiB at the end of the stream raises the peak to about
+    # 32 KiB on full-API builds and 48 KiB with the Limited API copy.
+    full_api = sysconfig.get_config_var("Py_GIL_DISABLED")
+    assert peak < (size * 3 // 2 if full_api else size * 5 // 2)
+
+
+def corrupt_last_byte(data):
+    return data[:-1] + bytes([data[-1] ^ 1])
+
+
+ERROR_DATA = random.Random(240).randbytes(256 * 1024)
+ZLIB_DATA = zlib.compress(ERROR_DATA)
+GZIP_DATA = gzip.compress(ERROR_DATA)
+
+
+@needs_tracemalloc
+@pytest.mark.parametrize("operation,error", [
+    (lambda: isal_zlib.decompress(ZLIB_DATA[:-1]), isal_zlib.error),
+    (lambda: igzip_lib.decompress(zlib.compress(ERROR_DATA, wbits=-15)[:-1]),
+     igzip_lib.error),
+    (lambda: isal_zlib.decompressobj().decompress(
+        corrupt_last_byte(ZLIB_DATA)), isal_zlib.error),
+    (lambda: igzip_lib.IgzipDecompressor(flag=igzip_lib.DECOMP_ZLIB)
+     .decompress(corrupt_last_byte(ZLIB_DATA)), igzip_lib.error),
+    (lambda: isal_zlib._GzipReader(io.BytesIO(GZIP_DATA[:-1]))
+     .read(len(ERROR_DATA) + 1), EOFError),
+    (lambda: isal_zlib._GzipReader(io.BytesIO(GZIP_DATA[:-1])).readall(),
+     EOFError),
+], ids=["decompress", "igzip_lib.decompress", "decompressobj",
+        "IgzipDecompressor", "_GzipReader.read", "_GzipReader.readall"])
+def test_invalid_input_releases_output(operation, error):
+    import tracemalloc
+
+    def fail_repeatedly():
+        for _ in range(10):
+            with pytest.raises(error):
+                operation()
+
+    # The first pass fills caches that would otherwise look like leaks.
+    fail_repeatedly()
+    gc.collect()
+    tracing = tracemalloc.is_tracing()
+    if not tracing:
+        tracemalloc.start()
+    before, _ = tracemalloc.get_traced_memory()
+    try:
+        fail_repeatedly()
+        gc.collect()
+        retained = tracemalloc.get_traced_memory()[0] - before
+    finally:
+        if not tracing:
+            tracemalloc.stop()
+    # The output grew past 256 KiB before each error.
+    assert retained < 64 * 1024
+
+
 @pytest.mark.parametrize("size", [1, 65536, 65537])
 def test_gzip_reader_full_and_short_bytes(size):
     data = random.Random(240).randbytes(size)
@@ -225,6 +295,43 @@ def test_extension_types_remain_immutable_and_cannot_be_subclassed(cls):
         cls.extra_attribute = True
     with pytest.raises(TypeError):
         type("Subclass", (cls,), {})
+
+
+@pytest.mark.skipif(sys.implementation.name != "cpython" or
+                    sysconfig.get_config_var("Py_GIL_DISABLED"),
+                    reason="Needs exact reference counts of CPython types")
+@pytest.mark.parametrize("factory", [
+    isal_zlib.compressobj, isal_zlib.decompressobj,
+    igzip_lib.IgzipDecompressor,
+    lambda: isal_zlib._GzipReader(io.BytesIO()),
+    lambda: isal_zlib._ParallelCompress(65536, 1)])
+def test_instances_release_their_type(factory):
+    cls = type(factory())
+    gc.collect()
+    before = sys.getrefcount(cls)
+    for _ in range(100):
+        instance = factory()
+    del instance
+    gc.collect()
+    assert sys.getrefcount(cls) == before
+
+
+EXTENSION_MODULES = {"isal_zlib": isal_zlib, "igzip_lib": igzip_lib,
+                     "_isal": _isal}
+
+
+@pytest.mark.parametrize("module", EXTENSION_MODULES.values(),
+                         ids=EXTENSION_MODULES.keys())
+def test_types_are_named_after_the_module_that_exports_them(module):
+    types = [value for value in vars(module).values()
+             if isinstance(value, type)]
+    if module is isal_zlib:
+        types += [type(isal_zlib.compressobj()),
+                  type(isal_zlib.decompressobj())]
+    for cls in types:
+        # IsalError is defined by igzip_lib and also exported by isal_zlib.
+        assert cls.__module__ in EXTENSION_MODULES, cls
+        assert getattr(EXTENSION_MODULES[cls.__module__], cls.__name__) is cls
 
 
 @pytest.mark.skipif(not sysconfig.get_config_var("Py_GIL_DISABLED"),
