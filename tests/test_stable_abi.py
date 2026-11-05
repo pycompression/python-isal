@@ -114,13 +114,10 @@ else:
     assert result.returncode == 0, result.stderr
 
 
-@pytest.mark.skipif(sys.implementation.name != "cpython",
-                    reason="Needs CPython tracemalloc allocation accounting")
-def test_full_bounded_output_does_not_allocate_a_second_result():
+def allocation_peak(function):
+    """Return the result of function() and the most memory it had in use."""
     import tracemalloc
 
-    data = b"filled buffer" * 100000
-    packed = igzip_lib.compress(data)
     gc.collect()
     tracing = tracemalloc.is_tracing()
     if not tracing:
@@ -128,15 +125,51 @@ def test_full_bounded_output_does_not_allocate_a_second_result():
     before, _ = tracemalloc.get_traced_memory()
     tracemalloc.reset_peak()
     try:
-        decoder = igzip_lib.IgzipDecompressor()
-        output = decoder.decompress(packed, len(data))
+        result = function()
         _, peak = tracemalloc.get_traced_memory()
     finally:
         if not tracing:
             tracemalloc.stop()
+    return result, peak - before
+
+
+needs_tracemalloc = pytest.mark.skipif(
+    sys.implementation.name != "cpython",
+    reason="Needs CPython tracemalloc allocation accounting")
+
+
+@needs_tracemalloc
+def test_full_bounded_output_does_not_allocate_a_second_result():
+    data = b"filled buffer" * 100000
+    packed = igzip_lib.compress(data)
+    decoder = igzip_lib.IgzipDecompressor()
+    output, peak = allocation_peak(
+        lambda: decoder.decompress(packed, len(data)))
     assert output == data
     # Codec state fits well within this margin; a second output copy does not.
-    assert peak - before < len(data) * 3 // 2
+    assert peak < len(data) * 3 // 2
+
+
+@needs_tracemalloc
+def test_gzip_reader_full_read_does_not_allocate_a_second_result():
+    size = 256 * 1024  # Below the 10 * buffersize cap of a single read.
+    data = random.Random(240).randbytes(size)
+    reader = isal_zlib._GzipReader(io.BytesIO(gzip.compress(data)))
+    output, peak = allocation_peak(lambda: reader.read(size))
+    assert output == data
+    assert peak < size * 3 // 2
+
+
+@pytest.mark.parametrize("size", [0, 1, 131071, 131072, 131073,
+                                  262144, 262145])
+def test_gzip_reader_readall_at_chunk_boundaries(size):
+    # readall() reads chunks of 4 * buffersize: 131072 bytes by default.
+    data = random.Random(240).randbytes(size)
+    reader = isal_zlib._GzipReader(io.BytesIO(gzip.compress(data)))
+    output = reader.readall()
+    assert type(output) is bytes
+    assert output == data
+    assert reader.readall() == b""
 
 
 @pytest.mark.parametrize("size", [1, 65536, 65537])
