@@ -977,16 +977,18 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 static int
 save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
 {
+    /* zst.avail_in only covers the current chunk of at most UINT32_MAX
+       bytes; larger input can have more after it. */
+    Py_ssize_t left_size = (Py_ssize_t)((uintptr_t)data->buf + data->len -
+                                        (uintptr_t)self->zst.next_in);
     if (self->zst.block_state == ISAL_BLOCK_FINISH) {
         /* The end of the compressed data has been reached. Store the leftover
            input data in self->unused_data. */
-        if (self->zst.avail_in > 0) {
+        if (left_size > 0) {
             Py_ssize_t old_size = PyBytes_Size(self->unused_data);
-            Py_ssize_t new_size, left_size;
+            Py_ssize_t new_size;
             PyObject *new_data;
             Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
-            left_size = (Py_ssize_t)((uintptr_t)data->buf + data->len -
-                                     (uintptr_t)self->zst.next_in);
             if (left_size + bytes_in_bitbuffer > (PY_SSIZE_T_MAX - old_size)) {
                 PyErr_NoMemory();
                 return -1;
@@ -1011,14 +1013,14 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             { PyObject *old_value = self->unused_data; self->unused_data = new_data; Py_XDECREF(old_value); }
             self->zst.next_in = (uint8_t *)data->buf + data->len;
             self->zst.avail_in = 0;
+            left_size = 0;
         }
     }
 
-    if (self->zst.avail_in > 0 || PyBytes_Size(self->unconsumed_tail)) {
+    if (left_size > 0 || PyBytes_Size(self->unconsumed_tail)) {
         /* This code handles two distinct cases:
            1. Output limit was reached. Save leftover input in unconsumed_tail.
            2. All input data was consumed. Clear unconsumed_tail. */
-        Py_ssize_t left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
         PyObject *new_data = PyBytes_FromStringAndSize(
                 (char *)self->zst.next_in, left_size);
         if (new_data == NULL)

@@ -136,7 +136,9 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
                 goto error;
             }
             else if (obuflen == -2)
-                break;
+                /* Leave both loops: the outer one would replace
+                   state.avail_in and lose that unread input. */
+                goto output_full;
         
             Py_BEGIN_ALLOW_THREADS;
             err = isal_inflate(&(self->state));
@@ -168,6 +170,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
     } while(self->avail_in_real != 0 && 
             self->state.block_state != ISAL_BLOCK_FINISH);
 
+output_full:
     if (self->state.block_state == ISAL_BLOCK_FINISH)
         self->eof = 1;
 
