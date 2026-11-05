@@ -65,15 +65,10 @@ static PyTypeObject *IsalZlibDecompType;
 #endif
 
 /* Only compressobj() and decompressobj() create Compress and Decompress
-   objects. CPython does not let you call a static type without tp_new, but
-   PyPy does, and the uninitialized object crashes when you use it. This flag
-   makes PyPy raise TypeError too. Its C API may not expose the flag. */
-#ifndef Py_TPFLAGS_DISALLOW_INSTANTIATION
-#define Py_TPFLAGS_DISALLOW_INSTANTIATION 0
-#endif
-
-
-
+   objects, so neither type has a tp_new. Without
+   Py_TPFLAGS_DISALLOW_INSTANTIATION, CPython heap types inherit object's
+   tp_new and PyPy lets you call static types; the uninitialized object then
+   crashes when you use it. The flag makes both raise TypeError. */
 
 static int 
 wbits_to_flag_and_hist_bits_deflate(int wbits, int *hist_bits, int *flag) 
@@ -482,7 +477,6 @@ static PyMethodDef ParallelCompress_methods[] = {
     {NULL},
 };
 
-
 #ifdef PYPY_VERSION
 static TypeDefinition ParallelCompress_Type_spec = {
     .tp_name = "isal_zlib._ParallelCompress",
@@ -887,7 +881,7 @@ isal_zlib_decompressobj_impl(PyObject *module, int wbits, PyObject *zdict)
     self->zst.next_in = NULL;
     self->zst.avail_in = 0;
     if (zdict != NULL) {
-        Py_INCREF((PyObject *)zdict);
+        Py_INCREF(zdict);
         self->zdict = zdict;
     }
     self->is_initialised = 1;
@@ -966,12 +960,8 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 
     RetVal = output_buffer_finish(&output, self->zst.next_out -
                         output.data);
-    if (RetVal != NULL)
-        goto success;
 
  error:
-    Py_CLEAR(RetVal);
- success:
     LEAVE_ZLIB(self);
     output_buffer_clear(&output);
     return RetVal;
@@ -1049,7 +1039,6 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
 
     if (max_length < 0) {
         PyErr_SetString(PyExc_ValueError, "max_length must be non-negative");
-        output_buffer_clear(&output);
         return NULL;
     } else if (max_length == 0)
         hard_limit = PY_SSIZE_T_MAX;
@@ -1066,7 +1055,6 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
         if (data->len == 0) {
             /* Detect the format when the first byte arrives. */
             LEAVE_ZLIB(self);
-            output_buffer_clear(&output);
             return PyBytes_FromStringAndSize(NULL, 0);
         }
         if (data_is_gzip(data)){
@@ -1138,12 +1126,8 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
 
     RetVal = output_buffer_finish(&output, self->zst.next_out -
                         output.data);
-    if (RetVal != NULL)
-        goto success;
 
  abort:
-    Py_CLEAR(RetVal);
- success:
     LEAVE_ZLIB(self);
     output_buffer_clear(&output);
     return RetVal;
@@ -1160,7 +1144,6 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     /* Flushing with Z_NO_FLUSH is a no-op, so there's no point in
        doing any work at all; just return an empty string. */
     if (mode == Z_NO_FLUSH) {
-        output_buffer_clear(&output);
         return PyBytes_FromStringAndSize(NULL, 0);        
     } 
     
@@ -1177,7 +1160,6 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         PyErr_Format(IsalError, 
                      "Unsupported flush mode: %d", mode);
         LEAVE_ZLIB(self);
-        output_buffer_clear(&output);
         return NULL;
     }
 
@@ -1186,15 +1168,11 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     do {
         length = arrange_output_buffer(&(self->zst.avail_out), 
                                        &(self->zst.next_out), &output, length);
-        if (length < 0) {
-            Py_CLEAR(RetVal);
+        if (length < 0)
             goto error;
-        }
 
-        if (write_pending_zlib_header(self) < 0) {
-            Py_CLEAR(RetVal);
+        if (write_pending_zlib_header(self) < 0)
             goto error;
-        }
 
         Py_BEGIN_ALLOW_THREADS
         err = isal_deflate(&self->zst);
@@ -1202,7 +1180,6 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
 
         if (err != COMP_OK) {
             isal_deflate_error(err);
-            Py_CLEAR(RetVal);
             goto error;
         }
     } while (self->zst.avail_out == 0);
@@ -1224,8 +1201,6 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
 
     RetVal = output_buffer_finish(&output, self->zst.next_out -
                         output.data);
-    if (RetVal == NULL)
-        Py_CLEAR(RetVal);
 
  error:
     LEAVE_ZLIB(self);
@@ -1244,7 +1219,6 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 
     if (length <= 0) {
         PyErr_SetString(PyExc_ValueError, "length must be greater than zero");
-        output_buffer_clear(&output);
         return NULL;
     }
 
@@ -1255,13 +1229,11 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
            raw deflate block, and then decode the zlib or gzip header that
            comes next as deflate data. */
         LEAVE_ZLIB(self);
-        output_buffer_clear(&output);
         return PyBytes_FromStringAndSize(NULL, 0);
     }
 
     if (PyObject_GetBuffer(self->unconsumed_tail, &data, PyBUF_SIMPLE) == -1) {
         LEAVE_ZLIB(self);
-        output_buffer_clear(&output);
         return NULL;
     }
 
@@ -1303,12 +1275,8 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
 
     RetVal = output_buffer_finish(&output, self->zst.next_out -
                         output.data);
-    if (RetVal != NULL)
-        goto success;
 
  abort:
-    Py_CLEAR(RetVal);
- success:
     PyBuffer_Release(&data);
     LEAVE_ZLIB(self);
     output_buffer_clear(&output);
@@ -1585,23 +1553,12 @@ static PyMethodDef Decomp_methods[] =
 };
 
 #ifdef PYPY_VERSION
-static PyObject *
-factory_only_new(PyTypeObject *type, PyObject *Py_UNUSED(args),
-                 PyObject *Py_UNUSED(kwargs))
-{
-    PyErr_Format(PyExc_TypeError, "cannot create %R instances", (PyObject *)type);
-    return NULL;
-}
-#endif
-
-#ifdef PYPY_VERSION
 static TypeDefinition IsalZlibCompType_spec = {
     .tp_name = "isal_zlib.Compress", 
     .tp_doc = "Object returned by isal_zlib.compressobj",
     .tp_basicsize = sizeof(compobject),
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Comp_dealloc,
-    .tp_new = factory_only_new,
     .tp_methods = comp_methods,
 };
 #else
@@ -1609,9 +1566,6 @@ static PyType_Slot IsalZlibCompType_slots[] = {
     {Py_tp_doc, (void *)("Object returned by isal_zlib.compressobj")},
     {Py_tp_dealloc, (void *)Comp_dealloc},
     {Py_tp_methods, (void *)comp_methods},
-#ifdef PYPY_VERSION
-    {Py_tp_new, (void *)factory_only_new},
-#endif
     {0, NULL}
 };
 static PyType_Spec IsalZlibCompType_spec = {
@@ -1634,7 +1588,7 @@ Decomp_get_unused_data(decompobject *self, void *Py_UNUSED(closure))
 {
     ENTER_ZLIB(self);
     PyObject *unused_data = self->unused_data;
-    Py_INCREF((PyObject *)unused_data);
+    Py_INCREF(unused_data);
     LEAVE_ZLIB(self);
     return unused_data;
 }
@@ -1644,7 +1598,7 @@ Decomp_get_unconsumed_tail(decompobject *self, void *Py_UNUSED(closure))
 {
     ENTER_ZLIB(self);
     PyObject *unconsumed_tail = self->unconsumed_tail;
-    Py_INCREF((PyObject *)unconsumed_tail);
+    Py_INCREF(unconsumed_tail);
     LEAVE_ZLIB(self);
     return unconsumed_tail;
 }
@@ -1668,7 +1622,6 @@ static PyGetSetDef Decomp_properties[] = {
     {NULL},
 };
 
-
 #ifdef PYPY_VERSION
 static TypeDefinition IsalZlibDecompType_spec = {
     .tp_name = "isal_zlib.Decompress",
@@ -1676,7 +1629,6 @@ static TypeDefinition IsalZlibDecompType_spec = {
     .tp_basicsize = sizeof(decompobject),
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION,
     .tp_dealloc = (destructor)Decomp_dealloc,
-    .tp_new = factory_only_new,
     .tp_methods = Decomp_methods,
     .tp_getset = Decomp_properties,
 };
@@ -1686,9 +1638,6 @@ static PyType_Slot IsalZlibDecompType_slots[] = {
     {Py_tp_dealloc, (void *)Decomp_dealloc},
     {Py_tp_methods, (void *)Decomp_methods},
     {Py_tp_getset, (void *)Decomp_properties},
-#ifdef PYPY_VERSION
-    {Py_tp_new, (void *)factory_only_new},
-#endif
     {0, NULL}
 };
 static PyType_Spec IsalZlibDecompType_spec = {
@@ -1818,7 +1767,7 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->current_pos = self->input_buffer;
     self->_pos = 0;
     self->_size = -1;
-    Py_INCREF((PyObject *)fp);
+    Py_INCREF(fp);
     self->fp = fp;
     self->stream_phase = GzipReader_HEADER;
     self->closed = 0;
@@ -2440,7 +2389,6 @@ static PyGetSetDef GzipReader_properties[] = {
     {NULL},
 };
 
-
 #ifdef PYPY_VERSION
 static TypeDefinition GzipReader_Type_spec = {
     .tp_name = "isal_zlib._GzipReader",
@@ -2594,7 +2542,6 @@ PyInit_isal_zlib(void)
         goto error;
     if (PyModule_AddIntMacro(m, Z_TREES) < 0)
         goto error;
-
 
     IsalError = error;
     IsalZlibCompType = (PyTypeObject *)compress_type;

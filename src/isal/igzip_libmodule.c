@@ -178,12 +178,9 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
     if (RetVal == NULL)
         goto error;
 
-    output_buffer_clear(&output);
-
     return RetVal;
 
 error:
-    Py_CLEAR(RetVal);
     output_buffer_clear(&output);
     return NULL;
 }
@@ -560,7 +557,7 @@ IgzipDecompressor_get_unused_data(IgzipDecompressor *self,
 {
     ENTER_ZLIB(self);
     PyObject *unused_data = self->unused_data;
-    Py_INCREF((PyObject *)unused_data);
+    Py_INCREF(unused_data);
     LEAVE_ZLIB(self);
     return unused_data;
 }
@@ -595,7 +592,6 @@ static PyGetSetDef IgzipDecompressor_properties[] = {
      IgzipDecompressor_crc_doc, NULL},
     {NULL}
 };
-
 
 #ifdef PYPY_VERSION
 static TypeDefinition IgzipDecompressor_Type_spec = {
@@ -790,7 +786,6 @@ PyInit_igzip_lib(void)
         goto error;
     if (PyModule_AddIntMacro(m, MEM_LEVEL_EXTRA_LARGE) < 0)
         goto error;
-
 
     IsalError = error;
     return m;

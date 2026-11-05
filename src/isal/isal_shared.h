@@ -373,6 +373,8 @@ arrange_output_buffer(uint32_t *avail_out,
     return ret;
 }
 
+/* Return the first length bytes as a bytes object. The buffer is empty
+   afterwards, whether or not this succeeds. */
 static PyObject *
 output_buffer_finish(OutputBuffer *buffer, Py_ssize_t length)
 {
@@ -471,11 +473,9 @@ igzip_lib_compress_impl(Py_buffer *data,
     if (RetVal == NULL)
         goto error;
     PyMem_Free(level_buf);
-    output_buffer_clear(&output);
     return RetVal;
  error:
     PyMem_Free(level_buf);
-    Py_XDECREF(RetVal);
     output_buffer_clear(&output);
     return NULL;
 }
@@ -494,7 +494,6 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
 
     if (bufsize < 0) {
         PyErr_SetString(PyExc_ValueError, "bufsize must be non-negative");
-        output_buffer_clear(&output);
         return NULL;
     } else if (bufsize == 0) {
         bufsize = 1;
@@ -541,12 +540,9 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
     if (RetVal == NULL)
         goto error;
 
-    output_buffer_clear(&output);
-
     return RetVal;
 
  error:
-    Py_XDECREF(RetVal);
     output_buffer_clear(&output);
     return NULL;
 }
