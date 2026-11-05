@@ -780,3 +780,14 @@ def test_no_broken_pipe():
         ],
         check=True
     )
+
+
+def test_gzip_reader_reports_errors_from_read_lookup():
+    class BrokenReader:
+        @property
+        def read(self):
+            raise RuntimeError("lookup failed")
+
+    # Only AttributeError means that fp is a bytes-like object.
+    with pytest.raises(RuntimeError, match="lookup failed"):
+        isal_zlib._GzipReader(BrokenReader())

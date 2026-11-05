@@ -1729,6 +1729,18 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         );
         return NULL;
     }
+    /* PyObject_HasAttrString() would hide errors such as MemoryError, and
+       PyObject_HasAttrStringWithError() needs Python 3.13. */
+    int is_file = 1;
+    PyObject *read_method = PyObject_GetAttrString(fp, "read");
+    if (read_method != NULL) {
+        Py_DECREF(read_method);
+    } else if (PyErr_ExceptionMatches(PyExc_AttributeError)) {
+        PyErr_Clear();
+        is_file = 0;
+    } else {
+        return NULL;
+    }
     GzipReader *self = PyObject_New(GzipReader, type);
     if (self == NULL) {
         return NULL;
@@ -1738,7 +1750,7 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->memview = NULL;
     self->fp = NULL;
     self->lock = NULL;
-    if (PyObject_HasAttrString(fp, "read")) {
+    if (is_file) {
         self->buffer_size = buffer_size;
         self->input_buffer = PyMem_Malloc(self->buffer_size);
         if (self->input_buffer == NULL) {
