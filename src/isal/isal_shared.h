@@ -51,6 +51,30 @@ add_extension_type(PyObject *module, const char *name, TypeDefinition *spec)
     return type;
 }
 
+/* Free an extension object. On CPython its type is a heap type, and each
+   instance owns a reference to it; PyPy uses static types. */
+static inline void
+free_instance(PyObject *self)
+{
+#ifndef PYPY_VERSION
+    PyTypeObject *type = Py_TYPE(self);
+#endif
+    PyObject_Free(self);
+#ifndef PYPY_VERSION
+    Py_DECREF(type);
+#endif
+}
+
+/* Py_SETREF is not in the Limited API. Store the new reference before
+   releasing the old one, so code run by its deallocation never sees it. */
+static inline void
+replace_reference(PyObject **target, PyObject *replacement)
+{
+    PyObject *previous = *target;
+    *target = replacement;
+    Py_XDECREF(previous);
+}
+
 
 #define ENTER_ZLIB(obj) do {                      \
     if (!PyThread_acquire_lock((obj)->lock, 0)) { \

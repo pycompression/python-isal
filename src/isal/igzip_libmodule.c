@@ -50,13 +50,7 @@ IgzipDecompressor_dealloc(IgzipDecompressor *self)
     PyMem_Free(self->input_buffer);
     Py_CLEAR(self->unused_data);
     Py_CLEAR(self->zdict);
-#ifndef PYPY_VERSION
-    PyTypeObject *type = Py_TYPE((PyObject *)self);
-#endif
-    PyObject_Free(self);
-#ifndef PYPY_VERSION
-    Py_DECREF(type);
-#endif
+    free_instance((PyObject *)self);
 }
 
 
@@ -265,7 +259,7 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
                 Py_DECREF(new_data);
                 goto error;
             }
-            { PyObject *old_value = self->unused_data; self->unused_data = new_data; Py_XDECREF(old_value); }
+            replace_reference(&self->unused_data, new_data);
         }
     }
     else if (self->avail_in_real == 0) {

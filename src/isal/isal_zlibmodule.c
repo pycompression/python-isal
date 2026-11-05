@@ -313,13 +313,7 @@ ParallelCompress_dealloc(ParallelCompress *self)
 {
     PyMem_Free(self->buffer);
     PyMem_Free(self->zst.level_buf);
-#ifndef PYPY_VERSION
-    PyTypeObject *type = Py_TYPE((PyObject *)self);
-#endif
-    PyObject_Free(self);
-#ifndef PYPY_VERSION
-    Py_DECREF(type);
-#endif
+    free_instance((PyObject *)self);
 }
 
 static PyObject *
@@ -626,13 +620,7 @@ Comp_dealloc(compobject *self)
         PyThread_free_lock(self->lock);
     }
     Py_XDECREF(self->zdict);
-#ifndef PYPY_VERSION
-    PyTypeObject *type = Py_TYPE((PyObject *)self);
-#endif
-    PyObject_Free(self);
-#ifndef PYPY_VERSION
-    Py_DECREF(type);
-#endif
+    free_instance((PyObject *)self);
 }
 
 static compobject *
@@ -681,13 +669,7 @@ Decomp_dealloc(decompobject *self)
     Py_XDECREF(self->unused_data);
     Py_XDECREF(self->unconsumed_tail);
     Py_XDECREF(self->zdict);
-#ifndef PYPY_VERSION
-    PyTypeObject *type = Py_TYPE((PyObject *)self);
-#endif
-    PyObject_Free(self);
-#ifndef PYPY_VERSION
-    Py_DECREF(type);
-#endif
+    free_instance((PyObject *)self);
 }
 
 static int
@@ -1013,7 +995,7 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
                 Py_DECREF(new_data);
                 return -1;
             }
-            { PyObject *old_value = self->unused_data; self->unused_data = new_data; Py_XDECREF(old_value); }
+            replace_reference(&self->unused_data, new_data);
             self->zst.next_in = (uint8_t *)data->buf + data->len;
             self->zst.avail_in = 0;
             left_size = 0;
@@ -1028,7 +1010,7 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
                 (char *)self->zst.next_in, left_size);
         if (new_data == NULL)
             return -1;
-        { PyObject *old_value = self->unconsumed_tail; self->unconsumed_tail = new_data; Py_XDECREF(old_value); }
+        replace_reference(&self->unconsumed_tail, new_data);
     }
 
     if (self->zst.block_state != ISAL_BLOCK_FINISH) {
@@ -1694,13 +1676,7 @@ static void GzipReader_dealloc(GzipReader *self)
     if (self->lock != NULL) {
         PyThread_free_lock(self->lock);
     }
-#ifndef PYPY_VERSION
-    PyTypeObject *type = Py_TYPE((PyObject *)self);
-#endif
-    PyObject_Free(self);
-#ifndef PYPY_VERSION
-    Py_DECREF(type);
-#endif
+    free_instance((PyObject *)self);
 }
 
 PyDoc_STRVAR(GzipReader__new____doc__,
