@@ -50,7 +50,7 @@ IgzipDecompressor_dealloc(IgzipDecompressor *self)
     PyMem_Free(self->input_buffer);
     Py_CLEAR(self->unused_data);
     Py_CLEAR(self->zdict);
-    Py_TYPE(self)->tp_free((PyObject *)self);
+    free_instance((PyObject *)self);
 }
 
 
@@ -87,9 +87,10 @@ static PyObject*
 decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
 {
     /* data_size is strictly positive, but because we repeatedly have to
-       compare against max_length and PyBytes_GET_SIZE we declare it as
+       compare against max_length and PyBytes_Size we declare it as
        signed */
     PyObject *RetVal = NULL;
+    OutputBuffer output = {0};
     Py_ssize_t hard_limit;
     
     Py_ssize_t obuflen;
@@ -120,7 +121,7 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
         do {
             obuflen = arrange_output_buffer_with_maximum(&(self->state.avail_out), 
                                                         &(self->state.next_out),
-                                                        &RetVal,
+                                                        &output,
                                                         obuflen,
                                                         hard_limit);
             if (obuflen == -1){
@@ -129,7 +130,9 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
                 goto error;
             }
             else if (obuflen == -2)
-                break;
+                /* Leave both loops: the outer one would replace
+                   state.avail_in and lose that unread input. */
+                goto output_full;
         
             Py_BEGIN_ALLOW_THREADS;
             err = isal_inflate(&(self->state));
@@ -155,26 +158,27 @@ decompress_buf(IgzipDecompressor *self, Py_ssize_t max_length)
                     goto error;
             }
 
-        } while (self->state.avail_out == 0 || err == ISAL_NEED_DICT);
+        } while ((self->state.avail_out == 0 || err == ISAL_NEED_DICT) &&
+                 self->state.block_state != ISAL_BLOCK_FINISH);
     
     } while(self->avail_in_real != 0 && 
             self->state.block_state != ISAL_BLOCK_FINISH);
 
+output_full:
     if (self->state.block_state == ISAL_BLOCK_FINISH)
         self->eof = 1;
 
     self->avail_in_real += self->state.avail_in;
 
-    /* Prevent empty string object from being resized. */
-    if (PyBytes_GET_SIZE(RetVal) != 0 &&
-        _PyBytes_Resize(&RetVal, self->state.next_out -
-            (uint8_t *)PyBytes_AS_STRING(RetVal)) != 0)
+    RetVal = output_buffer_finish(&output, self->state.next_out -
+            output.data);
+    if (RetVal == NULL)
         goto error;
 
     return RetVal;
 
 error:
-    Py_CLEAR(RetVal);
+    output_buffer_clear(&output);
     return NULL;
 }
 
@@ -245,7 +249,7 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
                 NULL, self->avail_in_real + bytes_in_bitbuffer);
             if (new_data == NULL)
                 goto error;
-            char *new_data_ptr = PyBytes_AS_STRING(new_data);
+            char *new_data_ptr = PyBytes_AsString(new_data);
             bitbuffer_copy(&(self->state), new_data_ptr, bytes_in_bitbuffer);
             if (copy_from_next_in(&(self->state), input_start,
                                   self->saved_bitbuffer,
@@ -255,7 +259,7 @@ decompress(IgzipDecompressor *self, uint8_t *data, size_t len, Py_ssize_t max_le
                 Py_DECREF(new_data);
                 goto error;
             }
-            Py_XSETREF(self->unused_data, new_data);
+            replace_reference(&self->unused_data, new_data);
         }
     }
     else if (self->avail_in_real == 0) {
@@ -586,7 +590,8 @@ static PyGetSetDef IgzipDecompressor_properties[] = {
     {NULL}
 };
 
-static PyTypeObject IgzipDecompressor_Type = {
+#ifdef PYPY_VERSION
+static TypeDefinition IgzipDecompressor_Type_spec = {
     PyVarObject_HEAD_INIT(NULL, 0)
     .tp_name = "igzip_lib.IgzipDecompressor",
     .tp_basicsize = sizeof(IgzipDecompressor),
@@ -597,6 +602,20 @@ static PyTypeObject IgzipDecompressor_Type = {
     .tp_getset = IgzipDecompressor_properties,
     .tp_new = igzip_lib_IgzipDecompressor__new__,
 };
+#else
+static PyType_Slot IgzipDecompressor_Type_slots[] = {
+    {Py_tp_dealloc, (void *)IgzipDecompressor_dealloc},
+    {Py_tp_doc, (void *)igzip_lib_IgzipDecompressor___init____doc__},
+    {Py_tp_methods, (void *)IgzipDecompressor_methods},
+    {Py_tp_getset, (void *)IgzipDecompressor_properties},
+    {Py_tp_new, (void *)igzip_lib_IgzipDecompressor__new__},
+    {0, NULL}
+};
+static PyType_Spec IgzipDecompressor_Type_spec = {
+    "igzip_lib.IgzipDecompressor", sizeof(IgzipDecompressor), 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE, IgzipDecompressor_Type_slots
+};
+#endif
 
 static PyMethodDef IgzipLibMethods[] = {
     IGZIP_LIB_COMPRESS_METHODDEF,
@@ -687,6 +706,7 @@ static struct PyModuleDef igzip_lib_module = {
 PyMODINIT_FUNC
 PyInit_igzip_lib(void)
 {
+    PyObject *error = NULL, *type = NULL;
     PyObject *m = PyModule_Create(&igzip_lib_module);
     if (m == NULL)
         return NULL;
@@ -695,60 +715,81 @@ PyInit_igzip_lib(void)
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
 #endif
 
+    error = PyErr_NewException("igzip_lib.IsalError", NULL, NULL);
+    if (error == NULL)
+        goto error;
+    if (PyModule_AddObjectRef(m, "error", error) < 0 ||
+            PyModule_AddObjectRef(m, "IsalError", error) < 0)
+        goto error;
+    type = add_extension_type(m, "IgzipDecompressor", &IgzipDecompressor_Type_spec);
+    if (type == NULL)
+        goto error;
+    Py_CLEAR(type);
 
-    IsalError = PyErr_NewException("igzip_lib.IsalError", NULL, NULL);
-    if (IsalError == NULL) {
-        return NULL;
-    }
-    Py_INCREF(IsalError);
-    if (PyModule_AddObject(m, "error", IsalError) < 0) {
-        return NULL;
-    }
-    Py_INCREF(IsalError);
-    if (PyModule_AddObject(m, "IsalError", IsalError) < 0) {
-        return NULL;
-    }
+    if (PyModule_AddIntConstant(m, "ISAL_BEST_SPEED", ISAL_DEF_MIN_LEVEL) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "ISAL_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, ISAL_DEFAULT_COMPRESSION) < 0)
+        goto error;
 
-    if (PyType_Ready(&IgzipDecompressor_Type) != 0) {
-        return NULL;
-    }
-    Py_INCREF(&IgzipDecompressor_Type);
-    if (PyModule_AddObject(m, "IgzipDecompressor",  
-                           (PyObject *)&IgzipDecompressor_Type) < 0) {
-        return NULL;
-    }
+    if (PyModule_AddIntMacro(m, DEF_BUF_SIZE) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "MAX_HIST_BITS", ISAL_DEF_MAX_HIST_BITS) < 0)
+        goto error;
 
-    PyModule_AddIntConstant(m, "ISAL_BEST_SPEED", ISAL_DEF_MIN_LEVEL);
-    PyModule_AddIntConstant(m, "ISAL_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL);
-    PyModule_AddIntMacro(m, ISAL_DEFAULT_COMPRESSION);
+    if (PyModule_AddIntConstant(m, "ISAL_NO_FLUSH", NO_FLUSH) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "ISAL_SYNC_FLUSH", SYNC_FLUSH) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "ISAL_FULL_FLUSH", FULL_FLUSH) < 0)
+        goto error;
 
-    PyModule_AddIntMacro(m, DEF_BUF_SIZE);
-    PyModule_AddIntConstant(m, "MAX_HIST_BITS", ISAL_DEF_MAX_HIST_BITS);
-    
-    PyModule_AddIntConstant(m, "ISAL_NO_FLUSH", NO_FLUSH);
-    PyModule_AddIntConstant(m, "ISAL_SYNC_FLUSH", SYNC_FLUSH);
-    PyModule_AddIntConstant(m, "ISAL_FULL_FLUSH", FULL_FLUSH);
+    if (PyModule_AddIntMacro(m, COMP_DEFLATE) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, COMP_GZIP) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, COMP_GZIP_NO_HDR) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, COMP_ZLIB) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, COMP_ZLIB_NO_HDR) < 0)
+        goto error;
 
-    PyModule_AddIntMacro(m, COMP_DEFLATE);
-    PyModule_AddIntMacro(m, COMP_GZIP);
-    PyModule_AddIntMacro(m, COMP_GZIP_NO_HDR);
-    PyModule_AddIntMacro(m, COMP_ZLIB);
-    PyModule_AddIntMacro(m, COMP_ZLIB_NO_HDR);
+    if (PyModule_AddIntMacro(m, DECOMP_DEFLATE) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DECOMP_GZIP) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DECOMP_GZIP_NO_HDR) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DECOMP_ZLIB) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DECOMP_ZLIB_NO_HDR) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DECOMP_ZLIB_NO_HDR_VER) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DECOMP_GZIP_NO_HDR_VER) < 0)
+        goto error;
 
-    PyModule_AddIntMacro(m, DECOMP_DEFLATE);
-    PyModule_AddIntMacro(m, DECOMP_GZIP);
-    PyModule_AddIntMacro(m, DECOMP_GZIP_NO_HDR);
-    PyModule_AddIntMacro(m, DECOMP_ZLIB);
-    PyModule_AddIntMacro(m, DECOMP_ZLIB_NO_HDR);
-    PyModule_AddIntMacro(m, DECOMP_ZLIB_NO_HDR_VER);
-    PyModule_AddIntMacro(m, DECOMP_GZIP_NO_HDR_VER);
+    if (PyModule_AddIntMacro(m, MEM_LEVEL_DEFAULT) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, MEM_LEVEL_MIN) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, MEM_LEVEL_SMALL) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, MEM_LEVEL_MEDIUM) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, MEM_LEVEL_LARGE) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, MEM_LEVEL_EXTRA_LARGE) < 0)
+        goto error;
 
-    PyModule_AddIntMacro(m, MEM_LEVEL_DEFAULT);
-    PyModule_AddIntMacro(m, MEM_LEVEL_MIN);
-    PyModule_AddIntMacro(m, MEM_LEVEL_SMALL);
-    PyModule_AddIntMacro(m, MEM_LEVEL_MEDIUM);
-    PyModule_AddIntMacro(m, MEM_LEVEL_LARGE);
-    PyModule_AddIntMacro(m, MEM_LEVEL_EXTRA_LARGE);
-
+    IsalError = error;
     return m;
+
+error:
+    Py_XDECREF(type);
+    Py_XDECREF(error);
+    Py_DECREF(m);
+    return NULL;
 }

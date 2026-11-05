@@ -1,0 +1,50 @@
+{
+  "baseline_commit": "2498167283fb4598d3daf757bc2a80b53d798c52",
+  "compiler": "cc (Ubuntu 15.2.0-16ubuntu1) 15.2.0",
+  "cflags": "-O3 -DNDEBUG -Werror=implicit-function-declaration",
+  "vendor": "ISA-L 2.32.1",
+  "wheels": {
+    "baseline": {
+      "name": "isal-1.9.1-cp311-cp311-linux_x86_64.whl",
+      "sha256": "8d3e589e815213d26ba66e9e3e288b5d2b1550fca485ab030d7d17d5ac2989bf"
+    },
+    "candidate": {
+      "name": "isal-1.9.1-cp311-abi3-linux_x86_64.whl",
+      "sha256": "139ec45c50c133d0fba7aa96e8304cbe94c64aa1c0f00d3313603f3a43603f66"
+    },
+    "ft": {
+      "name": "isal-1.9.1-cp313-cp313t-linux_x86_64.whl",
+      "sha256": "f4fe47ff25c35552990c75ae5fd5733c193e1495fa2b274c895548026009f2f5"
+    },
+    "pypy": {
+      "name": "isal-1.9.1-pp311-pypy311_pp80-linux_x86_64.whl",
+      "sha256": "79fb36724a32fdf76c5892785b3686442742ca3a08a28efb3c6b73b87a428578"
+    }
+  },
+  "candidate_source_sha256": {
+    "src/isal/_isalmodule.c": "8a629a3211866f8b2bac2ab34b7df2e2850fb96109f11bb150d3eb89d66db391",
+    "src/isal/crc32_combine.h": "ee4acf3a5b17d8f238da72f93144fcec2b64436566540b805e41834ee4dbd9e7",
+    "src/isal/igzip_libmodule.c": "d86f50399759fe68c2fd975f3b6a1f79406d8e111b5817b30db1f0e8d69e9aab",
+    "src/isal/isal_shared.h": "1740e95cbdbcac12eac00079871c85e2c78b4161592eb2c2a978aa58982e8962",
+    "src/isal/isal_zlibmodule.c": "78a30e00c62acc17f1cbb087f6ce69ec60113a070511b9e775f4311724cb1e13"
+  },
+  "harness_sha256": "84e289a2d1c29275fedf74c7d637005ac2e0e2cb3ca75d82dbc9a5d6a3bc982f",
+  "wrapper_build": "/tmp/isal-abi-env (CPython 3.11.15): setup.py build_ext --force bdist_wheel with the cached ISA-L 2.32.1 build, SETUPTOOLS_SCM_PRETEND_VERSION=1.9.1. Rebuilding the earlier candidate (65d3eb3) this way reproduced its measured extensions byte for byte.",
+  "benchmark": {
+    "cpython311.json": {
+      "started": "2026-11-05T08:49:57+02:00",
+      "finished": "2026-11-05T08:51:56+02:00",
+      "cpu": 1,
+      "rounds": 9,
+      "cases": 128,
+      "control_p95_inclusive": 0.043446692063715445,
+      "control_max": 0.09116027336278032
+    },
+    "repair-check.json": {
+      "description": "Earlier candidate (65d3eb3 wheel 44062a3d...) as baseline/control against this candidate, same protocol, run right after cpython311.json.",
+      "control_p95_inclusive": 0.041749994372881266,
+      "control_max": 0.06836273812094973
+    },
+    "machine_note": "Desktop processes (remote-desktop service, browser) were running; no build, test or other benchmark ran."
+  }
+}

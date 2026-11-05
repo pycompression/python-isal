@@ -7,8 +7,8 @@ This file is part of python-isal which is distributed under the
 PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
 This file was modified from Cpython Modules/zlibmodule.c file from the 3.9
-branch. This is because the BlocksBuffer used in Python 3.10 and higher is
-not available in python 3.7-3.9 which this project supports.
+branch. Output buffers support the Python 3.11 Limited API; full-API builds retain
+direct bytes resizing.
 
 Changes compared to CPython:
 - igzip_lib.compress and igzip_lib.decompress are equivalent to
@@ -24,8 +24,57 @@ Changes compared to CPython:
 
 #include <isa-l/igzip_lib.h>
 #include <stdint.h>
+#include <string.h>
+#include <assert.h>
 
 static PyObject *IsalError;
+
+#ifdef PYPY_VERSION
+typedef PyTypeObject TypeDefinition;
+#else
+typedef PyType_Spec TypeDefinition;
+#endif
+
+/* Return an owned reference, also retained by the module. */
+static PyObject *
+add_extension_type(PyObject *module, const char *name, TypeDefinition *spec)
+{
+#ifdef PYPY_VERSION
+    if (PyType_Ready(spec) < 0)
+        return NULL;
+    PyObject *type = Py_NewRef((PyObject *)spec);
+#else
+    PyObject *type = PyType_FromSpec(spec);
+#endif
+    if (type != NULL && PyModule_AddObjectRef(module, name, type) < 0)
+        Py_CLEAR(type);
+    return type;
+}
+
+/* Free an extension object. On CPython its type is a heap type, and each
+   instance owns a reference to it; PyPy uses static types. */
+static inline void
+free_instance(PyObject *self)
+{
+#ifndef PYPY_VERSION
+    PyTypeObject *type = Py_TYPE(self);
+#endif
+    PyObject_Free(self);
+#ifndef PYPY_VERSION
+    Py_DECREF(type);
+#endif
+}
+
+/* Py_SETREF is not in the Limited API. Store the new reference before
+   releasing the old one, so code run by its deallocation never sees it. */
+static inline void
+replace_reference(PyObject **target, PyObject *replacement)
+{
+    PyObject *previous = *target;
+    *target = replacement;
+    Py_XDECREF(previous);
+}
+
 
 #define ENTER_ZLIB(obj) do {                      \
     if (!PyThread_acquire_lock((obj)->lock, 0)) { \
@@ -259,60 +308,134 @@ arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
     *remains -= *avail_in;
 }
 
+/* Output storage for codec calls. On full-API builds a bytes object always
+   owns it and is resized to grow and to finish. On Limited API builds, a bytes
+   object owns it only when the first allocation already equals a finite limit,
+   so a filled result needs no copy; a shorter result is still copied. Other
+   Limited API output grows in PyMem memory and is copied when finished. */
+typedef struct {
+    uint8_t *data;
+    PyObject *bytes;
+} OutputBuffer;
+
+/* Let a bytes object own a new buffer of length bytes. */
+static int
+output_buffer_init_bytes(OutputBuffer *buffer, Py_ssize_t length)
+{
+    buffer->bytes = PyBytes_FromStringAndSize(NULL, length);
+    if (buffer->bytes == NULL)
+        return -1;
+    buffer->data = (uint8_t *)PyBytes_AsString(buffer->bytes);
+    return 0;
+}
+
+static void
+output_buffer_clear(OutputBuffer *buffer)
+{
+#ifdef Py_LIMITED_API
+    if (buffer->bytes == NULL)
+        PyMem_Free(buffer->data);
+#endif
+    Py_CLEAR(buffer->bytes);
+    buffer->data = NULL;
+}
+
 static Py_ssize_t
 arrange_output_buffer_with_maximum(uint32_t *avail_out,
                                    uint8_t **next_out,
-                                   PyObject **buffer,
+                                   OutputBuffer *buffer,
                                    Py_ssize_t length,
                                    Py_ssize_t max_length)
 {
-    Py_ssize_t occupied;
-
-    if (*buffer == NULL) {
-        if (!(*buffer = PyBytes_FromStringAndSize(NULL, length)))
-            return -1;
-        occupied = 0;
+    Py_ssize_t occupied = 0;
+    if (buffer->data == NULL) {
+#ifdef Py_LIMITED_API
+        if (length != max_length || max_length == 0) {
+            buffer->data = PyMem_Malloc(length > 0 ? length : 1);
+            if (buffer->data == NULL) {
+                PyErr_NoMemory();
+                return -1;
+            }
+        }
+        else
+#endif
+        {
+            if (output_buffer_init_bytes(buffer, length) < 0)
+                return -1;
+        }
     }
     else {
-        occupied = *next_out - (uint8_t *)PyBytes_AS_STRING(*buffer);
-
+        occupied = *next_out - buffer->data;
         if (length == occupied) {
-            Py_ssize_t new_length;
             assert(length <= max_length);
-            /* can not scale the buffer over max_length */
             if (length == max_length)
                 return -2;
-            if (length <= (max_length >> 1))
-                new_length = length << 1;
-            else
-                new_length = max_length;
-            if (_PyBytes_Resize(buffer, new_length) < 0)
+            Py_ssize_t new_length = length <= (max_length >> 1)
+                ? length << 1 : max_length;
+#ifdef Py_LIMITED_API
+            /* Bytes-owned bounded buffers cannot grow past their limit. */
+            assert(buffer->bytes == NULL);
+            uint8_t *resized = PyMem_Realloc(buffer->data, new_length);
+            if (resized == NULL) {
+                PyErr_NoMemory();
                 return -1;
+            }
+            buffer->data = resized;
+#else
+            if (_PyBytes_Resize(&buffer->bytes, new_length) < 0) {
+                buffer->data = NULL;
+                return -1;
+            }
+            buffer->data = (uint8_t *)PyBytes_AsString(buffer->bytes);
+#endif
             length = new_length;
         }
     }
-
     *avail_out = (uint32_t)Py_MIN((size_t)(length - occupied), UINT32_MAX);
-    *next_out = (uint8_t *)PyBytes_AS_STRING(*buffer) + occupied;
-
+    *next_out = buffer->data + occupied;
     return length;
 }
 
 static inline Py_ssize_t
 arrange_output_buffer(uint32_t *avail_out,
                       uint8_t **next_out,
-                      PyObject **buffer,
+                      OutputBuffer *buffer,
                       Py_ssize_t length)
 {
-    Py_ssize_t ret;
-
-    ret = arrange_output_buffer_with_maximum(avail_out, next_out, buffer,
-                                             length,
-                                             PY_SSIZE_T_MAX);
+    Py_ssize_t ret = arrange_output_buffer_with_maximum(
+        avail_out, next_out, buffer, length, PY_SSIZE_T_MAX);
     if (ret == -2)
         PyErr_NoMemory();
     return ret;
 }
+
+/* Return the first length bytes as a bytes object. The buffer is empty
+   afterwards, whether or not this succeeds. */
+static PyObject *
+output_buffer_finish(OutputBuffer *buffer, Py_ssize_t length)
+{
+    PyObject *result;
+    if (buffer->bytes != NULL && PyBytes_Size(buffer->bytes) == length) {
+        result = buffer->bytes;
+        buffer->bytes = NULL;
+        buffer->data = NULL;
+        return result;
+    }
+#ifdef Py_LIMITED_API
+    result = PyBytes_FromStringAndSize((char *)buffer->data, length);
+    output_buffer_clear(buffer);
+#else
+    if (_PyBytes_Resize(&buffer->bytes, length) < 0) {
+        buffer->data = NULL;
+        return NULL;
+    }
+    result = buffer->bytes;
+    buffer->bytes = NULL;
+    buffer->data = NULL;
+#endif
+    return result;
+}
+
 
 static PyObject *
 igzip_lib_compress_impl(Py_buffer *data,
@@ -322,6 +445,7 @@ igzip_lib_compress_impl(Py_buffer *data,
                         int hist_bits)
 {
     PyObject *RetVal = NULL;
+    OutputBuffer output = {0};
     uint8_t *ibuf;
     uint8_t *level_buf = NULL;
     uint32_t level_buf_size;
@@ -359,7 +483,7 @@ igzip_lib_compress_impl(Py_buffer *data,
 
         do {
             obuflen = arrange_output_buffer(&(zst.avail_out), &(zst.next_out), 
-                                            &RetVal, obuflen);
+                                            &output, obuflen);
             if (obuflen < 0) {
                 PyErr_SetString(PyExc_MemoryError,
                         "Unsufficient memory for buffer allocation");
@@ -380,14 +504,15 @@ igzip_lib_compress_impl(Py_buffer *data,
 
     } while (zst.end_of_stream != 1);
     assert(zst.internal_state.state == ZSTATE_END);
-    if (_PyBytes_Resize(&RetVal, zst.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) < 0)
+    RetVal = output_buffer_finish(&output, zst.next_out -
+                        output.data);
+    if (RetVal == NULL)
         goto error;
     PyMem_Free(level_buf);
     return RetVal;
  error:
     PyMem_Free(level_buf);
-    Py_XDECREF(RetVal);
+    output_buffer_clear(&output);
     return NULL;
 }
 
@@ -396,6 +521,7 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
                           int hist_bits, Py_ssize_t bufsize)
 {
     PyObject *RetVal = NULL;
+    OutputBuffer output = {0};
     uint8_t *ibuf;
     Py_ssize_t ibuflen;
     int err;
@@ -422,7 +548,7 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
 
         do {
             bufsize = arrange_output_buffer(&(zst.avail_out), &(zst.next_out),
-                                            &RetVal, bufsize);
+                                            &output, bufsize);
             if (bufsize < 0) {
                 goto error;
             }
@@ -435,7 +561,7 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
                 isal_inflate_error(err);
                 goto error;
             }
-        } while (zst.avail_out == 0);
+        } while ((zst.avail_out == 0) && zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
@@ -445,14 +571,15 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
         goto error;
     }
 
-    if (_PyBytes_Resize(&RetVal, zst.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) < 0)
+    RetVal = output_buffer_finish(&output, zst.next_out -
+                        output.data);
+    if (RetVal == NULL)
         goto error;
 
     return RetVal;
 
  error:
-    Py_XDECREF(RetVal);
+    output_buffer_clear(&output);
     return NULL;
 }
 

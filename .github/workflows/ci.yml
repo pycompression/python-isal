@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Set up Python 3.10
+      - name: Set up Python 3.11
         uses: actions/setup-python@v7
         with:
           python-version: "3.11"
@@ -73,6 +73,8 @@ jobs:
             python-version: "3.11"
           - os: "windows-latest"
             python-version: "3.11"
+          - os: "windows-latest"
+            python-version: "3.14t"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -127,6 +129,79 @@ jobs:
             git config --global --add safe.directory $PWD
             CFLAGS="-DNDEBUG -g0" python${{matrix.python_version}} -m pip install . pytest
             python${{matrix.python_version}} -m pytest tests
+
+  build-abi3-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-15-intel", "macos-latest", "windows-latest"]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+      - name: Install assembler (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y nasm
+      - name: Install assembler (macOS)
+        if: runner.os == 'macOS'
+        run: brew install nasm
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - uses: ilammy/setup-nasm@v1
+        if: runner.os == 'Windows'
+      - name: Build and audit the Python 3.11 wheel
+        run: |
+          python -m pip install build abi3audit
+          python -m build --wheel --outdir wheelhouse
+          python -m abi3audit --strict wheelhouse/*-cp311-abi3-*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: abi3-test-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  test-abi3:
+    needs: build-abi3-test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-15-intel", "macos-latest", "windows-latest"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONDEVMODE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: abi3-test-${{ matrix.os }}
+          path: wheelhouse
+      - name: Test the same wheel on each Python version
+        run: |
+          python -m pip install pytest pytest-timeout
+          python -m pip install --no-index --find-links wheelhouse isal
+          python - <<'PY'
+          import importlib.util
+          import pytest
+          args = ["tests"]
+          if importlib.util.find_spec("test") is None:
+              print("Optional stdlib compliance modules are unavailable")
+              args += ["--ignore=tests/test_gzip_compliance.py",
+                       "--ignore=tests/test_zlib_compliance.py"]
+          raise SystemExit(pytest.main(args))
+          PY
 
   # Test if the python-isal conda package can be build. Which is linked
   # dynamically to the conda isa-l package.
@@ -211,6 +286,7 @@ jobs:
       - test-dynamic
       - test-arch
       - test-sanitizers
+      - test-abi3
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -237,6 +313,7 @@ jobs:
       - test-dynamic
       - test-arch
       - test-sanitizers
+      - test-abi3
     strategy:
       matrix:
         os:
@@ -322,6 +399,11 @@ jobs:
             PYTHON_ISAL_BUILD_CACHE=True
             PYTHON_ISAL_BUILD_CACHE_FILE=${{ runner.temp }}/build_cache
             CFLAGS="-O3 -DNDEBUG"
+      - name: Audit the stable ABI wheel
+        shell: bash
+        run: |
+          python -m pip install abi3audit
+          python -m abi3audit --strict dist/*-cp311-abi3-*.whl
       - uses: actions/upload-artifact@v4
         with:
           name: "cibw-${{ runner.os }}-${{ runner.arch }}-${{ matrix.cibw_archs_linux }}"

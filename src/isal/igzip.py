@@ -150,6 +150,10 @@ class IGzipFile(gzip.GzipFile):
         to the last modification time field in the stream when compressing.
         If omitted or None, the current time is used.
         """
+        # gzip.GzipFile.__del__ reads these attributes, also when the check
+        # below raises before gzip.GzipFile.__init__ sets them.
+        self.mode = None
+        self.fileobj = None
         if not (isal_zlib.ISAL_BEST_SPEED <= compresslevel
                 <= isal_zlib.ISAL_BEST_COMPRESSION) and "r" not in mode:
             raise ValueError(

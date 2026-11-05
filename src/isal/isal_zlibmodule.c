@@ -24,6 +24,10 @@ Changes compared to CPython:
 */
 
 #include "isal_shared.h"
+/* The legacy module keeps factory types for its process lifetime, just as
+   it did with static types. Instances own their own heap-type references. */
+static PyTypeObject *IsalZlibCompType;
+static PyTypeObject *IsalZlibDecompType;
 
 #include <isa-l/crc.h>
 #include "crc32_combine.h"
@@ -47,29 +51,26 @@ Changes compared to CPython:
 
 #define DEF_MEM_LEVEL 8
 
-/* PyPy quirks: no Py_UNREACHABLE and requires PyBUF_READ and PyBUF_WRITE set 
-   in memoryviews that enter a "readinto" call. CPython requires that only 
-   PyBUF_WRITE is set. 
-   (Both implementations are wrong because the state of the READ bit should 
+/* PyPy quirks: older versions have no Py_UNREACHABLE, and PyPy requires
+   PyBUF_READ and PyBUF_WRITE set in memoryviews that enter a "readinto"
+   call. CPython requires that only PyBUF_WRITE is set.
+   (Both implementations are wrong because the state of the READ bit should
     not matter.)
 */
 #ifdef PYPY_VERSION
+#ifndef Py_UNREACHABLE
 #define Py_UNREACHABLE() Py_FatalError("Reached unreachable state")
+#endif
 #define MEMORYVIEW_READINTO_FLAGS (PyBUF_READ | PyBUF_WRITE)
 #else
 #define MEMORYVIEW_READINTO_FLAGS PyBUF_WRITE
 #endif
 
 /* Only compressobj() and decompressobj() create Compress and Decompress
-   objects. CPython does not let you call a static type without tp_new, but
-   PyPy does, and the uninitialized object crashes when you use it. This flag
-   makes PyPy raise TypeError too. Python 3.9 does not have the flag. */
-#ifndef Py_TPFLAGS_DISALLOW_INSTANTIATION
-#define Py_TPFLAGS_DISALLOW_INSTANTIATION 0
-#endif
-
-static PyTypeObject IsalZlibCompType;
-static PyTypeObject IsalZlibDecompType;
+   objects, so neither type has a tp_new. Without
+   Py_TPFLAGS_DISALLOW_INSTANTIATION, CPython heap types inherit object's
+   tp_new and PyPy lets you call static types; the uninitialized object then
+   crashes when you use it. The flag makes both raise TypeError. */
 
 static int 
 wbits_to_flag_and_hist_bits_deflate(int wbits, int *hist_bits, int *flag) 
@@ -311,7 +312,7 @@ ParallelCompress_dealloc(ParallelCompress *self)
 {
     PyMem_Free(self->buffer);
     PyMem_Free(self->zst.level_buf);
-    Py_TYPE(self)->tp_free((PyObject *)self);
+    free_instance((PyObject *)self);
 }
 
 static PyObject *
@@ -330,7 +331,12 @@ ParallelCompress__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         PyErr_Format(PyExc_ValueError, "Invalid compression level %d", level);
         return NULL;
     }
-    if (buffer_size > UINT32_MAX) {
+    if (buffer_size < 0) {
+        PyErr_Format(PyExc_ValueError,
+                     "buffersize must be non-negative, got %zd", buffer_size);
+        return NULL;
+    }
+    if ((size_t)buffer_size > UINT32_MAX) {
         PyErr_Format(PyExc_ValueError, 
         "buffersize must be at most %zd, got %zd", 
         (Py_ssize_t)UINT32_MAX, buffer_size);
@@ -458,8 +464,8 @@ ParallelCompress_compress_and_crc(ParallelCompress *self,
     }
     PyBuffer_Release(&data);
     PyBuffer_Release(&zdict); 
-    PyTuple_SET_ITEM(out_tup, 0, out_bytes);
-    PyTuple_SET_ITEM(out_tup, 1, crc_obj);
+    PyTuple_SetItem(out_tup, 0, out_bytes);
+    PyTuple_SetItem(out_tup, 1, crc_obj);
     return out_tup;
 error:
     PyBuffer_Release(&data);
@@ -472,7 +478,8 @@ static PyMethodDef ParallelCompress_methods[] = {
     {NULL},
 };
 
-static PyTypeObject ParallelCompress_Type = {
+#ifdef PYPY_VERSION
+static TypeDefinition ParallelCompress_Type_spec = {
     .tp_name = "isal_zlib._ParallelCompress",
     .tp_basicsize = sizeof(ParallelCompress),
     .tp_doc = PyDoc_STR(
@@ -481,6 +488,20 @@ static PyTypeObject ParallelCompress_Type = {
     .tp_new = ParallelCompress__new__,
     .tp_methods = ParallelCompress_methods,
 };
+#else
+static PyType_Slot ParallelCompress_Type_slots[] = {
+    {Py_tp_doc, (void *)(PyDoc_STR(
+        "A reusable zstream and buffer fast parallel compression."))},
+    {Py_tp_dealloc, (void *)ParallelCompress_dealloc},
+    {Py_tp_new, (void *)ParallelCompress__new__},
+    {Py_tp_methods, (void *)ParallelCompress_methods},
+    {0, NULL}
+};
+static PyType_Spec ParallelCompress_Type_spec = {
+    "isal_zlib._ParallelCompress", sizeof(ParallelCompress), 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE, ParallelCompress_Type_slots
+};
+#endif
 
 PyDoc_STRVAR(zlib_compress__doc__,
 "compress($module, data, /, level=ISAL_DEFAULT_COMPRESSION, wbits=MAX_WBITS)\n"
@@ -598,14 +619,14 @@ Comp_dealloc(compobject *self)
         PyThread_free_lock(self->lock);
     }
     Py_XDECREF(self->zdict);
-    Py_TYPE(self)->tp_free((PyObject *)self);
+    free_instance((PyObject *)self);
 }
 
 static compobject *
 newcompobject()
 {
     compobject *self;
-    self = PyObject_New(compobject, &IsalZlibCompType);
+    self = PyObject_New(compobject, IsalZlibCompType);
     if (self == NULL)
         return NULL;
     self->is_initialised = 0;
@@ -647,7 +668,7 @@ Decomp_dealloc(decompobject *self)
     Py_XDECREF(self->unused_data);
     Py_XDECREF(self->unconsumed_tail);
     Py_XDECREF(self->zdict);
-    Py_TYPE(self)->tp_free((PyObject *)self);
+    free_instance((PyObject *)self);
 }
 
 static int
@@ -679,7 +700,7 @@ static decompobject *
 newdecompobject()
 {
     decompobject *self;
-    self = PyObject_New(decompobject, &IsalZlibDecompType);
+    self = PyObject_New(decompobject, IsalZlibDecompType);
     if (self == NULL)
         return NULL;
     self->eof = 0;
@@ -893,6 +914,7 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 /*[clinic end generated code: output=5d5cd791cbc6a7f4 input=0d95908d6e64fab8]*/
 {
     PyObject *RetVal = NULL;
+    OutputBuffer output = {0};
     Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE;
     int err;
 
@@ -905,7 +927,7 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
         arrange_input_buffer(&(self->zst.avail_in), &ibuflen);
         do {
             obuflen = arrange_output_buffer(&(self->zst.avail_out),
-                                            &(self->zst.next_out), &RetVal, obuflen);
+                                            &(self->zst.next_out), &output, obuflen);
             if (obuflen < 0)
                 goto error;
 
@@ -925,14 +947,12 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 
     } while (ibuflen != 0);
 
-    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) == 0)
-        goto success;
+    RetVal = output_buffer_finish(&output, self->zst.next_out -
+                        output.data);
 
  error:
-    Py_CLEAR(RetVal);
- success:
     LEAVE_ZLIB(self);
+    output_buffer_clear(&output);
     return RetVal;
 }
 
@@ -941,16 +961,18 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 static int
 save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
 {
+    /* zst.avail_in only covers the current chunk of at most UINT32_MAX
+       bytes; larger input can have more after it. */
+    Py_ssize_t left_size = (Py_ssize_t)((uintptr_t)data->buf + data->len -
+                                        (uintptr_t)self->zst.next_in);
     if (self->zst.block_state == ISAL_BLOCK_FINISH) {
         /* The end of the compressed data has been reached. Store the leftover
            input data in self->unused_data. */
-        if (self->zst.avail_in > 0) {
-            Py_ssize_t old_size = PyBytes_GET_SIZE(self->unused_data);
-            Py_ssize_t new_size, left_size;
+        if (left_size > 0) {
+            Py_ssize_t old_size = PyBytes_Size(self->unused_data);
+            Py_ssize_t new_size;
             PyObject *new_data;
             Py_ssize_t bytes_in_bitbuffer = bitbuffer_size(&(self->zst));
-            left_size = (Py_ssize_t)((uintptr_t)data->buf + data->len -
-                                     (uintptr_t)self->zst.next_in);
             if (left_size + bytes_in_bitbuffer > (PY_SSIZE_T_MAX - old_size)) {
                 PyErr_NoMemory();
                 return -1;
@@ -960,9 +982,9 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
             new_data = PyBytes_FromStringAndSize(NULL, new_size);
             if (new_data == NULL)
                 return -1;
-            char *new_data_ptr = PyBytes_AS_STRING(new_data);
+            char *new_data_ptr = PyBytes_AsString(new_data);
             memcpy(new_data_ptr,
-                   PyBytes_AS_STRING(self->unused_data), old_size);
+                   PyBytes_AsString(self->unused_data), old_size);
             bitbuffer_copy(&(self->zst), new_data_ptr + old_size, bytes_in_bitbuffer);
             if (copy_from_next_in(&(self->zst), data->buf,
                                   self->saved_bitbuffer,
@@ -972,22 +994,22 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
                 Py_DECREF(new_data);
                 return -1;
             }
-            Py_SETREF(self->unused_data, new_data);
+            replace_reference(&self->unused_data, new_data);
             self->zst.next_in = (uint8_t *)data->buf + data->len;
             self->zst.avail_in = 0;
+            left_size = 0;
         }
     }
 
-    if (self->zst.avail_in > 0 || PyBytes_GET_SIZE(self->unconsumed_tail)) {
+    if (left_size > 0 || PyBytes_Size(self->unconsumed_tail)) {
         /* This code handles two distinct cases:
            1. Output limit was reached. Save leftover input in unconsumed_tail.
            2. All input data was consumed. Clear unconsumed_tail. */
-        Py_ssize_t left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
         PyObject *new_data = PyBytes_FromStringAndSize(
                 (char *)self->zst.next_in, left_size);
         if (new_data == NULL)
             return -1;
-        Py_SETREF(self->unconsumed_tail, new_data);
+        replace_reference(&self->unconsumed_tail, new_data);
     }
 
     if (self->zst.block_state != ISAL_BLOCK_FINISH) {
@@ -1004,6 +1026,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
     int err = ISAL_DECOMP_OK;
     Py_ssize_t ibuflen, obuflen = DEF_BUF_SIZE, hard_limit;
     PyObject *RetVal = NULL;
+    OutputBuffer output = {0};
 
     if (max_length < 0) {
         PyErr_SetString(PyExc_ValueError, "max_length must be non-negative");
@@ -1043,7 +1066,7 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
         do {
             obuflen = arrange_output_buffer_with_maximum(&(self->zst.avail_out),
                                                          &(self->zst.next_out), 
-                                                         &RetVal,
+                                                         &output,
                                                          obuflen, hard_limit);
             if (obuflen == -2) {
                 if (max_length > 0) {
@@ -1079,7 +1102,8 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
                     goto abort;
             }
 
-        } while (self->zst.avail_out == 0 || err == ISAL_NEED_DICT);
+        } while ((self->zst.avail_out == 0 || err == ISAL_NEED_DICT) &&
+                 self->zst.block_state != ISAL_BLOCK_FINISH);
 
     } while (self->zst.block_state != ISAL_BLOCK_FINISH && ibuflen != 0);
 
@@ -1091,14 +1115,12 @@ isal_zlib_Decompress_decompress_impl(decompobject *self, Py_buffer *data,
         self->eof = 1;
     }
 
-    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) == 0)
-        goto success;
+    RetVal = output_buffer_finish(&output, self->zst.next_out -
+                        output.data);
 
  abort:
-    Py_CLEAR(RetVal);
- success:
     LEAVE_ZLIB(self);
+    output_buffer_clear(&output);
     return RetVal;
 }
 
@@ -1108,6 +1130,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     int err;
     Py_ssize_t length = DEF_BUF_SIZE;
     PyObject *RetVal = NULL;
+    OutputBuffer output = {0};
 
     /* Flushing with Z_NO_FLUSH is a no-op, so there's no point in
        doing any work at all; just return an empty string. */
@@ -1135,16 +1158,12 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
 
     do {
         length = arrange_output_buffer(&(self->zst.avail_out), 
-                                       &(self->zst.next_out), &RetVal, length);
-        if (length < 0) {
-            Py_CLEAR(RetVal);
+                                       &(self->zst.next_out), &output, length);
+        if (length < 0)
             goto error;
-        }
 
-        if (write_pending_zlib_header(self) < 0) {
-            Py_CLEAR(RetVal);
+        if (write_pending_zlib_header(self) < 0)
             goto error;
-        }
 
         Py_BEGIN_ALLOW_THREADS
         err = isal_deflate(&self->zst);
@@ -1152,7 +1171,6 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
 
         if (err != COMP_OK) {
             isal_deflate_error(err);
-            Py_CLEAR(RetVal);
             goto error;
         }
     } while (self->zst.avail_out == 0);
@@ -1162,7 +1180,7 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
        Note we should only get ZSTATE_END when
        mode is Z_FINISH, but checking both for safety*/
     if (self->zst.internal_state.state == ZSTATE_END && mode == Z_FINISH) {
-        PyMem_FREE(self->level_buf);
+        PyMem_Free(self->level_buf);
         self->level_buf = NULL;
         self->zst.level_buf_size = 0;
         self->zst.level_buf = NULL;
@@ -1172,12 +1190,12 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         self->zst.flush = NO_FLUSH;
     }
 
-    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) < 0)
-        Py_CLEAR(RetVal);
+    RetVal = output_buffer_finish(&output, self->zst.next_out -
+                        output.data);
 
  error:
     LEAVE_ZLIB(self);
+    output_buffer_clear(&output);
     return RetVal;
 }
 
@@ -1187,6 +1205,7 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
     int err;
     Py_buffer data;
     PyObject *RetVal = NULL;
+    OutputBuffer output = {0};
     Py_ssize_t ibuflen;
 
     if (length <= 0) {
@@ -1218,7 +1237,7 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
         do {
             length = arrange_output_buffer(&(self->zst.avail_out),
                                            &(self->zst.next_out), 
-                                           &RetVal, length);
+                                           &output, length);
             if (length < 0)
                 goto abort;
 
@@ -1245,15 +1264,13 @@ isal_zlib_Decompress_flush_impl(decompobject *self, Py_ssize_t length)
         self->is_initialised = 0;
     }
 
-    if (_PyBytes_Resize(&RetVal, self->zst.next_out -
-                        (uint8_t *)PyBytes_AS_STRING(RetVal)) == 0)
-        goto success;
+    RetVal = output_buffer_finish(&output, self->zst.next_out -
+                        output.data);
 
  abort:
-    Py_CLEAR(RetVal);
- success:
     PyBuffer_Release(&data);
     LEAVE_ZLIB(self);
+    output_buffer_clear(&output);
     return RetVal;
 }
 
@@ -1526,7 +1543,8 @@ static PyMethodDef Decomp_methods[] =
     {NULL, NULL}
 };
 
-static PyTypeObject IsalZlibCompType = {
+#ifdef PYPY_VERSION
+static TypeDefinition IsalZlibCompType_spec = {
     .tp_name = "isal_zlib.Compress", 
     .tp_doc = "Object returned by isal_zlib.compressobj",
     .tp_basicsize = sizeof(compobject),
@@ -1534,6 +1552,18 @@ static PyTypeObject IsalZlibCompType = {
     .tp_dealloc = (destructor)Comp_dealloc,
     .tp_methods = comp_methods,
 };
+#else
+static PyType_Slot IsalZlibCompType_slots[] = {
+    {Py_tp_doc, (void *)("Object returned by isal_zlib.compressobj")},
+    {Py_tp_dealloc, (void *)Comp_dealloc},
+    {Py_tp_methods, (void *)comp_methods},
+    {0, NULL}
+};
+static PyType_Spec IsalZlibCompType_spec = {
+    "isal_zlib.Compress", sizeof(compobject), 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION | Py_TPFLAGS_IMMUTABLETYPE, IsalZlibCompType_slots
+};
+#endif
 
 PyDoc_STRVAR(Decomp_unconsumed_tail,
 "A bytes object that contains any data that was not consumed by the last\n"
@@ -1583,7 +1613,8 @@ static PyGetSetDef Decomp_properties[] = {
     {NULL},
 };
 
-static PyTypeObject IsalZlibDecompType = {
+#ifdef PYPY_VERSION
+static TypeDefinition IsalZlibDecompType_spec = {
     .tp_name = "isal_zlib.Decompress",
     .tp_doc = "Object returned by isal_zlib.decompressobj.",
     .tp_basicsize = sizeof(decompobject),
@@ -1592,6 +1623,19 @@ static PyTypeObject IsalZlibDecompType = {
     .tp_methods = Decomp_methods,
     .tp_getset = Decomp_properties,
 };
+#else
+static PyType_Slot IsalZlibDecompType_slots[] = {
+    {Py_tp_doc, (void *)("Object returned by isal_zlib.decompressobj.")},
+    {Py_tp_dealloc, (void *)Decomp_dealloc},
+    {Py_tp_methods, (void *)Decomp_methods},
+    {Py_tp_getset, (void *)Decomp_properties},
+    {0, NULL}
+};
+static PyType_Spec IsalZlibDecompType_spec = {
+    "isal_zlib.Decompress", sizeof(decompobject), 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_DISALLOW_INSTANTIATION | Py_TPFLAGS_IMMUTABLETYPE, IsalZlibDecompType_slots
+};
+#endif
 
 #define GzipReader_HEADER 1
 #define GzipReader_DEFLATE_BLOCK 2
@@ -1631,7 +1675,7 @@ static void GzipReader_dealloc(GzipReader *self)
     if (self->lock != NULL) {
         PyThread_free_lock(self->lock);
     }
-    Py_TYPE(self)->tp_free(self);
+    free_instance((PyObject *)self);
 }
 
 PyDoc_STRVAR(GzipReader__new____doc__,
@@ -1670,6 +1714,18 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         );
         return NULL;
     }
+    /* PyObject_HasAttrString() would hide errors such as MemoryError, and
+       PyObject_HasAttrStringWithError() needs Python 3.13. */
+    int is_file = 1;
+    PyObject *read_method = PyObject_GetAttrString(fp, "read");
+    if (read_method != NULL) {
+        Py_DECREF(read_method);
+    } else if (PyErr_ExceptionMatches(PyExc_AttributeError)) {
+        PyErr_Clear();
+        is_file = 0;
+    } else {
+        return NULL;
+    }
     GzipReader *self = PyObject_New(GzipReader, type);
     if (self == NULL) {
         return NULL;
@@ -1679,7 +1735,7 @@ GzipReader__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
     self->memview = NULL;
     self->fp = NULL;
     self->lock = NULL;
-    if (PyObject_HasAttrString(fp, "read")) {
+    if (is_file) {
         self->buffer_size = buffer_size;
         self->input_buffer = PyMem_Malloc(self->buffer_size);
         if (self->input_buffer == NULL) {
@@ -2025,9 +2081,14 @@ GzipReader_readinto(GzipReader *self, PyObject *buffer_obj)
     Py_buffer view;
     if (PyObject_GetBuffer(buffer_obj, &view, PyBUF_WRITABLE) < 0) {
         /* Raise TypeError, like the readinto() methods of io. */
-        PyErr_Format(PyExc_TypeError,
-                     "readinto() argument must be read-write bytes-like "
-                     "object, not %.200s", Py_TYPE(buffer_obj)->tp_name);
+        PyErr_Clear();
+        PyObject *type_name = PyType_GetName(Py_TYPE(buffer_obj));
+        if (type_name != NULL) {
+            PyErr_Format(PyExc_TypeError,
+                         "readinto() argument must be read-write bytes-like "
+                         "object, not %U", type_name);
+            Py_DECREF(type_name);
+        }
         return NULL;
     }
     uint8_t *buffer = view.buf;
@@ -2065,7 +2126,7 @@ GzipReader_seek_impl(GzipReader *self, Py_ssize_t offset, Py_ssize_t whence)
                     self, tmp_buffer, tmp_buffer_size
                 );
                 if (written_bytes < 0) {
-                    PyMem_FREE(tmp_buffer);
+                    PyMem_Free(tmp_buffer);
                     return NULL;
                 }
                 if (written_bytes == 0) {
@@ -2113,7 +2174,7 @@ GzipReader_seek_impl(GzipReader *self, Py_ssize_t offset, Py_ssize_t whence)
             Py_ssize_t bytes_written = GzipReader_read_into_buffer(
                 self, tmp_buffer, Py_MIN(tmp_buffer_size, offset));
             if (bytes_written < 0) {
-                PyMem_FREE(tmp_buffer);
+                PyMem_Free(tmp_buffer);
                 return NULL;
             }
             if (bytes_written == 0) {
@@ -2144,6 +2205,25 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
     return result;
 }
 
+/* Read at most size bytes. A filled result is returned without a copy. */
+static PyObject *
+GzipReader_read_bytes(GzipReader *self, Py_ssize_t size)
+{
+    OutputBuffer output = {0};
+    if (output_buffer_init_bytes(&output, size) < 0) {
+        return NULL;
+    }
+    ENTER_ZLIB(self);
+    Py_ssize_t written_size = GzipReader_read_into_buffer(
+        self, output.data, size);
+    LEAVE_ZLIB(self);
+    if (written_size < 0) {
+        output_buffer_clear(&output);
+        return NULL;
+    }
+    return output_buffer_finish(&output, written_size);
+}
+
 static PyObject *
 GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
 {
@@ -2151,52 +2231,26 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
     Py_ssize_t chunk_size = self->buffer_size * 4;
     /* Rather than immediately creating a list, read one chunk first and
        only create a list when more read operations are necessary. */
-    PyObject *first_chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
-    if (first_chunk == NULL) {
-        return NULL;
-    }
-    ENTER_ZLIB(self);
-    Py_ssize_t written_size = GzipReader_read_into_buffer(
-        self, (uint8_t *)PyBytes_AS_STRING(first_chunk), chunk_size);
-    LEAVE_ZLIB(self);
-    if (written_size < 0) {
-        Py_DECREF(first_chunk);
-        return NULL;
-    }
-    if (written_size < chunk_size) {
-        if (_PyBytes_Resize(&first_chunk, written_size) < 0) {
-            return NULL;
-        }
+    PyObject *first_chunk = GzipReader_read_bytes(self, chunk_size);
+    if (first_chunk == NULL || PyBytes_Size(first_chunk) < chunk_size) {
         return first_chunk;
     }
 
     PyObject *chunk_list = PyList_New(1);
     if (chunk_list == NULL) {
+        Py_DECREF(first_chunk);
         return NULL;
     }
-    PyList_SET_ITEM(chunk_list, 0, first_chunk);
+    PyList_SetItem(chunk_list, 0, first_chunk);
     while (1) {
-        PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
+        PyObject *chunk = GzipReader_read_bytes(self, chunk_size);
         if (chunk == NULL) {
             Py_DECREF(chunk_list);
             return NULL;
         }
-        ENTER_ZLIB(self);
-        written_size = GzipReader_read_into_buffer(
-            self, (uint8_t *)PyBytes_AS_STRING(chunk), chunk_size);
-        LEAVE_ZLIB(self);
-        if (written_size < 0) {
-            Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        if (written_size == 0) {
+        if (PyBytes_Size(chunk) == 0) {
             Py_DECREF(chunk);
             break;
-        }
-        if (_PyBytes_Resize(&chunk, written_size) < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
         }
         int ret = PyList_Append(chunk_list, chunk);
         Py_DECREF(chunk);
@@ -2229,22 +2283,8 @@ GzipReader_read(GzipReader *self, PyObject *args)
     if (size == 0) {
         return PyBytes_FromStringAndSize(NULL, 0);
     }
-    Py_ssize_t answer_size = Py_MIN((Py_ssize_t)self->buffer_size * 10, size);
-    PyObject *answer = PyBytes_FromStringAndSize(NULL, answer_size);
-    if (answer == NULL) {
-        return NULL;
-    }
-    ENTER_ZLIB(self);
-    Py_ssize_t written_bytes = GzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AS_STRING(answer), answer_size);
-    LEAVE_ZLIB(self);
-    if (written_bytes < 0) {
-        Py_DECREF(answer);
-        return NULL;
-    }
-    if (_PyBytes_Resize(&answer, written_bytes) < 0) {
-        return NULL;
-    }
-    return answer;
+    return GzipReader_read_bytes(
+        self, Py_MIN((Py_ssize_t)self->buffer_size * 10, size));
 }
 
 static PyObject *
@@ -2317,7 +2357,8 @@ static PyGetSetDef GzipReader_properties[] = {
     {NULL},
 };
 
-static PyTypeObject GzipReader_Type = {
+#ifdef PYPY_VERSION
+static TypeDefinition GzipReader_Type_spec = {
     .tp_name = "isal_zlib._GzipReader",
     .tp_basicsize = sizeof(GzipReader),
     .tp_flags = Py_TPFLAGS_DEFAULT,
@@ -2327,6 +2368,20 @@ static PyTypeObject GzipReader_Type = {
     .tp_methods = GzipReader_methods,
     .tp_getset = GzipReader_properties,
 };
+#else
+static PyType_Slot GzipReader_Type_slots[] = {
+    {Py_tp_dealloc, (void *)GzipReader_dealloc},
+    {Py_tp_new, (void *)((newfunc)(GzipReader__new__))},
+    {Py_tp_doc, (void *)GzipReader__new____doc__},
+    {Py_tp_methods, (void *)GzipReader_methods},
+    {Py_tp_getset, (void *)GzipReader_properties},
+    {0, NULL}
+};
+static PyType_Spec GzipReader_Type_spec = {
+    "isal_zlib._GzipReader", sizeof(GzipReader), 0,
+    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE, GzipReader_Type_slots
+};
+#endif
 
 PyDoc_STRVAR(isal_zlib_module_documentation,
 "The functions in this module allow compression and decompression using the\n"
@@ -2343,12 +2398,6 @@ PyDoc_STRVAR(isal_zlib_module_documentation,
 "\n"
 "Compressor objects support compress() and flush() methods; decompressor\n"
 "objects support decompress() and flush().");
-
-typedef struct {
-    PyTypeObject *Comptype;
-    PyTypeObject *Decomptype;
-    PyObject *IsalError;
-} isal_zlib_state;
 
 static PyMethodDef IsalZlibMethods[] = {
     ISAL_ZLIB_ADLER32_METHODDEF,
@@ -2375,100 +2424,103 @@ static struct PyModuleDef isal_zlib_module = {
 PyMODINIT_FUNC
 PyInit_isal_zlib(void)
 {
+    PyObject *compress_type = NULL, *decompress_type = NULL;
+    PyObject *error = NULL, *type = NULL;
     PyObject *m = PyModule_Create(&isal_zlib_module);
-    if (m == NULL) {
+    if (m == NULL)
         return NULL;
-    }
 
 #ifdef Py_GIL_DISABLED
     PyUnstable_Module_SetGIL(m, Py_MOD_GIL_NOT_USED);
 #endif
 
     PyObject *igzip_lib_module = PyImport_ImportModule("isal.igzip_lib");
-    if (igzip_lib_module == NULL) {
-        return NULL;
-    }
+    if (igzip_lib_module == NULL)
+        goto error;
+    error = PyObject_GetAttrString(igzip_lib_module, "error");
+    Py_DECREF(igzip_lib_module);
+    if (error == NULL)
+        goto error;
+    if (PyModule_AddObjectRef(m, "IsalError", error) < 0 ||
+            PyModule_AddObjectRef(m, "error", error) < 0)
+        goto error;
 
-    IsalError = PyObject_GetAttrString(igzip_lib_module, "error");
-    if (IsalError == NULL) {
-        return NULL;
-    }
+    compress_type = add_extension_type(m, "Compress", &IsalZlibCompType_spec);
+    if (compress_type == NULL)
+        goto error;
+    decompress_type = add_extension_type(m, "Decompress", &IsalZlibDecompType_spec);
+    if (decompress_type == NULL)
+        goto error;
+    type = add_extension_type(m, "_GzipReader", &GzipReader_Type_spec);
+    if (type == NULL)
+        goto error;
+    Py_CLEAR(type);
+    type = add_extension_type(m, "_ParallelCompress", &ParallelCompress_Type_spec);
+    if (type == NULL)
+        goto error;
+    Py_CLEAR(type);
 
-    Py_INCREF(IsalError);
-    if (PyModule_AddObject(m, "IsalError", IsalError) < 0) {
-        return NULL;
-    }
-
-    Py_INCREF(IsalError);
-    if (PyModule_AddObject(m, "error", IsalError) < 0) {
-        return NULL;
-    }
-
-    PyTypeObject *Comptype = (PyTypeObject *)&IsalZlibCompType;
-    if (PyType_Ready(Comptype) != 0) { 
-        return NULL;
-    }
-
-    Py_INCREF(Comptype);
-    if (PyModule_AddObject(m, "Compress",  (PyObject *)Comptype) < 0) {
-        return NULL;
-    }
-
-    PyTypeObject *Decomptype = (PyTypeObject *)&IsalZlibDecompType;
-    if (PyType_Ready(Decomptype) != 0) {
-        return NULL;
-    }
-
-    Py_INCREF(Decomptype);
-    if (PyModule_AddObject(m, "Decompress",  (PyObject *)Decomptype) < 0) {
-        return NULL;
-    }
-
-    if (PyType_Ready(&GzipReader_Type) != 0) {
-        return NULL;
-    }
-    Py_INCREF(&GzipReader_Type);
-    if (PyModule_AddObject(m, "_GzipReader", (PyObject *)&GzipReader_Type) < 0) {
-        return NULL;
-    }
-
-    if (PyType_Ready(&ParallelCompress_Type) != 0) {
-        return NULL;
-    }
-    Py_INCREF(&ParallelCompress_Type);
-    if (PyModule_AddObject(m, "_ParallelCompress", 
-                           (PyObject *)&ParallelCompress_Type) < 0) {
-        return NULL;
-    }
-
-    PyModule_AddIntConstant(m, "MAX_WBITS", ISAL_DEF_MAX_HIST_BITS);
-    PyModule_AddIntConstant(m, "DEFLATED", Z_DEFLATED);
-    PyModule_AddIntMacro(m, DEF_MEM_LEVEL);
-    PyModule_AddIntMacro(m, DEF_BUF_SIZE);
+    if (PyModule_AddIntConstant(m, "MAX_WBITS", ISAL_DEF_MAX_HIST_BITS) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "DEFLATED", Z_DEFLATED) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DEF_MEM_LEVEL) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, DEF_BUF_SIZE) < 0)
+        goto error;
     // No compression is not supported by ISA-L. Throw an error if chosen.
     // PyModule_AddIntMacro(m, Z_NO_COMPRESSION);
-    PyModule_AddIntConstant(m, "Z_BEST_SPEED", ISAL_DEF_MIN_LEVEL);
-    PyModule_AddIntConstant(m, "Z_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL);
-    PyModule_AddIntConstant(m, "Z_DEFAULT_COMPRESSION", ISAL_DEFAULT_COMPRESSION);
-    PyModule_AddIntMacro(m, ISAL_DEFAULT_COMPRESSION);
-    PyModule_AddIntConstant(m, "ISAL_BEST_SPEED", ISAL_DEF_MIN_LEVEL);
-    PyModule_AddIntConstant(m, "ISAL_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL);
+    if (PyModule_AddIntConstant(m, "Z_BEST_SPEED", ISAL_DEF_MIN_LEVEL) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "Z_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "Z_DEFAULT_COMPRESSION", ISAL_DEFAULT_COMPRESSION) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, ISAL_DEFAULT_COMPRESSION) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "ISAL_BEST_SPEED", ISAL_DEF_MIN_LEVEL) < 0)
+        goto error;
+    if (PyModule_AddIntConstant(m, "ISAL_BEST_COMPRESSION", ISAL_DEF_MAX_LEVEL) < 0)
+        goto error;
 
     // compression strategies
-    PyModule_AddIntMacro(m, Z_DEFAULT_STRATEGY);
-    PyModule_AddIntMacro(m, Z_FILTERED);
-    PyModule_AddIntMacro(m, Z_HUFFMAN_ONLY);
-    PyModule_AddIntMacro(m, Z_RLE);
-    PyModule_AddIntMacro(m, Z_FIXED);
+    if (PyModule_AddIntMacro(m, Z_DEFAULT_STRATEGY) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_FILTERED) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_HUFFMAN_ONLY) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_RLE) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_FIXED) < 0)
+        goto error;
     
     // allowed flush values
-    PyModule_AddIntMacro(m, Z_NO_FLUSH);
-    PyModule_AddIntMacro(m, Z_PARTIAL_FLUSH);
-    PyModule_AddIntMacro(m, Z_SYNC_FLUSH);
-    PyModule_AddIntMacro(m, Z_FULL_FLUSH);
-    PyModule_AddIntMacro(m, Z_FINISH);
-    PyModule_AddIntMacro(m, Z_BLOCK);
-    PyModule_AddIntMacro(m, Z_TREES);
+    if (PyModule_AddIntMacro(m, Z_NO_FLUSH) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_PARTIAL_FLUSH) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_SYNC_FLUSH) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_FULL_FLUSH) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_FINISH) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_BLOCK) < 0)
+        goto error;
+    if (PyModule_AddIntMacro(m, Z_TREES) < 0)
+        goto error;
 
+    IsalError = error;
+    IsalZlibCompType = (PyTypeObject *)compress_type;
+    IsalZlibDecompType = (PyTypeObject *)decompress_type;
     return m;
+
+error:
+    Py_XDECREF(type);
+    Py_XDECREF(error);
+    Py_XDECREF(compress_type);
+    Py_XDECREF(decompress_type);
+    Py_DECREF(m);
+    return NULL;
 }

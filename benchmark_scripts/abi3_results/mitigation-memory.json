@@ -1,0 +1,142 @@
+[
+  {
+    "kind": "zeros",
+    "size": 16777353,
+    "variant": "baseline-eof",
+    "traced_peak_per_output": 1.9999856353979082,
+    "rss_increase_per_output": 1.0156167066401953
+  },
+  {
+    "kind": "zeros",
+    "size": 16777353,
+    "variant": "abi3-eof",
+    "traced_peak_per_output": 2.999985635397908,
+    "rss_increase_per_output": 2.0236651157068697
+  },
+  {
+    "kind": "zeros",
+    "size": 16777353,
+    "variant": "abi3-chunks",
+    "traced_peak_per_output": 2.0626772292387243,
+    "rss_increase_per_output": 2.007796104665617
+  },
+  {
+    "kind": "zeros",
+    "size": 16777353,
+    "variant": "abi3-bytesio",
+    "traced_peak_per_output": 2.0001370895635326,
+    "rss_increase_per_output": 2.0236651157068697
+  },
+  {
+    "kind": "zeros",
+    "size": 16777353,
+    "variant": "abi3-hybrid",
+    "traced_peak_per_output": 2.000127254877453,
+    "rss_increase_per_output": 2.0156085408705415
+  },
+  {
+    "kind": "zeros",
+    "size": 67108864,
+    "variant": "baseline-eof",
+    "traced_peak_per_output": 1.0000039488077164,
+    "rss_increase_per_output": 1.001953125
+  },
+  {
+    "kind": "zeros",
+    "size": 67108864,
+    "variant": "abi3-eof",
+    "traced_peak_per_output": 2.0000004917383194,
+    "rss_increase_per_output": 2.001953125
+  },
+  {
+    "kind": "zeros",
+    "size": 67108864,
+    "variant": "abi3-chunks",
+    "traced_peak_per_output": 2.000129282474518,
+    "rss_increase_per_output": 2.00390625
+  },
+  {
+    "kind": "zeros",
+    "size": 67108864,
+    "variant": "abi3-bytesio",
+    "traced_peak_per_output": 1.00004081428051,
+    "rss_increase_per_output": 1.00396728515625
+  },
+  {
+    "kind": "zeros",
+    "size": 67108864,
+    "variant": "abi3-hybrid",
+    "traced_peak_per_output": 1.000038355588913,
+    "rss_increase_per_output": 1.001953125
+  },
+  {
+    "kind": "random",
+    "size": 16777353,
+    "variant": "baseline-eof",
+    "traced_peak_per_output": 1.9999856353979082,
+    "rss_increase_per_output": 1.0156167066401953
+  },
+  {
+    "kind": "random",
+    "size": 16777353,
+    "variant": "abi3-eof",
+    "traced_peak_per_output": 2.999985635397908,
+    "rss_increase_per_output": 2.0156085408705415
+  },
+  {
+    "kind": "random",
+    "size": 16777353,
+    "variant": "abi3-chunks",
+    "traced_peak_per_output": 2.0626772292387243,
+    "rss_increase_per_output": 2.007796104665617
+  },
+  {
+    "kind": "random",
+    "size": 16777353,
+    "variant": "abi3-bytesio",
+    "traced_peak_per_output": 2.0001370895635326,
+    "rss_increase_per_output": 2.0156085408705415
+  },
+  {
+    "kind": "random",
+    "size": 16777353,
+    "variant": "abi3-hybrid",
+    "traced_peak_per_output": 2.000127254877453,
+    "rss_increase_per_output": 2.0156085408705415
+  },
+  {
+    "kind": "random",
+    "size": 67108864,
+    "variant": "baseline-eof",
+    "traced_peak_per_output": 1.0000039488077164,
+    "rss_increase_per_output": 1.00390625
+  },
+  {
+    "kind": "random",
+    "size": 67108864,
+    "variant": "abi3-eof",
+    "traced_peak_per_output": 2.0000004917383194,
+    "rss_increase_per_output": 2.00390625
+  },
+  {
+    "kind": "random",
+    "size": 67108864,
+    "variant": "abi3-chunks",
+    "traced_peak_per_output": 2.000129282474518,
+    "rss_increase_per_output": 2.005859375
+  },
+  {
+    "kind": "random",
+    "size": 67108864,
+    "variant": "abi3-bytesio",
+    "traced_peak_per_output": 1.00004081428051,
+    "rss_increase_per_output": 1.00390625
+  },
+  {
+    "kind": "random",
+    "size": 67108864,
+    "variant": "abi3-hybrid",
+    "traced_peak_per_output": 1.000038355588913,
+    "rss_increase_per_output": 1.00390625
+  }
+]

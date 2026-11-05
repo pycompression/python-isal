@@ -1,0 +1,59 @@
+Linux x86_64 validation of the repaired candidate, 2026-11-05
+
+Every runtime check below installs a wheel built by setup.py outside the
+repository's source directory. All standard CPython versions install the same
+wheel, isal-1.9.1-cp311-abi3-linux_x86_64.whl; build-metadata.json records the
+SHA-256 of each wheel. The checks ran on commit 4451775, whose source is
+identical to this revision.
+
+Standard CPython, cp311-abi3 wheel:
+- CPython 3.14.4 (system), PYTHONDEVMODE=1: full suite 9832 passed,
+  11 skipped. The skips: 4 for unsupported copy(), 4 aarch64-only, 1 bigmem
+  (4 GiB), 1 marked as causing memory issues on CI, and 1 free-threaded-only.
+  The stdlib compliance tests are included (120 passed, 5 skipped).
+  test_stable_abi.py alone: 63 passed, 1 skipped.
+- CPython 3.11.15, 3.12.14, 3.13.12, 3.15.0a8 (alpha), and 3.15.0: smoke
+  checks against stdlib oracles pass, and test_stable_abi.py gives 54 passed,
+  10 skipped on each (these interpreters have no _testcapi). The full suite
+  was not run on these versions.
+
+Free-threaded CPython 3.13.11t, cp313-cp313t wheel (full API), PYTHON_GIL unset
+(the interpreter's default): full suite 9813 passed, 30 skipped. Of the skips,
+14 need _testcapi, which this build lacks, including the 9 allocation-failure
+tests; 5 need exact reference counts; 1 is the existing subinterpreter skip.
+The GIL stays disabled after importing all three C modules.
+
+PyPy 3.11.17 (PyPy 8.0.1), pp311-pypy311_pp80 wheel (full API): full suite 9797
+passed, 46 skipped (tests that need _testcapi, tracemalloc, or reference
+counts). The tests check that the static types are immutable and not
+subclassable, and that Compress and Decompress reject direct calls.
+
+Allocation-failure injection (CPython 3.14.4, _testcapi.set_nomemory): the
+nine sweeps in test_output_allocation_failure_cleanup, one per output path,
+pass as part of test_stable_abi.py above. Each sweep fails each of the first
+80 Python allocations in turn, sees both failures and successful completion,
+checks with tracemalloc that a second pass keeps under 8 KiB, and checks a
+clean round trip afterwards.
+
+Build and static checks:
+- All three extensions are built with -DPy_LIMITED_API=0x030B0000. The
+  benchmarked wheel also used -Werror=implicit-function-declaration
+  (build-metadata.json); the verified sdist build used default flags.
+- abi3audit --strict on the three extensions in the cp311-abi3 wheel:
+  0 violations, computed baseline 3.11.
+- Requires-Python >=3.11 in pyproject.toml and in the sdist and wheel
+  metadata.
+- flake8, mypy (31 files), Sphinx -a -W -n --keep-going, twine check, and
+  git diff --check: pass.
+- actionlint: its only finding is the unchanged codecov/codecov-action@v1
+  at .github/workflows/ci.yml:106.
+
+Not run:
+- AddressSanitizer, UndefinedBehaviorSanitizer, and ThreadSanitizer on this
+  candidate.
+- The remote CI jobs: shared-wheel tests on 3.11-3.15 on Linux, Windows,
+  macOS Intel, and macOS ARM; the existing free-threaded and PyPy jobs; the
+  Windows 3.14t job; and the release cibuildwheel builds with their
+  abi3audit step. No CI has run for this branch.
+- Any runtime check on Windows, macOS, or ARM.
+- shellcheck.
