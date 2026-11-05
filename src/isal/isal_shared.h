@@ -308,12 +308,26 @@ arrange_input_buffer(uint32_t *avail_in, Py_ssize_t *remains)
     *remains -= *avail_in;
 }
 
-/* A bytes object owns the output on full-API builds and for bounded results
-   that fit their initial allocation. Growing Limited API output uses PyMem. */
+/* Output storage for codec calls. On full-API builds a bytes object always
+   owns it and is resized to grow and to finish. On Limited API builds, a bytes
+   object owns it only when the first allocation already equals a finite limit,
+   so a filled result needs no copy; a shorter result is still copied. Other
+   Limited API output grows in PyMem memory and is copied when finished. */
 typedef struct {
     uint8_t *data;
     PyObject *bytes;
 } OutputBuffer;
+
+/* Let a bytes object own a new buffer of length bytes. */
+static int
+output_buffer_init_bytes(OutputBuffer *buffer, Py_ssize_t length)
+{
+    buffer->bytes = PyBytes_FromStringAndSize(NULL, length);
+    if (buffer->bytes == NULL)
+        return -1;
+    buffer->data = (uint8_t *)PyBytes_AsString(buffer->bytes);
+    return 0;
+}
 
 static void
 output_buffer_clear(OutputBuffer *buffer)
@@ -346,10 +360,8 @@ arrange_output_buffer_with_maximum(uint32_t *avail_out,
         else
 #endif
         {
-            buffer->bytes = PyBytes_FromStringAndSize(NULL, length);
-            if (buffer->bytes == NULL)
+            if (output_buffer_init_bytes(buffer, length) < 0)
                 return -1;
-            buffer->data = (uint8_t *)PyBytes_AsString(buffer->bytes);
         }
     }
     else {

@@ -2201,17 +2201,23 @@ GzipReader_seek(GzipReader *self, PyObject *args, PyObject *kwargs)
     return result;
 }
 
-static int shrink_bytes(PyObject **value, Py_ssize_t length)
+/* Read at most size bytes. A filled result is returned without a copy. */
+static PyObject *
+GzipReader_read_bytes(GzipReader *self, Py_ssize_t size)
 {
-    if (PyBytes_Size(*value) == length) return 0;
-#ifndef Py_LIMITED_API
-    return _PyBytes_Resize(value, length);
-#else
-    PyObject *short_value = PyBytes_FromStringAndSize(PyBytes_AsString(*value), length);
-    Py_DECREF(*value);
-    *value = short_value;
-    return short_value == NULL ? -1 : 0;
-#endif
+    OutputBuffer output = {0};
+    if (output_buffer_init_bytes(&output, size) < 0) {
+        return NULL;
+    }
+    ENTER_ZLIB(self);
+    Py_ssize_t written_size = GzipReader_read_into_buffer(
+        self, output.data, size);
+    LEAVE_ZLIB(self);
+    if (written_size < 0) {
+        output_buffer_clear(&output);
+        return NULL;
+    }
+    return output_buffer_finish(&output, written_size);
 }
 
 static PyObject *
@@ -2221,22 +2227,8 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
     Py_ssize_t chunk_size = self->buffer_size * 4;
     /* Rather than immediately creating a list, read one chunk first and
        only create a list when more read operations are necessary. */
-    PyObject *first_chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
-    if (first_chunk == NULL) {
-        return NULL;
-    }
-    ENTER_ZLIB(self);
-    Py_ssize_t written_size = GzipReader_read_into_buffer(
-        self, (uint8_t *)PyBytes_AsString(first_chunk), chunk_size);
-    LEAVE_ZLIB(self);
-    if (written_size < 0) {
-        Py_DECREF(first_chunk);
-        return NULL;
-    }
-    if (written_size < chunk_size) {
-        if (shrink_bytes(&first_chunk, written_size) < 0) {
-            return NULL;
-        }
+    PyObject *first_chunk = GzipReader_read_bytes(self, chunk_size);
+    if (first_chunk == NULL || PyBytes_Size(first_chunk) < chunk_size) {
         return first_chunk;
     }
 
@@ -2247,27 +2239,14 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
     }
     PyList_SetItem(chunk_list, 0, first_chunk);
     while (1) {
-        PyObject *chunk = PyBytes_FromStringAndSize(NULL, chunk_size);
+        PyObject *chunk = GzipReader_read_bytes(self, chunk_size);
         if (chunk == NULL) {
             Py_DECREF(chunk_list);
             return NULL;
         }
-        ENTER_ZLIB(self);
-        written_size = GzipReader_read_into_buffer(
-            self, (uint8_t *)PyBytes_AsString(chunk), chunk_size);
-        LEAVE_ZLIB(self);
-        if (written_size < 0) {
-            Py_DECREF(chunk);
-            Py_DECREF(chunk_list);
-            return NULL;
-        }
-        if (written_size == 0) {
+        if (PyBytes_Size(chunk) == 0) {
             Py_DECREF(chunk);
             break;
-        }
-        if (shrink_bytes(&chunk, written_size) < 0) {
-            Py_DECREF(chunk_list);
-            return NULL;
         }
         int ret = PyList_Append(chunk_list, chunk);
         Py_DECREF(chunk);
@@ -2300,22 +2279,8 @@ GzipReader_read(GzipReader *self, PyObject *args)
     if (size == 0) {
         return PyBytes_FromStringAndSize(NULL, 0);
     }
-    Py_ssize_t answer_size = Py_MIN((Py_ssize_t)self->buffer_size * 10, size);
-    PyObject *answer = PyBytes_FromStringAndSize(NULL, answer_size);
-    if (answer == NULL) {
-        return NULL;
-    }
-    ENTER_ZLIB(self);
-    Py_ssize_t written_bytes = GzipReader_read_into_buffer(self, (uint8_t *)PyBytes_AsString(answer), answer_size);
-    LEAVE_ZLIB(self);
-    if (written_bytes < 0) {
-        Py_DECREF(answer);
-        return NULL;
-    }
-    if (shrink_bytes(&answer, written_bytes) < 0) {
-        return NULL;
-    }
-    return answer;
+    return GzipReader_read_bytes(
+        self, Py_MIN((Py_ssize_t)self->buffer_size * 10, size));
 }
 
 static PyObject *
