@@ -52,10 +52,9 @@ static PyTypeObject *IsalZlibDecompType;
 #define DEF_MEM_LEVEL 8
 
 /* PyPy quirks: older versions have no Py_UNREACHABLE, and PyPy requires
-   PyBUF_READ and PyBUF_WRITE set 
-   in memoryviews that enter a "readinto" call. CPython requires that only 
-   PyBUF_WRITE is set. 
-   (Both implementations are wrong because the state of the READ bit should 
+   PyBUF_READ and PyBUF_WRITE set in memoryviews that enter a "readinto"
+   call. CPython requires that only PyBUF_WRITE is set.
+   (Both implementations are wrong because the state of the READ bit should
     not matter.)
 */
 #ifdef PYPY_VERSION
