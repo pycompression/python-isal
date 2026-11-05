@@ -7,6 +7,13 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.10.0-dev
+------------------
++ Fix ``tell()`` and forward ``seek()`` on ``igzip.IGzipFile`` objects that
+  read from an unseekable file object, such as a pipe or a socket. Versions
+  1.4.0 to 1.9.1 raised ``io.UnsupportedOperation`` for these calls.
+
+
 version 1.9.1
 -----------------
 + Fix BrokenPipeError when piping ``python -m isal.igzip`` into ``head``,

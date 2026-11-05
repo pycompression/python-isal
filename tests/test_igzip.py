@@ -688,6 +688,32 @@ def test_seek(tmp_path):
         assert gzip_file.read(1) == b"C"
 
 
+def test_tell_and_seek_forward_on_unseekable_file():
+    class UnseekableFile(io.RawIOBase):
+        # Like a pipe or a socket: seekable() is False and seek() fails.
+        def __init__(self, data):
+            self.data = io.BytesIO(data)
+
+        def readable(self):
+            return True
+
+        def readinto(self, buffer):
+            return self.data.readinto(buffer)
+
+    data = bytes(range(256)) * 1000
+    fileobj = UnseekableFile(gzip.compress(data))
+    with igzip.IGzipFile(fileobj=fileobj) as gzip_file:
+        assert gzip_file.read(10) == data[:10]
+        assert gzip_file.tell() == 10
+        assert gzip_file.seek(200_000) == 200_000
+        assert gzip_file.read(10) == data[200_000:200_010]
+        assert gzip_file.seek(5, io.SEEK_CUR) == 200_015
+        assert gzip_file.read(10) == data[200_015:200_025]
+        # Rewinding needs fileobj.seek(), as in gzip.
+        with pytest.raises(io.UnsupportedOperation):
+            gzip_file.seek(0)
+
+
 def test_bgzip():
     bgzip_file = Path(__file__).parent / "data" / "test.fastq.bgzip.gz"
     gzip_file = Path(__file__).parent / "data" / "test.fastq.gz"
