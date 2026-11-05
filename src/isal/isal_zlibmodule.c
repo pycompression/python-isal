@@ -335,7 +335,12 @@ ParallelCompress__new__(PyTypeObject *type, PyObject *args, PyObject *kwargs)
         PyErr_Format(PyExc_ValueError, "Invalid compression level %d", level);
         return NULL;
     }
-    if (buffer_size > UINT32_MAX) {
+    if (buffer_size < 0) {
+        PyErr_Format(PyExc_ValueError,
+                     "buffersize must be non-negative, got %zd", buffer_size);
+        return NULL;
+    }
+    if ((size_t)buffer_size > UINT32_MAX) {
         PyErr_Format(PyExc_ValueError, 
         "buffersize must be at most %zd, got %zd", 
         (Py_ssize_t)UINT32_MAX, buffer_size);

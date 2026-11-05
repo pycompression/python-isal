@@ -791,3 +791,8 @@ def test_gzip_reader_reports_errors_from_read_lookup():
     # Only AttributeError means that fp is a bytes-like object.
     with pytest.raises(RuntimeError, match="lookup failed"):
         isal_zlib._GzipReader(BrokenReader())
+
+
+def test_parallel_compress_rejects_negative_buffersize():
+    with pytest.raises(ValueError, match="buffersize must be non-negative"):
+        isal_zlib._ParallelCompress(-1, 1)
