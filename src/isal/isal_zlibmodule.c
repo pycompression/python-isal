@@ -2256,6 +2256,7 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
 
     PyObject *chunk_list = PyList_New(1);
     if (chunk_list == NULL) {
+        Py_DECREF(first_chunk);
         return NULL;
     }
     PyList_SetItem(chunk_list, 0, first_chunk);

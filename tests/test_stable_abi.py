@@ -56,34 +56,51 @@ def test_truncated_trailer_at_full_output_boundary(size):
     "igzip_lib.IgzipDecompressor().decompress(raw)",
     "isal_zlib.decompressobj().decompress(packed)",
     "stream_compress()",
+    "isal_zlib._GzipReader(io.BytesIO(gz)).read(len(data))",
+    "isal_zlib._GzipReader(io.BytesIO(gz)).readall()",
 ])
 def test_output_allocation_failure_cleanup(operation):
     pytest.importorskip("_testcapi")
     code = f"""
+import gc
+import gzip
+import io
 import random
+import tracemalloc
 import zlib
 import _testcapi
 from isal import igzip_lib, isal_zlib
 data = random.Random(240).randbytes(256 * 1024)
 packed = zlib.compress(data)
 raw = zlib.compress(data, wbits=-15)
+gz = gzip.compress(data)
 def stream_compress():
     obj = isal_zlib.compressobj()
     return obj.compress(data) + obj.flush()
 def operation():
     return {operation}
-failures = successes = 0
-for start in range(40):
-    _testcapi.set_nomemory(start, start + 1)
-    try:
-        result = operation()
-    except MemoryError:
-        failures += 1
-    else:
-        successes += 1
-    finally:
-        _testcapi.remove_mem_hooks()
-assert failures and successes
+def fail_each_allocation():
+    failures = successes = 0
+    for start in range(80):
+        _testcapi.set_nomemory(start, start + 1)
+        try:
+            operation()
+        except MemoryError:
+            failures += 1
+        else:
+            successes += 1
+        finally:
+            _testcapi.remove_mem_hooks()
+    assert failures and successes
+# The first pass fills caches that would otherwise look like leaks.
+fail_each_allocation()
+tracemalloc.start()
+fail_each_allocation()
+gc.collect()
+retained = tracemalloc.get_traced_memory()[0]
+tracemalloc.stop()
+# A single leaked output buffer is at least 16 KiB.
+assert retained < 8 * 1024, retained
 # A clean call after all failure paths still produces valid output.
 result = operation()
 if 'compress' in {operation!r} and 'decompress' not in {operation!r}:
@@ -93,7 +110,7 @@ else:
     assert result == data
 """
     result = subprocess.run([sys.executable, "-c", code],
-                            capture_output=True, text=True, timeout=45)
+                            capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stderr
 
 
