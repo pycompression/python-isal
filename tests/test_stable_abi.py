@@ -182,6 +182,15 @@ def test_gzip_reader_full_and_short_bytes(size):
     assert reader.readall() == data[len(output):]
 
 
+def test_gzip_reader_readinto_rejects_read_only_buffer():
+    reader = isal_zlib._GzipReader(io.BytesIO(gzip.compress(b"data")))
+    with pytest.raises(TypeError) as error:
+        reader.readinto(b"read-only")
+    # The same text as the readinto() methods of io.
+    assert str(error.value) == ("readinto() argument must be read-write "
+                                "bytes-like object, not bytes")
+
+
 @pytest.mark.parametrize("name,factory", [("Compress", "compressobj"),
                                           ("Decompress", "decompressobj")])
 def test_factory_retains_type_after_module_attribute_is_deleted(name, factory):
