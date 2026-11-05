@@ -2269,7 +2269,9 @@ GzipReader_writable(GzipReader *self, PyObject *Py_UNUSED(ignore))
 
 static PyObject *
 GzipReader_seekable(GzipReader *self, PyObject *Py_UNUSED(ignore)) {
-    return PyObject_CallMethod(self->fp, "seekable", NULL);
+    /* Same as gzip._PaddedFile.seekable(): seek() moves forward by reading,
+       so tell() and forward seeks also work on unseekable streams. */
+    Py_RETURN_TRUE;
 }
 
 static PyObject *
