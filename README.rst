@@ -101,11 +101,15 @@ Installation is supported on Linux, Windows and MacOS. For more advanced
 installation options check the `documentation
 <https://python-isal.readthedocs.io/en/stable/index.html#installation>`_.
 
-Regular CPython wheels use the Python 3.11 stable ABI and work on Python 3.11
+Regular CPython wheels use the Python 3.11 stable ABI and work on CPython 3.11
 and later. PyPy and free-threaded CPython use separate version-specific wheels.
-Stable ABI builds need an extra copy for unbounded output, which can reduce
-throughput and increase peak memory. ``igzip_lib.IgzipDecompressor`` can return
-a filled bounded buffer directly. ``readinto()`` writes into the caller's buffer.
+In the stable ABI wheels, calls that return their whole decompressed output at
+once, such as ``isal_zlib.decompress()``, copy it once more, which costs time
+and memory for large outputs. ``read()`` and ``readinto()`` on ``igzip.open()``
+files, and ``igzip_lib.IgzipDecompressor().decompress()`` with a ``max_length``
+of at most 16 MiB that the output fills, avoid that copy. The `changelog
+<https://github.com/pycompression/python-isal/blob/develop/CHANGELOG.rst>`_
+lists the affected calls.
 
 python-isal as a dependency in your project
 -------------------------------------------

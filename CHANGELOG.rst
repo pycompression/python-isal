@@ -7,16 +7,44 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
-Unreleased
-----------
-+ Regular CPython wheels use the stable ABI for Python 3.11 and later, so new
-  Python versions can use them without a new python-isal release. PyPy and
-  free-threaded CPython retain separate wheels and the full C API.
-+ Limited API builds copy unbounded compression and decompression output into
-  the returned bytes object. This can reduce throughput and increase peak memory.
-  ``igzip_lib.IgzipDecompressor`` can return a filled bounded output buffer
-  directly, and full gzip read chunks avoid this extra copy.
-+ Avoid growing decompression output after the stream has already finished.
+version 1.10.0-dev
+------------------
++ Regular CPython wheels use the stable ABI of Python 3.11, so one wheel works
+  on CPython 3.11 and every later release, including releases that come out
+  after this version of python-isal. PyPy and free-threaded CPython keep
+  separate wheels for each Python version.
++ The package metadata now requires Python 3.11 or later.
++ With the stable ABI wheels, decompression calls that return their whole
+  output at once copy it once more before returning. This makes them slower,
+  and they hold at least twice the output size in memory during the copy,
+  where the earlier wheels resized the result in place. The affected
+  calls are ``isal_zlib.decompress()``, ``igzip_lib.decompress()``,
+  ``isal_zlib.decompressobj().decompress()`` without ``max_length`` or with
+  ``max_length`` above 16 KiB, and ``igzip_lib.IgzipDecompressor().decompress()``
+  without ``max_length`` or with ``max_length`` above 16 MiB. In benchmarks on
+  one machine, these calls took up to 23% longer for 16 MiB of output, and
+  ``igzip_lib.decompress()`` took up to 2.2 times as long for 1 MiB of
+  incompressible data. Compression output is copied too, without a measurable
+  slowdown. ``read()`` and ``readinto()`` on ``igzip.open()`` files avoid the
+  copy.
++ With the stable ABI wheels, ``IgzipDecompressor().decompress()`` with a
+  ``max_length`` of at most 16 MiB, and ``decompressobj().decompress()`` with a
+  ``max_length`` of at most 16 KiB, return output that fills ``max_length``
+  without a copy. Shorter output is copied while the ``max_length`` allocation
+  is still held, so these calls need the limit plus the output in memory, where
+  the earlier wheels needed only the limit.
++ Decompression no longer allocates a larger output buffer when a stream ends
+  exactly at the end of the current one.
++ Fix input being lost when one call to ``IgzipDecompressor().decompress()``
+  or ``isal_zlib.decompressobj().decompress()`` receives more than 4 GiB and
+  reaches its output limit or the end of the stream before using all of it.
++ Fix an ``AttributeError`` about ``mode`` being reported as an unraisable
+  exception after ``IGzipFile()`` rejects a compression level.
++ Fix a memory leak when memory runs out while ``igzip.decompress()`` or
+  ``read()`` without a size on an ``igzip.open()`` file collects its output.
++ Errors raised while looking up the ``read`` method of a file object passed
+  to ``igzip.open()`` are reported instead of being replaced by "a bytes-like
+  object is required".
 
 version 1.9.1
 -----------------
