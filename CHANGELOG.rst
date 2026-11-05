@@ -7,6 +7,14 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.10.0-dev
+------------------
++ Fix pickling of ``isal_zlib.error`` (``igzip_lib.IsalError``). An error
+  raised in a ``multiprocessing`` worker process did not reach the parent
+  process. Tracebacks now show ``isal.igzip_lib.IsalError`` instead of
+  ``igzip_lib.IsalError``.
+
+
 version 1.9.1
 -----------------
 + Fix BrokenPipeError when piping ``python -m isal.igzip`` into ``head``,
