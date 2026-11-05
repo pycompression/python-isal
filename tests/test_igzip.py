@@ -9,6 +9,7 @@
  from CPython. Uses pytest which is easier to work with. Meant to complement
  the gzip module compliance tests. It should improve coverage as well."""
 
+import gc
 import gzip
 import io
 import itertools
@@ -796,3 +797,12 @@ def test_gzip_reader_reports_errors_from_read_lookup():
 def test_parallel_compress_rejects_negative_buffersize():
     with pytest.raises(ValueError, match="buffersize must be non-negative"):
         isal_zlib._ParallelCompress(-1, 1)
+
+
+def test_invalid_compresslevel_leaves_no_unraisable_error(monkeypatch):
+    errors = []
+    monkeypatch.setattr(sys, "unraisablehook", errors.append)
+    with pytest.raises(ValueError, match="Compression level"):
+        igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb", compresslevel=99)
+    gc.collect()
+    assert errors == []
