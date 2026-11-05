@@ -7,6 +7,13 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.10.0-dev
+------------------
++ Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
+  not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
+  the output as coming from VM/CMS or a FAT file system.
+
+
 version 1.9.1
 -----------------
 + Fix BrokenPipeError when piping ``python -m isal.igzip`` into ``head``,

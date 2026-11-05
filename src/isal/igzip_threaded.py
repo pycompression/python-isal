@@ -299,7 +299,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         os = 0xff
         xfl = 4 if self.level == 0 else 0
         self.raw.write(struct.pack(
-            "BBBBIBB", magic1, magic2, method, flags, mtime, os, xfl))
+            "BBBBIBB", magic1, magic2, method, flags, mtime, xfl, os))
 
     def start(self):
         self.running = True
