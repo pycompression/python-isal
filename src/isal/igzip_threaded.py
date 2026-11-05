@@ -97,6 +97,7 @@ class _ThreadedGzipReader(io.RawIOBase):
         self.worker = threading.Thread(target=self._decompress)
         self._closed = False
         self.running = True
+        self._main_thread = threading.main_thread()
         self._calling_thread = threading.current_thread()
         self.worker.start()
 
@@ -104,17 +105,24 @@ class _ThreadedGzipReader(io.RawIOBase):
         if self._closed:
             raise ValueError("I/O operation on closed file")
 
+    def _calling_threads_alive(self) -> bool:
+        # Workers stop when both the thread that opened the file and the main
+        # thread have ended, so an unclosed file does not block exit. Check
+        # both: the opening thread may end first, and at exit Python marks
+        # the main thread stopped before it waits for the other threads.
+        return self._calling_thread.is_alive() or self._main_thread.is_alive()
+
     def _decompress(self):
         block_size = self.block_size
         block_queue = self.queue
-        while self.running and self._calling_thread.is_alive():
+        while self.running and self._calling_threads_alive():
             try:
                 data = self.fileobj.read(block_size)
             except Exception as e:
                 self.exception = e
                 data = b""
             # An empty block tells the reader about EOF or an error
-            while self.running and self._calling_thread.is_alive():
+            while self.running and self._calling_threads_alive():
                 try:
                     block_queue.put(data, timeout=0.05)
                     break
@@ -234,6 +242,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         if "b" not in mode:
             mode += "b"
         self.lock = threading.Lock()
+        self._main_thread = threading.main_thread()
         self._calling_thread = threading.current_thread()
         self.exception: Optional[Exception] = None
         self.level = level
@@ -288,6 +297,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
     def _check_closed(self, msg=None):
         if self._closed:
             raise ValueError("I/O operation on closed file")
+
+    def _calling_threads_alive(self) -> bool:
+        # See _ThreadedGzipReader._calling_threads_alive().
+        return self._calling_thread.is_alive() or self._main_thread.is_alive()
 
     def _write_gzip_header(self):
         """Simple gzip header. Only xfl flag is set according to level."""
@@ -390,7 +403,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
             try:
                 item = in_queue.get(timeout=0.05)
             except queue.Empty:
-                if not (self.running and self._calling_thread.is_alive()):
+                if not (self.running and self._calling_threads_alive()):
                     return
                 continue
             if item is None:  # Sentinel from stop()
@@ -418,7 +431,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
             try:
                 item = output_queue.get(timeout=0.05)
             except queue.Empty:
-                if not (self.running and self._calling_thread.is_alive()):
+                if not (self.running and self._calling_threads_alive()):
                     return
                 continue
             if item is None:  # Sentinel from stop()
@@ -440,7 +453,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
             try:
                 item = in_queue.get(timeout=0.05)
             except queue.Empty:
-                if not (self.running and self._calling_thread.is_alive()):
+                if not (self.running and self._calling_threads_alive()):
                     return
                 continue
             if item is None:  # Sentinel from stop()

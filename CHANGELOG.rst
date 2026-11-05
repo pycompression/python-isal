@@ -7,6 +7,14 @@ Changelog
 .. This document is user facing. Please word the changes in such a way
 .. that users understand how the changes affect the new version.
 
+version 1.10.0-dev
+------------------
++ Fix ``igzip_threaded`` files that stopped working when the thread that
+  opened them ended, for example a ``ThreadPoolExecutor`` thread after
+  ``shutdown()``. Reads returned truncated data without an error, and writes
+  waited forever.
+
+
 version 1.9.1
 -----------------
 + Fix BrokenPipeError when piping ``python -m isal.igzip`` into ``head``,

@@ -5,6 +5,7 @@
 # This file is part of python-isal which is distributed under the
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
+import concurrent.futures
 import errno
 import gzip
 import io
@@ -235,6 +236,67 @@ def test_close_writer(threads):
         io.BytesIO(), threads=threads)
     f.close()
     assert_writer_closed(f)
+
+
+def open_in_finished_thread(*args, **kwargs):
+    # Leaving the with block shuts down the executor, which ends its thread.
+    with concurrent.futures.ThreadPoolExecutor(1) as executor:
+        return executor.submit(igzip_threaded.open, *args, **kwargs).result()
+
+
+@pytest.mark.timeout(10)
+def test_threaded_reader_opened_in_finished_thread():
+    data = os.urandom(256 * 1024)
+    # Small blocks fill the queue, so the worker reads most of the file after
+    # the thread that opened it has ended.
+    with open_in_finished_thread(io.BytesIO(gzip.compress(data)), "rb",
+                                 block_size=8 * 1024) as f:
+        assert f.read() == data
+
+
+@pytest.fixture
+def queue_timeouts(monkeypatch):
+    """Collects the threads whose get() on a queue timed out."""
+    threads = set()
+
+    class Queue(queue.Queue):
+        def get(self, block=True, timeout=None):
+            try:
+                return super().get(block, timeout)
+            except queue.Empty:
+                threads.add(threading.current_thread())
+                raise
+
+    monkeypatch.setattr(igzip_threaded, "queue", types.SimpleNamespace(
+        Queue=Queue, Empty=queue.Empty, Full=queue.Full))
+    return threads
+
+
+@pytest.mark.timeout(10)
+@pytest.mark.parametrize("threads", [1, 2])
+def test_threaded_writer_opened_in_finished_thread(queue_timeouts, threads):
+    data = os.urandom(64 * 1024)
+    output = io.BytesIO()
+    f = open_in_finished_thread(output, "wb", threads=threads,
+                                block_size=8 * 1024)
+    # The workers check whether to stop when a queue get() times out. Wait
+    # until each worker has checked, or stopped, after the thread that
+    # opened the file ended, so a failing test leaves no worker behind.
+    workers = [f.raw.output_worker] + f.raw.compression_workers
+    queue_timeouts.clear()
+    while not all(w in queue_timeouts or not w.is_alive() for w in workers):
+        time.sleep(0.001)
+
+    def write_and_close():
+        f.write(data)
+        f.close()
+
+    # write() and close() wait forever if the workers stopped.
+    writer = threading.Thread(target=write_and_close, daemon=True)
+    writer.start()
+    writer.join(timeout=5)
+    assert not writer.is_alive()
+    assert gzip.decompress(output.getvalue()) == data
 
 
 # io.BufferedReader.writable() and io.BufferedWriter.readable() are always
