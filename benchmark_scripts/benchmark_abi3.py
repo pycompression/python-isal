@@ -163,6 +163,58 @@ def worker(args):
             "free_threaded": bool(sysconfig.get_config_var("Py_GIL_DISABLED"))}
 
 
+def paired_ratios(rows):
+    """Return {case: {variant: median ratio}} against each round's baseline."""
+    grouped = {(r["round"], r["variant"]): r["cases"] for r in rows}
+    rounds = sorted({r["round"] for r in rows})
+    medians = {}
+    for name in rows[0]["cases"]:
+        medians[name] = {}
+        for variant in ("candidate", "control"):
+            values = []
+            for repeat in rounds:
+                a = grouped[repeat, variant][name]
+                b = grouped[repeat, "baseline"][name]
+                values.append((a["cpu_ns"] / a["count"]) /
+                              (b["cpu_ns"] / b["count"]))
+            medians[name][variant] = statistics.median(values)
+    return medians
+
+
+def summarize(rows):
+    """Print per-case medians, then the summaries the reports quote."""
+    medians = paired_ratios(rows)
+    print("case,candidate_time_ratio,control_time_ratio")
+    for name, ratio in medians.items():
+        print(f"{name},{ratio['candidate']:.6f},{ratio['control']:.6f}")
+    control = [abs(r["control"] - 1) for r in medians.values()]
+    p95 = statistics.quantiles(control, n=100, method="inclusive")[94]
+    print(f"\ncontrol |ratio - 1|: p95 (inclusive) {p95:.3%}, "
+          f"max {max(control):.3%}")
+    operations = {}
+    for name, ratio in medians.items():
+        operations.setdefault(name.split("/")[2], []).append(
+            ratio["candidate"])
+    print("\noperation,median,min,max")
+    for operation, values in operations.items():
+        print(f"{operation},{statistics.median(values):.3f},"
+              f"{min(values):.3f},{max(values):.3f}")
+    largest = str(max(SIZES))
+    kinds = sorted({name.split("/")[0] for name in medians})
+    print(f"\nsize {largest}: operation," + ",".join(kinds))
+    for operation in operations:
+        print(operation + "," + ",".join(
+            f"{medians[f'{kind}/{largest}/{operation}']['candidate']:.3f}"
+            for kind in kinds))
+    ranked = sorted(medians.items(), key=lambda item: item[1]["candidate"])
+    print("\nslowest cases")
+    for name, ratio in reversed(ranked[-10:]):
+        print(f"{name},{ratio['candidate']:.3f}")
+    print("\nfastest cases")
+    for name, ratio in ranked[:10]:
+        print(f"{name},{ratio['candidate']:.3f}")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--library", choices=("isal", "zlib_ng"),
@@ -176,7 +228,13 @@ def main():
                         help=argparse.SUPPRESS)
     parser.add_argument("--data", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--calibration", type=Path, help=argparse.SUPPRESS)
+    parser.add_argument("--summarize", type=Path, metavar="RESULTS",
+                        help="print the summaries of an existing --output "
+                             "file instead of running a benchmark")
     args = parser.parse_args()
+    if args.summarize:
+        summarize(json.loads(args.summarize.read_text())["runs"])
+        return
     if args.worker:
         print(json.dumps(worker(args)))
         return
@@ -184,6 +242,10 @@ def main():
         parser.error("--baseline, --candidate and --output are required")
     if args.rounds < 1:
         parser.error("--rounds must be positive")
+    if (hasattr(os, "sched_getaffinity")
+            and args.cpu not in os.sched_getaffinity(0)):
+        parser.error(f"--cpu {args.cpu} is not available; choose one of "
+                     f"{sorted(os.sched_getaffinity(0))}")
     # Resolving a venv's interpreter symlink would bypass that environment.
     args.baseline = args.baseline.absolute()
     args.candidate = args.candidate.absolute()
@@ -223,19 +285,7 @@ def main():
                     "data_sha256": hashes, "planned_rounds": args.rounds,
                     "runs": rows}, separators=(",", ":")))
             print(f"Round {repeat + 1}/{args.rounds}", flush=True)
-    grouped = {(r["round"], r["variant"]): r["cases"] for r in rows}
-    print("case,candidate_time_ratio,control_time_ratio")
-    for name in initial["cases"]:
-        ratios = {}
-        for variant in ("candidate", "control"):
-            values = []
-            for repeat in range(args.rounds):
-                a = grouped[repeat, variant][name]
-                b = grouped[repeat, "baseline"][name]
-                values.append((a["cpu_ns"] / a["count"]) /
-                              (b["cpu_ns"] / b["count"]))
-            ratios[variant] = statistics.median(values)
-        print(f"{name},{ratios['candidate']:.6f},{ratios['control']:.6f}")
+    summarize(rows)
 
 
 if __name__ == "__main__":
