@@ -35,6 +35,58 @@ def test_threaded_read():
     assert thread_data == data
 
 
+def test_threaded_read_pipe_returns_data_after_two_blocks():
+    # readinto() on a pipe blocks until the reader's input buffer is full.
+    block_size = 64 * 1024
+    data = os.urandom(4 * block_size)
+    compressed = gzip.compress(data)
+    read_fd, write_fd = os.pipe()
+    first_read_done = threading.Event()
+    held_back = []
+
+    def write_to_pipe():
+        with open(write_fd, "wb") as pipe:
+            pipe.write(compressed[:2 * block_size])
+            pipe.flush()
+            held_back.append(first_read_done.wait(timeout=5))
+            pipe.write(compressed[2 * block_size:])
+
+    writer = threading.Thread(target=write_to_pipe)
+    writer.start()
+    with open(read_fd, "rb") as pipe:
+        with igzip_threaded.open(pipe, "rb", block_size=block_size) as f:
+            first = f.read(10)
+            first_read_done.set()
+            rest = f.read()
+    writer.join()
+    assert first + rest == data
+    assert held_back == [True]
+
+
+@pytest.mark.parametrize("block_size", [1024, 64 * 1024])
+def test_threaded_read_header_longer_than_block_size(block_size):
+    # The input buffer holds two blocks.
+    data = os.urandom(3 * block_size)
+    compressed = io.BytesIO()
+    for name in ["x" * (3 * block_size // 2), "y"]:
+        with gzip.GzipFile(name, "wb", fileobj=compressed) as f:
+            f.write(data)
+    compressed.seek(0)
+    with igzip_threaded.open(compressed, "rb", block_size=block_size) as f:
+        assert f.read() == data + data
+
+
+def test_threaded_read_header_longer_than_input_buffer():
+    compressed = io.BytesIO()
+    with gzip.GzipFile("x" * 1024 * 1024, "wb", fileobj=compressed) as f:
+        f.write(b"data")
+    compressed.seek(0)
+    with igzip_threaded.open(compressed, "rb", block_size=64 * 1024) as f:
+        with pytest.raises(OverflowError) as error:
+            f.read()
+    error.match("header")
+
+
 @pytest.mark.parametrize("block_size", [8 * 1024, 64 * 1024])
 @pytest.mark.parametrize(["mode", "threads"],
                          list(itertools.product(["wb", "wt"], [1, 3, -1])))

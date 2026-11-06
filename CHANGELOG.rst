@@ -9,6 +9,11 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Reduce the memory use of ``igzip_threaded.open`` readers. They now read the
+  compressed input in pieces of 2 times ``block_size`` instead of 8 times,
+  which saves up to 6 MiB per open file with the default ``block_size`` of
+  1 MiB. When reading from a pipe, the first data is now returned once 2 MiB
+  of compressed data has arrived, instead of 8 MiB.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
