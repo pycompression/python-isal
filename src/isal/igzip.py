@@ -150,6 +150,33 @@ class IGzipFile(gzip.GzipFile):
         to the last modification time field in the stream when compressing.
         If omitted or None, the current time is used.
         """
+        if mode in ("r", "rb") or (mode is None and fileobj is None):
+            # GzipFile.__init__'s read branch, without its zlib reader.
+            # __del__ and close() need these even if opening fails.
+            self.mode = None
+            self.fileobj = None
+            self._buffer = None
+            try:
+                if fileobj is None:
+                    fileobj = self.myfileobj = builtins.open(filename, "rb")
+                if filename is None:
+                    filename = getattr(fileobj, "name", "")
+                    if not isinstance(filename, (str, bytes)):
+                        filename = ""
+                else:
+                    filename = os.fspath(filename)
+                raw = _GzipReader(fileobj, READ_BUFFER_SIZE)
+                self._buffer = io.BufferedReader(raw)
+            except BaseException:
+                myfileobj = self.myfileobj
+                if myfileobj is not None:
+                    self.myfileobj = None
+                    myfileobj.close()
+                raise
+            self.mode = READ
+            self.name = filename
+            self.fileobj = fileobj
+            return
         if not (isal_zlib.ISAL_BEST_SPEED <= compresslevel
                 <= isal_zlib.ISAL_BEST_COMPRESSION) and "r" not in mode:
             raise ValueError(
