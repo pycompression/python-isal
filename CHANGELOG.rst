@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``writelines()`` on binary ``igzip`` files on Python 3.12 and
+  later. The lines now go straight to the write buffer instead of through
+  ``write()`` one at a time. On Linux, writing 100,000 lines of about 36 bytes
+  is 1.5 times faster, and writing 100-byte records is 1.3 times faster.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
