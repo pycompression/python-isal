@@ -9,6 +9,13 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Make ``isal_zlib.Compress.flush()`` return ``b""`` for ``Z_SYNC_FLUSH``
+  when nothing was compressed since a sync or full flush, and for
+  ``Z_FULL_FLUSH`` when nothing was compressed since a full flush, as zlib
+  does. It wrote an empty block of 6 bytes, or 117 bytes at level 0. On
+  Linux, such a flush is now 20 times faster at levels 1 to 3. Flushing an
+  ``igzip`` file again without a write in between no longer grows the file
+  and is 4 times faster.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
