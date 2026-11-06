@@ -19,7 +19,7 @@ import textwrap
 import zlib
 from typing import NamedTuple
 
-from isal import igzip_lib
+from isal import igzip_lib, isal_zlib
 from isal.igzip_lib import (
     COMP_DEFLATE, COMP_GZIP, COMP_GZIP_NO_HDR, COMP_ZLIB, COMP_ZLIB_NO_HDR,
     DECOMP_DEFLATE, DECOMP_GZIP, DECOMP_GZIP_NO_HDR, DECOMP_GZIP_NO_HDR_VER,
@@ -238,6 +238,17 @@ class TestIgzipDecompressor():
         # Make sure there are no internal consistencies
         with pytest.raises(igzip_lib.IsalError):
             igzd.decompress(self.BAD_DATA * 30)
+
+    @pytest.mark.parametrize("module", [igzip_lib, isal_zlib])
+    def test_failure_pickle(self, module):
+        # multiprocessing pickles an error raised in a worker process to send
+        # it to the parent process.
+        with pytest.raises(igzip_lib.IsalError) as raised:
+            module.decompress(self.BAD_DATA)
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            error = pickle.loads(pickle.dumps(raised.value, proto))
+            assert type(error) is igzip_lib.IsalError
+            assert error.args == raised.value.args
 
     def test_dictionary(self):
         compressor = zlib.compressobj(zdict=b"bla")
