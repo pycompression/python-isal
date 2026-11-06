@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``read()`` without a size on ``igzip.open`` and ``IGzipFile`` files
+  that decompress to at most 64 KiB, on Linux with glibc. Reading many 3 KiB
+  gzip files by path is nearly 2 times faster. The gain applies in processes
+  that have not yet freed a memory block of 2 MiB or more.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
