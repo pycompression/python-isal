@@ -86,7 +86,7 @@ def open_as_binary_stream(filename, open_mode):
 class _ThreadedGzipReader(io.RawIOBase):
     def __init__(self, filename, queue_size=2, block_size=1024 * 1024):
         self.raw, self.closefd = open_as_binary_stream(filename, "rb")
-        self.fileobj = igzip._IGzipReader(self.raw, buffersize=8 * block_size)
+        self.fileobj = igzip._IGzipReader(self.raw, buffersize=2 * block_size)
         self.pos = 0
         self.read_file = False
         self.queue = queue.Queue(queue_size)
