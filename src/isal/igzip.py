@@ -59,6 +59,8 @@ BadGzipFile = gzip.BadGzipFile  # type: ignore
 # _write_raw in large chunks, which compress much faster.
 _GZIP_BUFFERS_WRITES = hasattr(gzip.GzipFile, "_write_raw")
 
+_WRITE_CHUNK_SIZE = 4 * 1024 * 1024
+
 
 # The open method was copied from the CPython source with minor adjustments.
 def open(filename, mode="rb", compresslevel=_COMPRESS_LEVEL_TRADEOFF,
@@ -227,7 +229,19 @@ class IGzipFile(gzip.GzipFile):
             data = memoryview(data)
             length = data.nbytes
 
-        if length > 0:
+        # Non-contiguous data goes to compress(), which raises BufferError.
+        if length > _WRITE_CHUNK_SIZE and (not isinstance(data, memoryview)
+                                           or data.c_contiguous):
+            # Compress in pieces to bound memory. Release the views at once so
+            # a bytearray can be resized afterwards, also on PyPy.
+            with memoryview(data) as view, view.cast("B") as byte_view:
+                for start in range(0, length, _WRITE_CHUNK_SIZE):
+                    with byte_view[start:start + _WRITE_CHUNK_SIZE] as chunk:
+                        self.fileobj.write(self.compress.compress(chunk))
+                        self.crc = isal_zlib.crc32(chunk, self.crc)
+            self.size += length
+            self.offset += length
+        elif length > 0:
             self.fileobj.write(self.compress.compress(data))
             self.size += length
             self.crc = isal_zlib.crc32(data, self.crc)
