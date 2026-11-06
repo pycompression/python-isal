@@ -219,6 +219,17 @@ class IGzipFile(gzip.GzipFile):
             return self._buffer.write(data)
         return self._write_raw(data)
 
+    def writelines(self, lines):
+        """Write the lines to the file. Line separators are not added."""
+        # BufferedWriter.writelines() skips the Python write() for each line,
+        # so use it only when write() has not been replaced.
+        if (_GZIP_BUFFERS_WRITES and self.mode == WRITE
+                and self.fileobj is not None
+                and type(self).write is _IGZIPFILE_WRITE
+                and "write" not in self.__dict__):
+            return self._buffer.writelines(lines)
+        return super().writelines(lines)
+
     def _write_raw(self, data):
         if isinstance(data, (bytes, bytearray)):
             length = len(data)
@@ -243,6 +254,8 @@ class IGzipFile(gzip.GzipFile):
             return self.offset
         return position
 
+
+_IGZIPFILE_WRITE = IGzipFile.write
 
 # Aliases for improved compatibility with CPython gzip module.
 GzipFile = IGzipFile
