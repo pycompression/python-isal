@@ -11,7 +11,8 @@ import pytest
 @pytest.mark.parametrize('wbits', [9, 15, -15])
 @pytest.mark.parametrize('dictionary_size', [11, 32768, 40000])
 @pytest.mark.parametrize(
-    'first_operation', ['compress', 'empty', 'sync', 'finish'])
+    'first_operation',
+    ['compress', 'empty', 'sync', 'repeated sync', 'finish'])
 def test_dictionary_cross_decode(level, wbits, dictionary_size,
                                  first_operation):
     dictionary = random.Random(21).randbytes(dictionary_size)
@@ -22,6 +23,9 @@ def test_dictionary_cross_decode(level, wbits, dictionary_size,
         packed += compressor.compress(b'')
     elif first_operation == 'sync':
         packed += compressor.flush(isal_zlib.Z_SYNC_FLUSH)
+    elif first_operation == 'repeated sync':
+        packed += compressor.flush(isal_zlib.Z_SYNC_FLUSH)
+        assert compressor.flush(isal_zlib.Z_SYNC_FLUSH) == b''
     elif first_operation == 'finish':
         data = b''
     for pos in range(0, len(data), 17):
