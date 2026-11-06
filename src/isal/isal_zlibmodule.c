@@ -2164,6 +2164,14 @@ GzipReader_readall(GzipReader *self, PyObject *Py_UNUSED(ignore))
         return NULL;
     }
     if (written_size < chunk_size) {
+        if (written_size <= chunk_size / 32) {
+            /* Shrinking an mmap()ed chunk keeps it mapped, so copy small
+               results and free the chunk. */
+            PyObject *result = PyBytes_FromStringAndSize(
+                PyBytes_AS_STRING(first_chunk), written_size);
+            Py_DECREF(first_chunk);
+            return result;
+        }
         if (_PyBytes_Resize(&first_chunk, written_size) < 0) {
             return NULL;
         }
