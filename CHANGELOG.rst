@@ -9,6 +9,11 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``isal_zlib.decompress`` and ``igzip_lib.decompress`` for gzip data
+  by starting with an output buffer of the size stored in the gzip trailer, up
+  to 32 MiB, instead of a 16 KiB buffer that doubles as it fills. Peak memory
+  use drops by up to half, and on Linux outputs of 10 to 32 MiB decompress up
+  to 1.5 times faster.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
