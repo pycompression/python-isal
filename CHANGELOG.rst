@@ -9,6 +9,12 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Lower the memory use of large writes to ``igzip.open`` and ``IGzipFile``
+  files. Writes larger than 4 MiB are now compressed in 4 MiB pieces, so the
+  compressed data of the whole write is no longer held in memory at once.
+  Writing 100 MiB in one call took 29 MiB of extra memory for text and
+  100 MiB for data that does not compress, and now takes less than 8 MiB.
+  The compressed bytes of such writes can differ slightly.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
