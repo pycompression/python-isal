@@ -36,6 +36,8 @@ urls.documentation = "https://python-isal.readthedocs.io"
 
 [tool.setuptools_scm]
 version_file = "src/isal/_version.py"
+# The default template imports __future__, which slows down "import isal".
+version_file_template = "__version__ = {version!r}\n"
 
 [tool.setuptools.packages.find]
 where = ["src"]
