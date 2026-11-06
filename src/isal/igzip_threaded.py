@@ -406,7 +406,10 @@ class _ThreadedGzipWriter(io.RawIOBase):
                 # blocks from the output queues in order. It drops the block.
                 compressed, crc = b"", 0
             data_length = len(data)
+            # Do not hold blocks while waiting; zdict views a whole block.
+            del item, data, zdict
             out_queue.put((compressed, crc, data_length))
+            del compressed
             in_queue.task_done()
 
     def _write(self):
@@ -428,6 +431,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
             self._crc = isal_zlib.crc32_combine(self._crc, crc, data_length)
             self._size += data_length
             self._write_compressed(compressed)
+            del item, compressed
             output_queue.task_done()
             index += 1
 
@@ -455,9 +459,11 @@ class _ThreadedGzipWriter(io.RawIOBase):
                 # _write_compressed() drops the block.
                 compressed, crc = b"", 0
             data_length = len(data)
+            del item, data, zdict
             self._crc = isal_zlib.crc32_combine(self._crc, crc, data_length)
             self._size += data_length
             self._write_compressed(compressed)
+            del compressed
             in_queue.task_done()
 
     def _write_compressed(self, compressed: bytes):

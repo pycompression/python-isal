@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Lower the memory use of ``igzip_threaded`` writers on CPython. Threads that
+  wait for their next block no longer keep their last blocks in memory. When
+  data is written slower than the threads compress it, writing with 8 threads
+  and the default 1 MiB blocks uses about 7 MiB less memory at its peak.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
