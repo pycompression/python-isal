@@ -9,6 +9,12 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``decompress()`` of ``isal_zlib.decompressobj`` objects with a small
+  ``max_length``. When ISA-L gave the output from its own buffer without
+  reading any input, the whole input was still copied to ``unconsumed_tail``.
+  On Linux, decompressing 4 MiB of text 1 KiB at a time, passing
+  ``unconsumed_tail`` back in, is 5 times faster, and 8 KiB at a time is 1.5
+  times faster.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.

@@ -258,6 +258,63 @@ def test_decompressobj_unconsumed_tail():
     assert len(output) == 2048
 
 
+class BytesSubclass(bytes):
+    pass
+
+
+def memoryview_slice(data):
+    return memoryview(b"pad" + data)[3:]
+
+
+@pytest.mark.parametrize(["input_type", "max_length", "wbits"],
+                         list(itertools.product(
+                             [bytes, BytesSubclass, bytearray, memoryview,
+                              memoryview_slice],
+                             [100, 1000, 8192], [-15, 15, 31])))
+def test_decompressobj_decompress_unconsumed_tail(input_type, max_length,
+                                                  wbits):
+    data = DATA[:256 * 1024]
+    compressor = zlib.compressobj(wbits=wbits)
+    compressed = compressor.compress(data) + compressor.flush()
+    decompressor = isal_zlib.decompressobj(wbits=wbits)
+    unconsumed = compressed + b"unused"
+    result = []
+    while not decompressor.eof:
+        chunk = input_type(unconsumed)
+        output = decompressor.decompress(chunk, max_length)
+        assert len(output) <= max_length
+        result.append(output)
+        unconsumed = decompressor.unconsumed_tail
+        assert type(unconsumed) is bytes
+        if isinstance(chunk, bytearray):
+            # The tail must be a copy, not the mutable input.
+            chunk[:] = bytes(len(chunk))
+    result.append(decompressor.flush())
+    assert b"".join(result) == data
+    assert decompressor.unconsumed_tail == b""
+    assert decompressor.unused_data == b"unused"
+
+
+@pytest.mark.skipif(not hasattr(sys, "getrefcount"),
+                    reason="Needs reference counting")
+def test_decompressobj_keeps_unconsumed_tail():
+    data = DATA[:1024 * 1024]
+    compressed = zlib.compress(data)
+    decompressor = isal_zlib.decompressobj()
+    result = [decompressor.decompress(compressed, 1)]
+    tail = decompressor.unconsumed_tail
+    assert tail
+    refcount = sys.getrefcount(tail)
+    # Output comes from ISA-L's own buffer, so no input is consumed.
+    for _ in range(100):
+        result.append(decompressor.decompress(tail, 1))
+        assert decompressor.unconsumed_tail is tail
+    assert sys.getrefcount(tail) == refcount
+    result.append(decompressor.flush())
+    assert b"".join(result) == data
+    assert sys.getrefcount(tail) == refcount - 1
+
+
 @pytest.mark.parametrize(["data_size", "level"],
                          list(itertools.product(DATA_SIZES, range(4))))
 def test_igzip_compress(data_size, level):
