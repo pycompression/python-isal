@@ -9,6 +9,9 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``import isal`` by about 0.1 ms in programs that have not imported
+  ``__future__`` yet. The version module that is generated when isal is built
+  now only sets ``__version__``.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
