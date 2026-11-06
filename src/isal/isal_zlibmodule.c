@@ -983,10 +983,23 @@ save_unconsumed_input(decompobject *self, Py_buffer *data, int err)
            1. Output limit was reached. Save leftover input in unconsumed_tail.
            2. All input data was consumed. Clear unconsumed_tail. */
         Py_ssize_t left_size = (uint8_t *)data->buf + data->len - self->zst.next_in;
-        PyObject *new_data = PyBytes_FromStringAndSize(
-                (char *)self->zst.next_in, left_size);
-        if (new_data == NULL)
-            return -1;
+        PyObject *new_data;
+        if (left_size == data->len && data->obj != NULL &&
+                PyBytes_CheckExact(data->obj) &&
+                data->buf == (void *)PyBytes_AS_STRING(data->obj) &&
+                data->len == PyBytes_GET_SIZE(data->obj)) {
+            /* Nothing consumed: keep the input instead of copying it. The
+               buffer must cover all of obj, as an exporter may export only
+               part of a bytes object. */
+            Py_INCREF(data->obj);
+            new_data = data->obj;
+        }
+        else {
+            new_data = PyBytes_FromStringAndSize(
+                    (char *)self->zst.next_in, left_size);
+            if (new_data == NULL)
+                return -1;
+        }
         Py_SETREF(self->unconsumed_tail, new_data);
     }
 
