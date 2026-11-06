@@ -696,7 +696,8 @@ PyInit_igzip_lib(void)
 #endif
 
 
-    IsalError = PyErr_NewException("igzip_lib.IsalError", NULL, NULL);
+    /* The full module name lets pickle find the class. */
+    IsalError = PyErr_NewException("isal.igzip_lib.IsalError", NULL, NULL);
     if (IsalError == NULL) {
         return NULL;
     }
