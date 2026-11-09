@@ -349,6 +349,11 @@ def main():
             if extension != ".gz" and not args.stdout:
                 sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
                          f"Cannot determine output filename.")
+    # Opening the output for writing would empty the input before it is read.
+    if (args.file is not None and out_filepath is not None
+            and os.path.exists(args.file) and os.path.exists(out_filepath)
+            and os.path.samefile(args.file, out_filepath)):
+        sys.exit(f"{args.file!r} and {out_filepath!r} are the same file")
     if out_filepath is not None and not args.force:
         if os.path.exists(out_filepath):
             yes_or_no = input(f"{out_filepath} already exists; "
