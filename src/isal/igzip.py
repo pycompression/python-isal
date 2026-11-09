@@ -31,7 +31,6 @@ import os
 import struct
 import sys
 import time
-from typing import Optional, SupportsInt
 
 from . import igzip_lib, isal_zlib
 from .isal_zlib import _GzipReader
@@ -250,12 +249,12 @@ _IGzipReader = _GzipReader
 
 
 def compress(data, compresslevel: int = _COMPRESS_LEVEL_BEST, *,
-             mtime: Optional[SupportsInt] = None) -> bytes:
+             mtime: int | None = None) -> bytes:
     """Compress data in one shot and return the compressed string.
     Optional argument is the compression level, in range of 0-3.
     """
     if mtime is None:
-        mtime = time.time()
+        mtime = int(time.time())
     # There is no best compression level. ISA-L only provides algorithms for
     # fast and medium levels.
     xfl = 4 if compresslevel == _COMPRESS_LEVEL_FAST else 0
