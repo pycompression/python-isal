@@ -9,6 +9,11 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``isal_zlib.decompress`` and ``igzip_lib.decompress`` for gzip data
+  by starting with an output buffer of the size stored in the gzip trailer, up
+  to 32 MiB, instead of a 16 KiB buffer that doubles as it fills. Peak memory
+  use drops by up to half, and on Linux outputs of 10 to 32 MiB decompress up
+  to 1.5 times faster.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.

@@ -38,6 +38,8 @@ static PyObject *IsalError;
 /* Initial buffer size. */
 #define DEF_BUF_SIZE (16*1024)
 #define DEF_MAX_INITIAL_BUF_SIZE (16 * 1024 * 1024)
+/* Largest gzip ISIZE used to size one-shot output. */
+#define DEF_MAX_ISIZE_HINT (32 * 1024 * 1024)
 #define ISAL_BEST_SPEED ISAL_DEF_MIN_LEVEL
 #define ISAL_BEST_COMPRESSION ISAL_DEF_MAX_LEVEL
 #define ISAL_DEFAULT_COMPRESSION 2
@@ -407,6 +409,22 @@ igzip_lib_decompress_impl(Py_buffer *data, int flag,
         return NULL;
     } else if (bufsize == 0) {
         bufsize = 1;
+    }
+    /* Size the output from ISIZE in the gzip trailer, plus one byte so that a
+       buffer the output fills exactly is not grown. ISIZE can be wrong
+       (trailing data, more members, corruption), so it is capped by
+       deflate's 1032:1 ratio and DEF_MAX_ISIZE_HINT. */
+    if ((flag == ISAL_GZIP || flag == ISAL_GZIP_NO_HDR_VER) &&
+            data->len >= 8) {
+        const uint8_t *trailer = (const uint8_t *)data->buf + data->len - 4;
+        uint32_t isize = (uint32_t)trailer[0] |
+                         ((uint32_t)trailer[1] << 8) |
+                         ((uint32_t)trailer[2] << 16) |
+                         ((uint32_t)trailer[3] << 24);
+        if (isize < DEF_MAX_ISIZE_HINT && (Py_ssize_t)isize >= bufsize &&
+                isize / 1032 <= (size_t)data->len) {
+            bufsize = (Py_ssize_t)isize + 1;
+        }
     }
 
     ibuf = (uint8_t *)data->buf;

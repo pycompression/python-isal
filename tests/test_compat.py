@@ -12,6 +12,7 @@
 import gzip
 import itertools
 import random
+import struct
 import subprocess
 import sys
 import textwrap
@@ -23,6 +24,11 @@ from pathlib import Path
 from isal import igzip, igzip_lib, isal_zlib
 
 import pytest
+
+try:
+    import tracemalloc
+except ImportError:  # PyPy
+    tracemalloc = None  # type: ignore
 
 DATA_DIR = Path(__file__).parent / "data"
 COMPRESSED_FILE = DATA_DIR / "test.fastq.gz"
@@ -137,6 +143,79 @@ def test_decompress_bufsize(module):
     assert module.decompress(compressed, bufsize=0) == data
     with pytest.raises(ValueError, match="bufsize must be non-negative"):
         module.decompress(compressed, bufsize=-1)
+
+
+GZIP_DECOMPRESS = [
+    pytest.param(isal_zlib, {"wbits": 31}, id="isal_zlib-wbits31"),
+    pytest.param(isal_zlib, {"wbits": 47}, id="isal_zlib-wbits47"),
+    pytest.param(igzip_lib, {"flag": igzip_lib.DECOMP_GZIP}, id="igzip_lib"),
+]
+
+
+@pytest.mark.parametrize(["module", "kwargs"], GZIP_DECOMPRESS)
+@pytest.mark.parametrize("data_size", [0, 1, 16 * 1024 - 1, 16 * 1024,
+                                       16 * 1024 + 1, 1024 * 1024])
+def test_decompress_gzip_bufsize(module, kwargs, data_size):
+    data = DATA[:data_size]
+    compressed = gzip.compress(data)
+    assert module.decompress(compressed, **kwargs) == data
+    for bufsize in [0, 1, max(data_size - 1, 0), data_size, data_size + 1,
+                    2 * 1024 * 1024]:
+        assert module.decompress(compressed, **kwargs,
+                                 bufsize=bufsize) == data
+
+
+@pytest.mark.parametrize(["module", "kwargs"], GZIP_DECOMPRESS)
+@pytest.mark.parametrize("trailing_data", [
+    bytes(4), b"\xff\xff\xff\x01", b"\xff\xff\xff\xff",
+    gzip.compress(b"another member"), gzip.compress(bytes(1024 * 1024))],
+    ids=["zeros", "almost-32-MiB", "4-GiB", "small-member", "large-member"])
+def test_decompress_gzip_trailing_data(module, kwargs, trailing_data):
+    data = DATA[:100_000]
+    compressed = gzip.compress(data) + trailing_data
+    assert zlib.decompress(compressed, wbits=31) == data
+    assert module.decompress(compressed, **kwargs) == data
+
+
+@pytest.mark.parametrize(["module", "kwargs"], GZIP_DECOMPRESS)
+@pytest.mark.parametrize("isize", [0, 99_999, 100_001, 2**24, 2**25 - 1,
+                                   2**32 - 1])
+def test_decompress_gzip_wrong_isize(module, kwargs, isize):
+    compressed = gzip.compress(DATA[:100_000])
+    trailer = struct.pack("<I", isize)
+    # Wrong ISIZE, and truncated streams that end in a plausible ISIZE.
+    for corrupt in [compressed[:-4] + trailer, compressed[:-9] + trailer,
+                    compressed[:len(compressed) // 2] + trailer]:
+        with pytest.raises(isal_zlib.error):
+            module.decompress(corrupt, **kwargs)
+
+
+@pytest.mark.skipif(tracemalloc is None, reason="PyPy has no tracemalloc")
+@pytest.mark.parametrize(["module", "kwargs"], GZIP_DECOMPRESS)
+@pytest.mark.parametrize(["data_size", "isize"], [
+    # Deflate cannot expand 1000 bytes to almost 32 MiB.
+    (1000, 2**25 - 1),
+    # Sizes from 32 MiB up are not used.
+    (50_000, 2**25),
+    (50_000, 2**32 - 1),
+])
+def test_decompress_gzip_ignores_implausible_isize(module, kwargs, data_size,
+                                                   isize):
+    # Incompressible, so the input is about as large as the output.
+    data = random.Random(data_size).randbytes(data_size)
+    compressed = gzip.compress(data) + struct.pack("<I", isize)
+    was_tracing = tracemalloc.is_tracing()
+    if not was_tracing:
+        tracemalloc.start()
+    try:
+        tracemalloc.reset_peak()
+        before = tracemalloc.get_traced_memory()[0]
+        assert module.decompress(compressed, **kwargs) == data
+        peak = tracemalloc.get_traced_memory()[1] - before
+    finally:
+        if not was_tracing:
+            tracemalloc.stop()
+    assert peak < 1024 * 1024
 
 
 @pytest.mark.parametrize(["data_size", "level", "wbits", "memLevel"],
