@@ -795,6 +795,19 @@ def test_small_writes_tell_and_flush():
     assert gzip.decompress(output.getvalue()) == b"abcdefgh"
 
 
+def test_repeated_flush_writes_nothing():
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as gzip_file:
+        gzip_file.write(b"abc")
+        gzip_file.flush()
+        size = len(output.getvalue())
+        gzip_file.flush()
+        assert len(output.getvalue()) == size
+        gzip_file.write(b"def")
+        gzip_file.flush()
+    assert gzip.decompress(output.getvalue()) == b"abcdef"
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="bash required")
 def test_no_broken_pipe():
     subprocess.run(

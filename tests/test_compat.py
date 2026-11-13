@@ -174,6 +174,63 @@ def test_compressobj_level_0_flush_after_finish():
     assert zlib.decompress(compressed) == b"data"
 
 
+@pytest.mark.parametrize("level", range(4))
+@pytest.mark.parametrize("wbits", [-15, 15, 31])
+@pytest.mark.parametrize(["first_mode", "second_mode"],
+                         [(isal_zlib.Z_SYNC_FLUSH, isal_zlib.Z_SYNC_FLUSH),
+                          (isal_zlib.Z_FULL_FLUSH, isal_zlib.Z_FULL_FLUSH),
+                          (isal_zlib.Z_FULL_FLUSH, isal_zlib.Z_SYNC_FLUSH)])
+def test_compressobj_repeated_flush(level, wbits, first_mode, second_mode):
+    compressor = isal_zlib.compressobj(level, wbits=wbits)
+    decompressor = zlib.decompressobj(wbits=wbits)
+    compressed = (compressor.compress(DATA[:4096]) +
+                  compressor.flush(first_mode))
+    assert compressed.endswith(b"\x00\x00\xff\xff")
+    assert decompressor.decompress(compressed) == DATA[:4096]
+    assert compressor.flush(second_mode) == b""
+    assert compressor.flush(second_mode) == b""
+    compressed = compressor.compress(DATA[4096:8192]) + compressor.flush()
+    assert decompressor.decompress(compressed) == DATA[4096:8192]
+    assert decompressor.eof
+
+
+@pytest.mark.parametrize("level", range(4))
+@pytest.mark.parametrize("wbits", [-15, 15, 31])
+def test_compressobj_repeated_flush_before_data(level, wbits):
+    compressor = isal_zlib.compressobj(level, wbits=wbits)
+    compressed = compressor.flush(isal_zlib.Z_SYNC_FLUSH)
+    assert compressed.endswith(b"\x00\x00\xff\xff")
+    assert compressor.flush(isal_zlib.Z_SYNC_FLUSH) == b""
+    compressed += compressor.compress(DATA[:4096]) + compressor.flush()
+    assert zlib.decompress(compressed, wbits=wbits) == DATA[:4096]
+
+
+@pytest.mark.parametrize("level", range(4))
+def test_compressobj_full_flush_after_sync_flush(level):
+    compressor = isal_zlib.compressobj(level, wbits=-15)
+    compressor.compress(DATA[:4096])
+    compressor.flush(isal_zlib.Z_SYNC_FLUSH)
+    # A full flush after a sync flush still resets the history.
+    assert compressor.flush(isal_zlib.Z_FULL_FLUSH).endswith(
+        b"\x00\x00\xff\xff")
+    compressed = compressor.compress(DATA[:4096]) + compressor.flush()
+    assert zlib.decompress(compressed, wbits=-15) == DATA[:4096]
+
+
+@pytest.mark.parametrize("level", range(4))
+@pytest.mark.parametrize("flush_mode", [isal_zlib.Z_SYNC_FLUSH,
+                                        isal_zlib.Z_FULL_FLUSH])
+def test_compressobj_flush_after_empty_compress(level, flush_mode):
+    # permessage-deflate (RFC 7692) needs 00 00 ff ff after empty messages.
+    compressor = isal_zlib.compressobj(level, wbits=-15)
+    decompressor = zlib.decompressobj(wbits=-15)
+    for message in [b"hello", b"", b"", DATA[:4096], b""]:
+        compressed = (compressor.compress(message) +
+                      compressor.flush(flush_mode))
+        assert compressed.endswith(b"\x00\x00\xff\xff")
+        assert decompressor.decompress(compressed) == message
+
+
 @pytest.mark.parametrize("flush_mode", [isal_zlib.Z_SYNC_FLUSH,
                                         isal_zlib.Z_FULL_FLUSH])
 @pytest.mark.parametrize(["strategy", "btype"],
