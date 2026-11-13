@@ -9,6 +9,7 @@
  from CPython. Uses pytest which is easier to work with. Meant to complement
  the gzip module compliance tests. It should improve coverage as well."""
 
+import gc
 import gzip
 import io
 import itertools
@@ -134,6 +135,122 @@ def test_igzipfile_read_truncated():
         test.read()
     error.match("Compressed file ended before the end-of-stream marker was "
                 "reached")
+
+
+@pytest.mark.parametrize("compressed", [b"", COMPRESSED_DATA,
+                                        COMPRESSED_DATA * 3],
+                         ids=["empty", "one_member", "three_members"])
+@pytest.mark.parametrize("mode", ["r", "rb", None])
+def test_igzipfile_read_like_gzipfile(tmp_path, mode, compressed):
+    path = tmp_path / "test.gz"
+    path.write_bytes(compressed)
+    with gzip.GzipFile(path, mode) as gzip_file, \
+            igzip.IGzipFile(path, mode) as igzip_file:
+        gzip_attributes = vars(gzip_file)
+        igzip_attributes = vars(igzip_file)
+        assert igzip_attributes.keys() == gzip_attributes.keys()
+        for name, value in gzip_attributes.items():
+            assert type(igzip_attributes[name]) is type(value)
+        assert igzip_file.read() == gzip_file.read()
+        assert igzip_file.mtime == gzip_file.mtime
+    assert igzip_file.closed
+    assert igzip_file.myfileobj is None
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        igzip_file.read()
+
+
+@pytest.mark.parametrize(["mode", "use_fileobj"], [
+    ("r", False), ("rb", False), (None, False), ("r", True), ("rb", True),
+])
+def test_igzipfile_read_creates_no_gzip_reader(monkeypatch, tmp_path, mode,
+                                               use_fileobj):
+    def gzip_reader(*args, **kwargs):
+        raise AssertionError("gzip._GzipReader is replaced by IGzipFile")
+
+    monkeypatch.setattr(gzip, "_GzipReader", gzip_reader)
+    path = tmp_path / "test.gz"
+    path.write_bytes(COMPRESSED_DATA)
+    if use_fileobj:
+        fileobj = io.BytesIO(COMPRESSED_DATA)
+        igzip_file = igzip.IGzipFile(fileobj=fileobj, mode=mode)
+    else:
+        igzip_file = igzip.IGzipFile(path, mode)
+    with igzip_file:
+        assert igzip_file.read() == DATA
+
+
+@pytest.mark.parametrize("path_type", [str, os.fsencode, Path])
+@pytest.mark.parametrize("mode", ["r", "rb", None])
+def test_igzipfile_read_name_from_path(tmp_path, mode, path_type):
+    path = tmp_path / "test.gz"
+    path.write_bytes(COMPRESSED_DATA)
+    filename = path_type(path)
+    with igzip.IGzipFile(filename, mode) as igzip_file:
+        assert igzip_file.name == os.fspath(filename)
+        assert igzip_file.fileobj.name == os.fspath(filename)
+        assert igzip_file.read() == DATA
+
+
+@pytest.mark.parametrize(["filename", "fileobj_name", "name"], [
+    (None, None, ""),
+    (None, "file.gz", "file.gz"),
+    (None, b"file.gz", b"file.gz"),
+    (None, 3, ""),
+    ("other.gz", "file.gz", "other.gz"),
+    (b"other.gz", None, b"other.gz"),
+    (Path("other.gz"), None, "other.gz"),
+])
+def test_igzipfile_read_name_with_fileobj(filename, fileobj_name, name):
+    fileobj = io.BytesIO(COMPRESSED_DATA)
+    if fileobj_name is not None:
+        fileobj.name = fileobj_name
+    with igzip.IGzipFile(filename, "rb", fileobj=fileobj) as igzip_file:
+        assert igzip_file.name == name
+        assert igzip_file.fileobj is fileobj
+        assert igzip_file.read() == DATA
+
+
+@pytest.mark.parametrize("compresslevel", [None, "2", -1, 9])
+@pytest.mark.parametrize("mode", ["r", "rb", None])
+def test_igzipfile_read_ignores_compresslevel(tmp_path, mode, compresslevel):
+    path = tmp_path / "test.gz"
+    path.write_bytes(COMPRESSED_DATA)
+    with igzip.IGzipFile(path, mode, compresslevel) as igzip_file:
+        assert igzip_file.read() == DATA
+
+
+@pytest.mark.parametrize("mode", ["r", "rb", None])
+def test_igzipfile_read_missing_file(monkeypatch, tmp_path, mode):
+    gc.collect()  # Free earlier tests' objects first
+    unraisable = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+    with pytest.raises(FileNotFoundError):
+        igzip.IGzipFile(tmp_path / "missing.gz", mode)
+    gc.collect()
+    assert unraisable == []
+
+
+def test_igzipfile_read_closes_file_when_reader_fails(monkeypatch, tmp_path):
+    fileobjs = []
+
+    def failing_reader(fileobj, buffersize):
+        fileobjs.append(fileobj)
+        raise MemoryError()
+
+    monkeypatch.setattr(igzip, "_GzipReader", failing_reader)
+    path = tmp_path / "test.gz"
+    path.write_bytes(COMPRESSED_DATA)
+    gc.collect()  # Free earlier tests' objects first
+    unraisable = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+    with pytest.raises(MemoryError) as error:
+        igzip.IGzipFile(path, "rb")
+    # Closed now, not when the IGzipFile is collected.
+    assert len(fileobjs) == 1
+    assert fileobjs[0].closed
+    del error
+    gc.collect()
+    assert unraisable == []
 
 
 LINES_DATA = [

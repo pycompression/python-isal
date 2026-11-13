@@ -9,6 +9,14 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up opening an ``IGzipFile`` for reading with mode ``"r"`` or ``"rb"``,
+  which ``igzip.open`` uses by default, or by file name without a mode. It no
+  longer creates a ``zlib`` based reader first and throws it away. On Linux,
+  opening a small gzip stream in an ``io.BytesIO``, reading from it and
+  closing it takes 20-50% less time, and reading a line from a small file
+  opened by name 5-15% less. In these cases ``compresslevel`` is now
+  ignored, as in ``gzip.GzipFile``, so an invalid level no longer raises
+  ``TypeError``.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.
