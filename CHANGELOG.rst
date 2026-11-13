@@ -9,6 +9,12 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``decompress()`` of ``isal_zlib.decompressobj`` objects with a small
+  ``max_length``. When ISA-L gave the output from its own buffer without
+  reading any input, the whole input was still copied to ``unconsumed_tail``.
+  On Linux, decompressing 4 MiB of text 1 KiB at a time, passing
+  ``unconsumed_tail`` back in, is 5 times faster, and 8 KiB at a time is 1.5
+  times faster.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.
