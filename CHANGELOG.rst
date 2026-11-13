@@ -9,6 +9,9 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``import isal`` by about 0.1 ms in programs that have not imported
+  ``__future__`` yet. The version module that is generated when isal is built
+  now only sets ``__version__``.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.
