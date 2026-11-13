@@ -9,6 +9,7 @@
  from CPython. Uses pytest which is easier to work with. Meant to complement
  the gzip module compliance tests. It should improve coverage as well."""
 
+import gc
 import gzip
 import io
 import itertools
@@ -58,6 +59,140 @@ def test_igzipfile_compressobj_parameters(monkeypatch, level):
         assert isinstance(f.compress, isal_zlib.Compress)
     assert calls == [((level, isal_zlib.DEFLATED, -isal_zlib.MAX_WBITS,
                        isal_zlib.DEF_MEM_LEVEL, 0), {})]
+
+
+@pytest.mark.parametrize("mode", ["w", "a", "x"])
+def test_igzipfile_writer_skips_zlib_compressor(monkeypatch, tmp_path, mode):
+    calls = []
+    monkeypatch.setattr(zlib, "compressobj",
+                        lambda *args, **kwargs: calls.append(args))
+    with igzip.IGzipFile(tmp_path / "test.gz", mode) as gzip_file:
+        gzip_file.write(DATA)
+    assert calls == []
+    assert gzip.decompress((tmp_path / "test.gz").read_bytes()) == DATA
+
+
+def test_igzipfile_writer_has_the_attributes_of_gzipfile():
+    # Catches attributes that new Python versions add to GzipFile.__init__.
+    with gzip.GzipFile(fileobj=io.BytesIO(), mode="wb") as gzip_file:
+        expected = {name: type(value)
+                    for name, value in vars(gzip_file).items()}
+    with igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb") as igzip_file:
+        found = {name: type(value)
+                 for name, value in vars(igzip_file).items()}
+    assert found["compress"] is isal_zlib.Compress
+    del expected["compress"]
+    assert {name: found.get(name) for name in expected} == expected
+
+
+@pytest.mark.parametrize("mode", ["w", "wb", "a", "ab", "x", "xb"])
+@pytest.mark.parametrize("to_filename", [str, os.fsencode, Path])
+def test_igzipfile_write_to_filename(tmp_path, mode, to_filename):
+    filename = to_filename(tmp_path / "test.gz")
+    with igzip.IGzipFile(filename, mode, mtime=0) as gzip_file:
+        assert gzip_file.mode == igzip.WRITE
+        assert gzip_file.name == os.fspath(filename)
+        gzip_file.write(DATA)
+    compressed = (tmp_path / "test.gz").read_bytes()
+    assert compressed[3] == FNAME
+    assert compressed[10:15] == b"test\x00"
+    assert gzip.decompress(compressed) == DATA
+
+
+@pytest.mark.parametrize(["filename", "fileobj_name", "name", "header_name"], [
+    (None, "test.gz", "test.gz", b"test"),
+    (None, b"test.gz", b"test.gz", b"test"),
+    (None, 3, "", b""),
+    ("other.gz", "test.gz", "other.gz", b"other"),
+])
+def test_igzipfile_write_to_fileobj(filename, fileobj_name, name,
+                                    header_name):
+    fileobj = io.BytesIO()
+    fileobj.name = fileobj_name
+    with igzip.IGzipFile(filename, "wb", fileobj=fileobj,
+                         mtime=0) as gzip_file:
+        assert gzip_file.name == name
+        gzip_file.write(DATA)
+    assert not fileobj.closed
+    compressed = fileobj.getvalue()
+    if header_name:
+        assert compressed[3] == FNAME
+        assert compressed[10:].startswith(header_name + b"\x00")
+    else:
+        assert compressed[3] == 0
+    assert gzip.decompress(compressed) == DATA
+
+
+def test_igzipfile_append(tmp_path):
+    path = tmp_path / "test.gz"
+    for _ in range(2):
+        with igzip.IGzipFile(path, "ab") as gzip_file:
+            gzip_file.write(DATA)
+    assert gzip.decompress(path.read_bytes()) == DATA * 2
+
+
+def test_igzipfile_write_mode_from_fileobj(tmp_path):
+    with open(tmp_path / "test.gz", "wb") as fileobj:
+        with pytest.warns(FutureWarning):
+            gzip_file = igzip.IGzipFile(fileobj=fileobj)
+        with gzip_file:
+            assert gzip_file.mode == igzip.WRITE
+            assert isinstance(gzip_file.compress, isal_zlib.Compress)
+            gzip_file.write(DATA)
+    assert gzip.decompress((tmp_path / "test.gz").read_bytes()) == DATA
+
+
+@pytest.mark.parametrize(["filename", "mode", "error"], [
+    (None, "wb", TypeError),
+    ("missing/test.gz", "wb", FileNotFoundError),
+    ("missing/test.gz", "ab", FileNotFoundError),
+    ("exists.gz", "xb", FileExistsError),
+])
+def test_igzipfile_write_open_error(monkeypatch, tmp_path, filename, mode,
+                                    error):
+    (tmp_path / "exists.gz").write_bytes(b"data")
+    if filename is not None:
+        filename = tmp_path / filename
+    # Keep earlier tests' unraisable errors out of the hook.
+    gc.collect()
+    unraisable = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+    with pytest.raises(error):
+        igzip.IGzipFile(filename, mode)
+    gc.collect()
+    assert unraisable == []
+    assert (tmp_path / "exists.gz").read_bytes() == b"data"
+
+
+def test_igzipfile_mode_not_str(monkeypatch):
+    gc.collect()
+    unraisable = []
+    monkeypatch.setattr(sys, "unraisablehook", unraisable.append)
+    with pytest.raises(TypeError):
+        igzip.IGzipFile(fileobj=io.BytesIO(), mode=b"wb")
+    gc.collect()
+    assert unraisable == []
+
+
+@pytest.mark.parametrize("mode", ["wb", "ab", "xb"])
+def test_igzipfile_header_error_closes_opened_file(monkeypatch, tmp_path,
+                                                   mode):
+    fileobjs = []
+
+    def failing_write_gzip_header(self, compresslevel):
+        fileobjs.append(self.fileobj)
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(igzip.IGzipFile, "_write_gzip_header",
+                        failing_write_gzip_header)
+    with pytest.raises(OSError, match="No space left on device"):
+        igzip.IGzipFile(tmp_path / "test.gz", mode)
+    fileobj = io.BytesIO()
+    with pytest.raises(OSError, match="No space left on device"):
+        igzip.IGzipFile(fileobj=fileobj, mode=mode)
+    assert fileobjs[0].closed
+    assert fileobjs[1] is fileobj
+    assert not fileobj.closed
 
 
 def test_write_readonly_file():

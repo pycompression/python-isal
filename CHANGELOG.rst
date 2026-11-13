@@ -9,6 +9,13 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up opening ``IGzipFile`` and ``igzip.open`` for writing. They no
+  longer create a 256 KiB zlib compressor only to replace it with an ISA-L
+  one. On Linux, glibc could return the compressor's memory to the system after
+  each file and page-fault it in again for the next one, so writing many small
+  gzip streams to ``io.BytesIO`` can be up to 5 times faster. On Python 3.11,
+  ``IGzipFile`` now closes a file that it opened when writing the gzip header
+  fails, as ``gzip.GzipFile`` does on newer Python versions.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.

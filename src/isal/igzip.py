@@ -156,7 +156,13 @@ class IGzipFile(gzip.GzipFile):
                 f"{isal_zlib.ISAL_BEST_SPEED} and "
                 f"{isal_zlib.ISAL_BEST_COMPRESSION}, got {compresslevel}."
             )
+        # GzipFile.__init__ would create a zlib compressor only to discard it.
+        if (isinstance(mode, str) and mode.startswith(("w", "a", "x"))
+                and "t" not in mode and "U" not in mode):
+            self._init_writer(filename, mode, compresslevel, fileobj, mtime)
+            return
         super().__init__(filename, mode, compresslevel, fileobj, mtime)
+        # A write mode can also come from fileobj.
         if self.mode == WRITE:
             self.compress = isal_zlib.compressobj(compresslevel,
                                                   isal_zlib.DEFLATED,
@@ -166,6 +172,46 @@ class IGzipFile(gzip.GzipFile):
         if self.mode == READ:
             raw = _GzipReader(self.fileobj, READ_BUFFER_SIZE)
             self._buffer = io.BufferedReader(raw)
+
+    def _init_writer(self, filename, mode, compresslevel, fileobj, mtime):
+        # GzipFile.__init__'s write branch from Python 3.14, with isal_zlib.
+        # __del__ and close() need these even if opening fails.
+        self.mode = None
+        self.fileobj = None
+        self._buffer = None
+        if "b" not in mode:
+            mode += "b"
+        try:
+            if fileobj is None:
+                fileobj = self.myfileobj = builtins.open(filename, mode)
+            if filename is None:
+                filename = getattr(fileobj, "name", "")
+                if not isinstance(filename, (str, bytes)):
+                    filename = ""
+            else:
+                filename = os.fspath(filename)
+            self.mode = WRITE
+            self._init_write(filename)
+            self.compress = isal_zlib.compressobj(compresslevel,
+                                                  isal_zlib.DEFLATED,
+                                                  -isal_zlib.MAX_WBITS,
+                                                  isal_zlib.DEF_MEM_LEVEL,
+                                                  0)
+            self._write_mtime = mtime
+            if _GZIP_BUFFERS_WRITES:
+                self._buffer_size = gzip._WRITE_BUFFER_SIZE
+                self._buffer = io.BufferedWriter(
+                    gzip._WriteBufferStream(self),
+                    buffer_size=self._buffer_size)
+            self.fileobj = fileobj
+            self._write_gzip_header(compresslevel)
+        except BaseException:
+            self.fileobj = None
+            myfileobj = self.myfileobj
+            if myfileobj is not None:
+                self.myfileobj = None
+                myfileobj.close()
+            raise
 
     def readline(self, size=-1):
         """Read a line of decompressed data, or at most size bytes of it."""
