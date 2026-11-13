@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``writelines()`` on binary ``igzip`` files on Python 3.12 and
+  later. The lines now go straight to the write buffer instead of through
+  ``write()`` one at a time. On Linux, writing 100,000 lines of about 36 bytes
+  is 1.5 times faster, and writing 100-byte records is 1.3 times faster.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.

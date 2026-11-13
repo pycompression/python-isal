@@ -795,6 +795,129 @@ def test_small_writes_tell_and_flush():
     assert gzip.decompress(output.getvalue()) == b"abcdefgh"
 
 
+WRITELINES_DATA = [
+    [],
+    [b"no newline"],
+    [b"line %d\n" % i for i in range(10_000)],
+    [b"a", bytearray(b"b"), memoryview(b"cd"), memoryview(b"efgh").cast("I")],
+    [b"x" * 200_000 + b"\n", b"y" * 10],
+]
+
+
+@pytest.mark.parametrize("as_iterator", [False, True])
+@pytest.mark.parametrize("lines", WRITELINES_DATA,
+                         ids=["empty", "no_newline", "many_lines",
+                              "bytes_like", "long_line"])
+def test_igzipfile_writelines_like_write(lines, as_iterator):
+    expected = io.BytesIO()
+    with igzip.IGzipFile(fileobj=expected, mode="wb", mtime=0) as igzip_file:
+        igzip_file.write(b"first\n")
+        for line in lines:
+            igzip_file.write(line)
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb", mtime=0) as igzip_file:
+        igzip_file.write(b"first\n")
+        assert igzip_file.writelines(
+            iter(lines) if as_iterator else lines) is None
+        assert igzip_file.tell() == len(b"first\n" + b"".join(lines))
+    assert output.getvalue() == expected.getvalue()
+    assert gzip.decompress(output.getvalue()) == b"first\n" + b"".join(lines)
+
+
+@pytest.mark.skipif(not igzip._GZIP_BUFFERS_WRITES,
+                    reason="GzipFile buffers writes from Python 3.12 onwards")
+def test_igzipfile_writelines_passes_lines_to_buffer():
+    calls = []
+
+    class RecordingBuffer:
+        def __init__(self, buffer):
+            self.buffer = buffer
+
+        def __getattr__(self, name):
+            return getattr(self.buffer, name)
+
+        def writelines(self, lines):
+            calls.append(lines)
+            return self.buffer.writelines(lines)
+
+    lines = [b"line %d\n" % i for i in range(1000)]
+    output = io.BytesIO()
+    igzip_file = igzip.IGzipFile(fileobj=output, mode="wb")
+    igzip_file._buffer = RecordingBuffer(igzip_file._buffer)
+    igzip_file.writelines(lines)
+    igzip_file.close()
+    assert calls == [lines]
+    assert gzip.decompress(output.getvalue()) == b"".join(lines)
+
+
+@pytest.mark.parametrize("lines", [
+    [b"a\n", "b\n", b"c\n"],
+    [b"a\n", 5, b"c\n"],
+    b"abc",
+    5,
+], ids=["str_line", "int_line", "bytes", "not_iterable"])
+def test_igzipfile_writelines_type_errors_like_gzipfile(lines):
+    results = []
+    for cls in (gzip.GzipFile, igzip.IGzipFile):
+        output = io.BytesIO()
+        with cls(fileobj=output, mode="wb") as gzip_file:
+            with pytest.raises(TypeError) as error:
+                gzip_file.writelines(lines)
+        results.append((str(error.value), gzip.decompress(output.getvalue())))
+    assert results[0] == results[1]
+
+
+def test_igzipfile_writelines_keeps_lines_before_error():
+    def lines():
+        yield b"a\n"
+        yield b"b\n"
+        raise KeyError("lines")
+
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as igzip_file:
+        with pytest.raises(KeyError, match="lines"):
+            igzip_file.writelines(lines())
+        igzip_file.write(b"c\n")
+    assert gzip.decompress(output.getvalue()) == b"a\nb\nc\n"
+
+
+@pytest.mark.parametrize("lines", [[], [b"a\n"]])
+def test_igzipfile_writelines_closed_file(lines):
+    igzip_file = igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb")
+    igzip_file.close()
+    with pytest.raises(ValueError, match="I/O operation on closed file"):
+        igzip_file.writelines(lines)
+
+
+def test_igzipfile_writelines_read_only_file():
+    with igzip.IGzipFile(TEST_FILE, "rb") as igzip_file:
+        with pytest.raises(OSError) as error:
+            igzip_file.writelines([b"a\n"])
+    error.match(r"write\(\) on read-only IGzipFile object")
+
+
+def test_igzipfile_writelines_uses_replaced_write(monkeypatch):
+    written = []
+
+    class WriteSubclass(igzip.IGzipFile):
+        def write(self, data):
+            written.append(data)
+            return super().write(data)
+
+    output = io.BytesIO()
+    with WriteSubclass(fileobj=output, mode="wb") as igzip_file:
+        igzip_file.writelines([b"a", b"b"])
+    assert gzip.decompress(output.getvalue()) == b"ab"
+    with igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb") as igzip_file:
+        igzip_file.write = written.append
+        igzip_file.writelines([b"c", b"d"])
+    monkeypatch.setattr(igzip.IGzipFile, "write",
+                        lambda self, data: written.append(data))
+    with igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb") as igzip_file:
+        igzip_file.writelines([b"e", b"f"])
+    assert written == [b"a", b"b", b"c", b"d", b"e", b"f"]
+
+
 @pytest.mark.skipif(sys.platform != "linux", reason="bash required")
 def test_no_broken_pipe():
     subprocess.run(
