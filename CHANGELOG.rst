@@ -13,6 +13,11 @@ version 1.10.0-dev
   wait for their next block no longer keep their last blocks in memory. When
   data is written slower than the threads compress it, writing with 8 threads
   and the default 1 MiB blocks uses about 7 MiB less memory at its peak.
++ Fix ``python -m isal.igzip`` replacing the input file with empty output and
+  exiting with status 0 when the output file is the input file, as in
+  ``-f -o data data``. It exits with an error now.
++ Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by not
+  importing ``typing``.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
