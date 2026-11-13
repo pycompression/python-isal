@@ -16,6 +16,11 @@ version 1.10.0-dev
   gzip streams to ``io.BytesIO`` can be up to 5 times faster. On Python 3.11,
   ``IGzipFile`` now closes a file that it opened when writing the gzip header
   fails, as ``gzip.GzipFile`` does on newer Python versions.
++ Fix ``python -m isal.igzip`` replacing the input file with empty output and
+  exiting with status 0 when the output file is the input file, as in
+  ``-f -o data data``. It exits with an error now.
++ Speed up ``import isal.igzip`` and ``import isal.igzip_threaded`` by not
+  importing ``typing``.
 + Fix the gzip header that ``igzip_threaded.open`` writes when ``threads`` is
   not 0. It had the XFL and OS bytes swapped, so the ``file`` command reported
   the output as coming from VM/CMS or a FAT file system.
