@@ -9,6 +9,11 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Reduce the memory use of ``igzip_threaded.open`` readers. They now read the
+  compressed input in pieces of 2 times ``block_size`` instead of 8 times,
+  which saves up to 6 MiB per open file with the default ``block_size`` of
+  1 MiB. When reading from a pipe, the first data is now returned once 2 MiB
+  of compressed data has arrived, instead of 8 MiB.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.
