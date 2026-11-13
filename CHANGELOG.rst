@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Lower the memory use of ``igzip_threaded`` writers on CPython. Threads that
+  wait for their next block no longer keep their last blocks in memory. When
+  data is written slower than the threads compress it, writing with 8 threads
+  and the default 1 MiB blocks uses about 7 MiB less memory at its peak.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.
