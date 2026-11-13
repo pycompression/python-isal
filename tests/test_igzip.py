@@ -472,6 +472,29 @@ def test_compress_infile_out_file_force(monkeypatch, tmp_path, capsysbinary):
     assert out == b''
 
 
+@pytest.mark.parametrize("args", [
+    ['-f', '-o', 'test', 'test'],
+    ['-f', '-o', os.path.join('.', 'test'), 'test'],
+    ['-o', 'test', 'test'],  # Refused before the overwrite prompt.
+    ['-d', '-f', '-o', 'test.gz', 'test.gz'],
+])
+def test_infile_out_file_same_file(monkeypatch, tmp_path, capsysbinary, args):
+    monkeypatch.chdir(tmp_path)
+    test = tmp_path / "test"
+    test.write_bytes(DATA)
+    test_gz = tmp_path / "test.gz"
+    test_gz.write_bytes(COMPRESSED_DATA)
+    monkeypatch.setattr(sys, "argv", ['', *args])
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(b"y")))
+    with pytest.raises(SystemExit) as error:
+        igzip.main()
+    assert error.match("are the same file")
+    assert test.read_bytes() == DATA
+    assert test_gz.read_bytes() == COMPRESSED_DATA
+    out, err = capsysbinary.readouterr()
+    assert out == b''
+
+
 def test_compress_infile_out_file_prompt(monkeypatch, tmp_path, capsysbinary):
     test = tmp_path / "test"
     test.write_bytes(DATA)
@@ -536,7 +559,7 @@ def test_compress_infile_out_file_no_name(monkeypatch, tmp_path, capsysbinary):
     assert output[4:8] == b"\x00\x00\x00\x00"  # No timestamp set.
 
 
-def test_import_does_not_load_cli_modules():
+def test_import_does_not_load_slow_modules():
     # Each of these modules takes milliseconds to import
     code = ("import sys; before = set(sys.modules); "
             "import isal.igzip, isal.igzip_threaded; "
@@ -545,7 +568,8 @@ def test_import_does_not_load_cli_modules():
                             capture_output=True, text=True)
     new_modules = set(result.stdout.split())
     assert "isal.igzip_threaded" in new_modules
-    assert not new_modules & {"argparse", "shutil", "multiprocessing"}
+    assert not new_modules & {"argparse", "shutil", "multiprocessing",
+                              "typing"}
 
 
 def test_decompress():
