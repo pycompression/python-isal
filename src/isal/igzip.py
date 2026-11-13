@@ -31,7 +31,6 @@ import os
 import struct
 import sys
 import time
-from typing import Optional, SupportsInt
 
 from . import igzip_lib, isal_zlib
 from .isal_zlib import _GzipReader
@@ -263,12 +262,12 @@ _IGzipReader = _GzipReader
 
 
 def compress(data, compresslevel: int = _COMPRESS_LEVEL_BEST, *,
-             mtime: Optional[SupportsInt] = None) -> bytes:
+             mtime: int | None = None) -> bytes:
     """Compress data in one shot and return the compressed string.
     Optional argument is the compression level, in range of 0-3.
     """
     if mtime is None:
-        mtime = time.time()
+        mtime = int(time.time())
     # There is no best compression level. ISA-L only provides algorithms for
     # fast and medium levels.
     xfl = 4 if compresslevel == _COMPRESS_LEVEL_FAST else 0
@@ -363,6 +362,11 @@ def main():
             if extension != ".gz" and not args.stdout:
                 sys.exit(f"filename doesn't end in .gz: {args.file!r}. "
                          f"Cannot determine output filename.")
+    # Opening the output for writing would empty the input before it is read.
+    if (args.file is not None and out_filepath is not None
+            and os.path.exists(args.file) and os.path.exists(out_filepath)
+            and os.path.samefile(args.file, out_filepath)):
+        sys.exit(f"{args.file!r} and {out_filepath!r} are the same file")
     if out_filepath is not None and not args.force:
         if os.path.exists(out_filepath):
             yes_or_no = input(f"{out_filepath} already exists; "
