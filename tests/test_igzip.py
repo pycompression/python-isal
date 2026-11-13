@@ -91,6 +91,38 @@ def test_igzip_reader_readall():
     assert test.read(-1) == DATA
 
 
+# Buffer size 1024: chunks of 4096 bytes, results up to 128 bytes copied.
+@pytest.mark.parametrize("size", [0, 1, 127, 128, 129, 4095, 4096, 4097,
+                                  3 * 4096 + 1])
+@pytest.mark.parametrize("members", [1, 2])
+def test_igzip_reader_readall_sizes(size, members):
+    data = os.urandom(size)
+    compressed = gzip.compress(data) * members
+    test = igzip._IGzipReader(io.BytesIO(compressed), 1024)
+    result = test.readall()
+    assert type(result) is bytes
+    assert result == data * members
+    assert test.tell() == size * members
+    assert test.readall() == b""
+
+
+@pytest.mark.parametrize("size", [100, 4096])
+def test_igzip_reader_readall_after_read(size):
+    data = os.urandom(size)
+    test = igzip._IGzipReader(io.BytesIO(gzip.compress(data)), 1024)
+    assert test.read(10) == data[:10]
+    assert test.readall() == data[10:]
+    assert test.tell() == size
+
+
+# IGzipFile.read() copies results up to 64 KiB out of its 2 MiB chunk.
+@pytest.mark.parametrize("size", [64 * 1024 - 1, 64 * 1024, 64 * 1024 + 1])
+def test_igzipfile_read_all_sizes(size):
+    data = os.urandom(size)
+    with igzip.IGzipFile(fileobj=io.BytesIO(gzip.compress(data))) as test:
+        assert test.read() == data
+
+
 def test_igzip_reader_read_zero():
     data = io.BytesIO(COMPRESSED_DATA)
     test = igzip._IGzipReader(data)

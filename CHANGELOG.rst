@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``read()`` without a size on ``igzip.open`` and ``IGzipFile`` files
+  that decompress to at most 64 KiB, on Linux with glibc. Reading many 3 KiB
+  gzip files by path is nearly 2 times faster. The gain applies in processes
+  that have not yet freed a memory block of 2 MiB or more.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.
