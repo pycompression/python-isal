@@ -9,6 +9,12 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Lower the memory use of large writes to ``igzip.open`` and ``IGzipFile``
+  files. Writes larger than 4 MiB are now compressed in 4 MiB pieces, so the
+  compressed data of the whole write is no longer held in memory at once.
+  Writing 100 MiB in one call took 29 MiB of extra memory for text and
+  100 MiB for data that does not compress, and now takes less than 8 MiB.
+  The compressed bytes of such writes can differ slightly.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.

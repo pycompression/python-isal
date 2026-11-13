@@ -9,10 +9,12 @@
  from CPython. Uses pytest which is easier to work with. Meant to complement
  the gzip module compliance tests. It should improve coverage as well."""
 
+import array
 import gzip
 import io
 import itertools
 import os
+import random
 import re
 import struct
 import subprocess
@@ -26,6 +28,11 @@ from pathlib import Path
 from isal import igzip, isal_zlib
 
 import pytest
+
+try:
+    import tracemalloc
+except ImportError:  # PyPy
+    tracemalloc = None  # type: ignore
 
 DATA = b'This is a simple test with igzip'
 COMPRESSED_DATA = gzip.compress(DATA)
@@ -793,6 +800,103 @@ def test_small_writes_tell_and_flush():
         assert decompressor.decompress(output.getvalue()) == b"abcdef"
         gzip_file.write(b"gh")
     assert gzip.decompress(output.getvalue()) == b"abcdefgh"
+
+
+def large_write_data(size):
+    # Half incompressible, half compressible.
+    rng = random.Random(size)
+    half = size // 2
+    repeated = rng.randbytes(1000) * (size // 1000 + 1)
+    return rng.randbytes(half) + repeated[:size - half]
+
+
+@pytest.mark.parametrize("size", [
+    igzip._WRITE_CHUNK_SIZE - 1,
+    igzip._WRITE_CHUNK_SIZE,
+    igzip._WRITE_CHUNK_SIZE + 1,
+    3 * igzip._WRITE_CHUNK_SIZE,
+    3 * igzip._WRITE_CHUNK_SIZE + 12345,
+])
+def test_large_write(size):
+    data = large_write_data(size)
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as gzip_file:
+        assert gzip_file.write(b"head") == 4
+        assert gzip_file.write(data) == size
+        assert gzip_file.write(b"tail") == 4
+        assert gzip_file.tell() == size + 8
+    assert gzip.decompress(output.getvalue()) == b"head" + data + b"tail"
+
+
+@pytest.mark.parametrize("make_buffer", [
+    bytearray,
+    lambda data: memoryview(b"x" + data)[1:],
+    lambda data: array.array("I", data),
+    lambda data: memoryview(data).cast("B", (len(data) // 1024, 1024)),
+], ids=["bytearray", "memoryview", "array", "2d-memoryview"])
+def test_large_write_buffer_types(make_buffer):
+    data = large_write_data(2 * igzip._WRITE_CHUNK_SIZE + 1024)
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as gzip_file:
+        assert gzip_file.write(make_buffer(data)) == len(data)
+        assert gzip_file.tell() == len(data)
+    assert gzip.decompress(output.getvalue()) == data
+
+
+def test_large_write_releases_bytearray():
+    data = bytearray(large_write_data(igzip._WRITE_CHUNK_SIZE + 1))
+    with igzip.IGzipFile(fileobj=io.BytesIO(), mode="wb") as gzip_file:
+        gzip_file.write(data)
+        # Raises BufferError if a view of the bytearray still exists
+        data.clear()
+
+
+def test_large_write_error_releases_bytearray():
+    class SmallWritesOnly(io.BytesIO):
+        def write(self, data):
+            if len(data) > 1024 * 1024:
+                raise OSError("write too large")
+            return super().write(data)
+
+    # Incompressible, so the first piece is too large to write.
+    data = bytearray(random.Random(0).randbytes(igzip._WRITE_CHUNK_SIZE + 1))
+    with igzip.IGzipFile(fileobj=SmallWritesOnly(), mode="wb") as gzip_file:
+        with pytest.raises(OSError) as error:
+            gzip_file.write(data)
+        # The traceback in error must not keep a view of the bytearray
+        data.clear()
+    error.match("write too large")
+
+
+@pytest.mark.parametrize("size", [100, igzip._WRITE_CHUNK_SIZE + 1])
+def test_write_not_contiguous(size):
+    output = io.BytesIO()
+    with igzip.IGzipFile(fileobj=output, mode="wb") as gzip_file:
+        with pytest.raises(BufferError):
+            gzip_file.write(memoryview(bytes(2 * size))[::2])
+        gzip_file.write(b"abc")
+    assert gzip.decompress(output.getvalue()) == b"abc"
+
+
+@pytest.mark.skipif(tracemalloc is None, reason="PyPy has no tracemalloc")
+def test_large_write_compresses_in_pieces(tmp_path):
+    # Incompressible, so one compress() call would need 24 MiB.
+    data = random.Random(0).randbytes(6 * igzip._WRITE_CHUNK_SIZE)
+    was_tracing = tracemalloc.is_tracing()
+    if not was_tracing:
+        tracemalloc.start()
+    try:
+        with igzip.open(tmp_path / "test.gz", "wb") as gzip_file:
+            tracemalloc.reset_peak()
+            before = tracemalloc.get_traced_memory()[0]
+            gzip_file.write(data)
+            peak = tracemalloc.get_traced_memory()[1] - before
+    finally:
+        if not was_tracing:
+            tracemalloc.stop()
+    assert peak < 3 * igzip._WRITE_CHUNK_SIZE
+    with igzip.open(tmp_path / "test.gz", "rb") as gzip_file:
+        assert gzip_file.read() == data
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="bash required")
