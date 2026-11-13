@@ -60,6 +60,19 @@ def test_threaded_write(tmp_path, mode, threads, block_size):
     assert test_data == out_data
 
 
+@pytest.mark.parametrize(["level", "threads"],
+                         list(itertools.product([0, 1, 2, 3], [1, 2])))
+def test_threaded_write_header_xfl_os(level, threads):
+    buffer = io.BytesIO()
+    with igzip_threaded.open(buffer, "wb", compresslevel=level,
+                             threads=threads) as f:
+        f.write(b"thisisatest")
+    # RFC 1952 puts XFL before OS. IGzipFile writes the same two bytes:
+    # XFL 4 (fastest) at level 0, else 0, and OS 255 (unknown).
+    xfl = 4 if level == 0 else 0
+    assert buffer.getvalue()[8:10] == bytes([xfl, 255])
+
+
 def test_threaded_open_no_threads():
     with tempfile.TemporaryFile("rb") as tmp:
         klass = igzip_threaded.open(tmp, "rb", threads=0)

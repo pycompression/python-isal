@@ -11,7 +11,6 @@ import os
 import queue
 import struct
 import threading
-from typing import List, Optional, Tuple
 
 from . import igzip, isal_zlib
 
@@ -244,7 +243,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         self.lock = threading.Lock()
         self._main_thread = threading.main_thread()
         self._calling_thread = threading.current_thread()
-        self.exception: Optional[Exception] = None
+        self.exception: Exception | None = None
         self.level = level
         self.previous_block = b""
         # Deflating random data results in an output a little larger than the
@@ -259,17 +258,17 @@ class _ThreadedGzipWriter(io.RawIOBase):
         else:
             compress_buffer_size = block_size + max(block_size // 10, 500)
         self.block_size = block_size
-        self.compressors: List[isal_zlib._ParallelCompress] = [
+        self.compressors: list[isal_zlib._ParallelCompress] = [
             isal_zlib._ParallelCompress(buffersize=compress_buffer_size,
                                         level=level) for _ in range(threads)
         ]
         if threads > 1:
             # None is the sentinel from stop()
-            self.input_queues: List[
-                queue.Queue[Optional[Tuple[bytes, memoryview]]]] = [
+            self.input_queues: list[
+                queue.Queue[tuple[bytes, memoryview] | None]] = [
                 queue.Queue(queue_size) for _ in range(threads)]
-            self.output_queues: List[
-                queue.Queue[Optional[Tuple[bytes, int, int]]]] = [
+            self.output_queues: list[
+                queue.Queue[tuple[bytes, int, int] | None]] = [
                 queue.Queue(queue_size) for _ in range(threads)]
             self.output_worker = threading.Thread(target=self._write)
             self.compression_workers = [
@@ -312,7 +311,7 @@ class _ThreadedGzipWriter(io.RawIOBase):
         os = 0xff
         xfl = 4 if self.level == 0 else 0
         self.raw.write(struct.pack(
-            "BBBBIBB", magic1, magic2, method, flags, mtime, os, xfl))
+            "BBBBIBB", magic1, magic2, method, flags, mtime, xfl, os))
 
     def start(self):
         self.running = True
