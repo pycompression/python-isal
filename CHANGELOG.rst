@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Fix ``igzip_threaded`` files that stopped working when the thread that
+  opened them ended, for example a ``ThreadPoolExecutor`` thread after
+  ``shutdown()``. Reads returned truncated data without an error, and writes
+  waited forever.
 + Reduce the memory use of ``igzip_threaded.open`` readers. They now read the
   compressed input in pieces of 2 times ``block_size`` instead of 8 times,
   which saves up to 6 MiB per open file with the default ``block_size`` of
