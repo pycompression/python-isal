@@ -9,6 +9,11 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Reduce the memory use of ``igzip_threaded.open`` readers. They now read the
+  compressed input in pieces of 2 times ``block_size`` instead of 8 times,
+  which saves up to 6 MiB per open file with the default ``block_size`` of
+  1 MiB. When reading from a pipe, the first data is now returned once 2 MiB
+  of compressed data has arrived, instead of 8 MiB.
 + Lower the memory use of ``igzip_threaded`` writers on CPython. Threads that
   wait for their next block no longer keep their last blocks in memory. When
   data is written slower than the threads compress it, writing with 8 threads
