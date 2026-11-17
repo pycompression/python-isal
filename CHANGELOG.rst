@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Lower the memory use of ``igzip_threaded`` writers on CPython. Threads that
+  wait for their next block no longer keep their last blocks in memory. When
+  data is written slower than the threads compress it, writing with 8 threads
+  and the default 1 MiB blocks uses about 7 MiB less memory at its peak.
 + Fix ``tell()`` and forward ``seek()`` on ``igzip.IGzipFile`` objects that
   read from an unseekable file object, such as a pipe or a socket. Versions
   1.4.0 to 1.9.1 raised ``io.UnsupportedOperation`` for these calls.

@@ -6,6 +6,7 @@
 # PYTHON SOFTWARE FOUNDATION LICENSE VERSION 2.
 
 import errno
+import gc
 import gzip
 import io
 import itertools
@@ -17,6 +18,7 @@ import tempfile
 import threading
 import time
 import types
+import weakref
 import zlib
 from pathlib import Path
 
@@ -538,3 +540,39 @@ def test_threaded_compression_error(monkeypatch, threads):
     # raw holds only the gzip header. The writer thread dropped all blocks,
     # and close() did not end the stream.
     assert len(raw.getvalue()) == 10
+
+
+@pytest.mark.skipif(not hasattr(sys, "getrefcount"),
+                    reason="Needs reference counting")
+@pytest.mark.parametrize("threads", [1, 3])
+def test_threaded_writer_drops_blocks(monkeypatch, threads):
+    isal_zlib = igzip_threaded.isal_zlib
+    ParallelCompress = isal_zlib._ParallelCompress
+    compressed_refs = []
+
+    class TrackingCompressor:
+        def __init__(self, **kwargs):
+            self.compressor = ParallelCompress(**kwargs)
+
+        def compress_and_crc(self, data, zdict):
+            compressed, crc = self.compressor.compress_and_crc(data, zdict)
+            # bytes cannot be weakly referenced; a memoryview can.
+            compressed = memoryview(compressed)
+            compressed_refs.append(weakref.ref(compressed))
+            return compressed, crc
+
+    monkeypatch.setattr(isal_zlib, "_ParallelCompress", TrackingCompressor)
+    # write() does not copy bytes objects, so the threads get these blocks.
+    blocks = [os.urandom(1024) for _ in range(threads + 1)]
+    refcounts = [sys.getrefcount(block) for block in blocks]
+    with igzip_threaded._ThreadedGzipWriter(io.BytesIO(),
+                                            threads=threads) as f:
+        for block in blocks:
+            f.write(block)
+        f.flush()
+        # Free-threaded builds may free objects from other threads late.
+        gc.collect()
+        # write() keeps the last block as the zdict for the next one.
+        assert ([sys.getrefcount(block) for block in blocks][:-1] ==
+                refcounts[:-1])
+        assert [ref() for ref in compressed_refs] == [None] * len(blocks)
