@@ -7,6 +7,7 @@
 
 import concurrent.futures
 import errno
+import gc
 import gzip
 import io
 import itertools
@@ -18,6 +19,7 @@ import tempfile
 import threading
 import time
 import types
+import weakref
 import zlib
 from pathlib import Path
 
@@ -34,6 +36,58 @@ def test_threaded_read():
     with gzip.open(TEST_FILE, "rb") as f:
         data = f.read()
     assert thread_data == data
+
+
+def test_threaded_read_pipe_returns_data_after_two_blocks():
+    # readinto() on a pipe blocks until the reader's input buffer is full.
+    block_size = 64 * 1024
+    data = os.urandom(4 * block_size)
+    compressed = gzip.compress(data)
+    read_fd, write_fd = os.pipe()
+    first_read_done = threading.Event()
+    held_back = []
+
+    def write_to_pipe():
+        with open(write_fd, "wb") as pipe:
+            pipe.write(compressed[:2 * block_size])
+            pipe.flush()
+            held_back.append(first_read_done.wait(timeout=5))
+            pipe.write(compressed[2 * block_size:])
+
+    writer = threading.Thread(target=write_to_pipe)
+    writer.start()
+    with open(read_fd, "rb") as pipe:
+        with igzip_threaded.open(pipe, "rb", block_size=block_size) as f:
+            first = f.read(10)
+            first_read_done.set()
+            rest = f.read()
+    writer.join()
+    assert first + rest == data
+    assert held_back == [True]
+
+
+@pytest.mark.parametrize("block_size", [1024, 64 * 1024])
+def test_threaded_read_header_longer_than_block_size(block_size):
+    # The input buffer holds two blocks.
+    data = os.urandom(3 * block_size)
+    compressed = io.BytesIO()
+    for name in ["x" * (3 * block_size // 2), "y"]:
+        with gzip.GzipFile(name, "wb", fileobj=compressed) as f:
+            f.write(data)
+    compressed.seek(0)
+    with igzip_threaded.open(compressed, "rb", block_size=block_size) as f:
+        assert f.read() == data + data
+
+
+def test_threaded_read_header_longer_than_input_buffer():
+    compressed = io.BytesIO()
+    with gzip.GzipFile("x" * 1024 * 1024, "wb", fileobj=compressed) as f:
+        f.write(b"data")
+    compressed.seek(0)
+    with igzip_threaded.open(compressed, "rb", block_size=64 * 1024) as f:
+        with pytest.raises(OverflowError) as error:
+            f.read()
+    error.match("header")
 
 
 @pytest.mark.parametrize("block_size", [8 * 1024, 64 * 1024])
@@ -600,3 +654,39 @@ def test_threaded_compression_error(monkeypatch, threads):
     # raw holds only the gzip header. The writer thread dropped all blocks,
     # and close() did not end the stream.
     assert len(raw.getvalue()) == 10
+
+
+@pytest.mark.skipif(not hasattr(sys, "getrefcount"),
+                    reason="Needs reference counting")
+@pytest.mark.parametrize("threads", [1, 3])
+def test_threaded_writer_drops_blocks(monkeypatch, threads):
+    isal_zlib = igzip_threaded.isal_zlib
+    ParallelCompress = isal_zlib._ParallelCompress
+    compressed_refs = []
+
+    class TrackingCompressor:
+        def __init__(self, **kwargs):
+            self.compressor = ParallelCompress(**kwargs)
+
+        def compress_and_crc(self, data, zdict):
+            compressed, crc = self.compressor.compress_and_crc(data, zdict)
+            # bytes cannot be weakly referenced; a memoryview can.
+            compressed = memoryview(compressed)
+            compressed_refs.append(weakref.ref(compressed))
+            return compressed, crc
+
+    monkeypatch.setattr(isal_zlib, "_ParallelCompress", TrackingCompressor)
+    # write() does not copy bytes objects, so the threads get these blocks.
+    blocks = [os.urandom(1024) for _ in range(threads + 1)]
+    refcounts = [sys.getrefcount(block) for block in blocks]
+    with igzip_threaded._ThreadedGzipWriter(io.BytesIO(),
+                                            threads=threads) as f:
+        for block in blocks:
+            f.write(block)
+        f.flush()
+        # Free-threaded builds may free objects from other threads late.
+        gc.collect()
+        # write() keeps the last block as the zdict for the next one.
+        assert ([sys.getrefcount(block) for block in blocks][:-1] ==
+                refcounts[:-1])
+        assert [ref() for ref in compressed_refs] == [None] * len(blocks)

@@ -13,6 +13,18 @@ version 1.10.0-dev
   opened them ended, for example a ``ThreadPoolExecutor`` thread after
   ``shutdown()``. Reads returned truncated data without an error, and writes
   waited forever.
++ Reduce the memory use of ``igzip_threaded.open`` readers. They now read the
+  compressed input in pieces of 2 times ``block_size`` instead of 8 times,
+  which saves up to 6 MiB per open file with the default ``block_size`` of
+  1 MiB. When reading from a pipe, the first data is now returned once 2 MiB
+  of compressed data has arrived, instead of 8 MiB.
++ Lower the memory use of ``igzip_threaded`` writers on CPython. Threads that
+  wait for their next block no longer keep their last blocks in memory. When
+  data is written slower than the threads compress it, writing with 8 threads
+  and the default 1 MiB blocks uses about 7 MiB less memory at its peak.
++ Fix ``tell()`` and forward ``seek()`` on ``igzip.IGzipFile`` objects that
+  read from an unseekable file object, such as a pipe or a socket. Versions
+  1.4.0 to 1.9.1 raised ``io.UnsupportedOperation`` for these calls.
 + Fix ``python -m isal.igzip`` replacing the input file with empty output and
   exiting with status 0 when the output file is the input file, as in
   ``-f -o data data``. It exits with an error now.
