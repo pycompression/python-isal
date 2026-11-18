@@ -10,12 +10,11 @@ Changelog
 version 1.10.0-dev
 ------------------
 + Make ``isal_zlib.Compress.flush()`` return ``b""`` for ``Z_SYNC_FLUSH``
-  when nothing was compressed since a sync or full flush, and for
-  ``Z_FULL_FLUSH`` when nothing was compressed since a full flush, as zlib
-  does. It wrote an empty block of 6 bytes, or 117 bytes at level 0. On
-  Linux, such a flush is now 20 times faster at levels 1 to 3. Flushing an
-  ``igzip`` file again without a write in between no longer grows the file
-  and is 4 times faster.
+  right after a sync or full flush, and for ``Z_FULL_FLUSH`` right after a
+  full flush, as zlib does. It wrote an empty block of 6 bytes, or 117 bytes
+  at level 0. On Linux, such a flush is now 20 times faster at levels 1 to 3.
+  Flushing an ``igzip`` file again without a write in between no longer grows
+  the file and is 4 times faster.
 + Fix ``igzip_threaded`` files that stopped working when the thread that
   opened them ended, for example a ``ThreadPoolExecutor`` thread after
   ``shutdown()``. Reads returned truncated data without an error, and writes

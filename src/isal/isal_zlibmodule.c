@@ -584,7 +584,8 @@ typedef struct
     PyObject *zdict;
     struct isal_zlib_header zlib_header;
     int is_initialised;
-    /* Mode of the last flush; Z_NO_FLUSH after compress() or Z_FINISH. */
+    /* Mode of the last flush() call, skipped or not, as zlib keeps it.
+       Z_NO_FLUSH after compress() or Z_FINISH. */
     int last_flush;
     PyThread_type_lock lock;
     // isal_zstream should be at the bottom as it contains buffers inside the struct.
@@ -1122,9 +1123,13 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     
     ENTER_ZLIB(self);
 
-    /* As in zlib, skip the empty block after an equal or stronger flush. */
+    /* isal_deflate() writes an empty block for each sync or full flush, even
+       without new input (see igzip_lib.h). Like deflate() in zlib, write
+       nothing when the previous call was an equal or stronger flush, and
+       remember the mode of a skipped flush as well. */
     if ((mode == Z_SYNC_FLUSH || mode == Z_FULL_FLUSH) &&
             self->last_flush >= mode) {
+        self->last_flush = mode;
         LEAVE_ZLIB(self);
         return PyBytes_FromStringAndSize(NULL, 0);
     }
