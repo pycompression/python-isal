@@ -129,6 +129,27 @@ class TestIgzipDecompressor():
             compressed = None
             decompressed = None
 
+    @pytest.mark.skip(reason="Causes memory issues on CI systems.")
+    def testDecompress4GMaxLength(self):
+        # The input is larger than one isal_inflate() call takes (4 GiB - 1
+        # bytes), and the output reaches max_length during the first call.
+        size = 4 * 1024 ** 3 + 100  # 4 GiB + 100
+        blocksize = 10 * 1024 * 1024
+        block = os.urandom(blocksize)
+        try:
+            data = block * (size // blocksize + 1)
+            compressed = igzip_lib.compress(data)
+            igzd = IgzipDecompressor()
+            decompressed = igzd.decompress(compressed, max_length=blocksize)
+            assert not igzd.needs_input
+            decompressed += igzd.decompress(b"")
+            assert igzd.eof
+            assert decompressed == data
+        finally:
+            data = None
+            compressed = None
+            decompressed = None
+
     @pytest.mark.skipif(sys.implementation.name == "pypy",
                         reason="Pickling is not a requirement, and certainly "
                                "not a blocker for PyPy.")
