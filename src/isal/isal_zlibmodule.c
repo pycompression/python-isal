@@ -584,6 +584,9 @@ typedef struct
     PyObject *zdict;
     struct isal_zlib_header zlib_header;
     int is_initialised;
+    /* Mode of the last flush() call, skipped or not, as zlib keeps it.
+       Z_NO_FLUSH after compress() or Z_FINISH. */
+    int last_flush;
     PyThread_type_lock lock;
     // isal_zstream should be at the bottom as it contains buffers inside the struct.
     struct isal_zstream zst;
@@ -609,6 +612,7 @@ newcompobject()
     if (self == NULL)
         return NULL;
     self->is_initialised = 0;
+    self->last_flush = Z_NO_FLUSH;
     self->zdict = NULL;
     self->zlib_header.dict_flag = 0;
     self->level_buf = NULL;
@@ -898,6 +902,8 @@ isal_zlib_Compress_compress_impl(compobject *self, Py_buffer *data)
 
     ENTER_ZLIB(self);
 
+    /* Also for b"", as in zlib: permessage-deflate needs the sync marker. */
+    self->last_flush = Z_NO_FLUSH;
     self->zst.next_in = data->buf;
     ibuflen = data->len;
 
@@ -1117,6 +1123,17 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
     
     ENTER_ZLIB(self);
 
+    /* isal_deflate() writes an empty block for each sync or full flush, even
+       without new input (see igzip_lib.h). Like deflate() in zlib, write
+       nothing when the previous call was an equal or stronger flush, and
+       remember the mode of a skipped flush as well. */
+    if ((mode == Z_SYNC_FLUSH || mode == Z_FULL_FLUSH) &&
+            self->last_flush >= mode) {
+        self->last_flush = mode;
+        LEAVE_ZLIB(self);
+        return PyBytes_FromStringAndSize(NULL, 0);
+    }
+
     if (mode == Z_FINISH) {
         self->zst.flush = FULL_FLUSH;
         self->zst.end_of_stream = 1;
@@ -1167,9 +1184,11 @@ isal_zlib_Compress_flush_impl(compobject *self, int mode)
         self->zst.level_buf_size = 0;
         self->zst.level_buf = NULL;
         self->is_initialised = 0;
+        self->last_flush = Z_NO_FLUSH;
     } else {
         // reset the flush mode back so compressobject can be used again.
         self->zst.flush = NO_FLUSH;
+        self->last_flush = mode;
     }
 
     if (_PyBytes_Resize(&RetVal, self->zst.next_out -

@@ -174,6 +174,35 @@ def test_compressobj_level_0_flush_after_finish():
     assert zlib.decompress(compressed) == b"data"
 
 
+@pytest.mark.parametrize("level", range(4))
+@pytest.mark.parametrize("wbits", [-15, 15, 31])
+def test_compressobj_skipped_flushes_match_zlib(level, wbits):
+    # zlib writes nothing for a sync flush right after a sync or full flush,
+    # or for a full flush right after a full flush. A skipped flush counts
+    # as the previous call too: in full, sync, full, the last flush writes.
+    # compress(b"") counts as a call as well, which permessage-deflate needs.
+    modes = {"sync": zlib.Z_SYNC_FLUSH, "full": zlib.Z_FULL_FLUSH}
+    for length in range(1, 5):
+        for steps in itertools.product(["data", "empty", "sync", "full"],
+                                       repeat=length):
+            isal_compressor = isal_zlib.compressobj(level, wbits=wbits)
+            zlib_compressor = zlib.compressobj(wbits=wbits)
+            compressed = b""
+            for step in steps:
+                if step in modes:
+                    isal_output = isal_compressor.flush(modes[step])
+                    zlib_output = zlib_compressor.flush(modes[step])
+                    assert (isal_output == b"") == (zlib_output == b""), steps
+                    compressed += isal_output
+                else:
+                    data = DATA[:1000] if step == "data" else b""
+                    compressed += isal_compressor.compress(data)
+                    zlib_compressor.compress(data)
+            compressed += isal_compressor.flush()
+            assert (zlib.decompress(compressed, wbits=wbits) ==
+                    DATA[:1000] * steps.count("data"))
+
+
 @pytest.mark.parametrize("flush_mode", [isal_zlib.Z_SYNC_FLUSH,
                                         isal_zlib.Z_FULL_FLUSH])
 @pytest.mark.parametrize(["strategy", "btype"],
