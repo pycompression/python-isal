@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Speed up ``import isal`` by about 0.1 ms in programs that have not imported
+  ``__future__`` yet. The version module that is generated when isal is built
+  no longer imports ``__future__``. Building isal now requires setuptools-scm
+  9.2 or later.
 + Fix ``igzip_threaded`` files that stopped working when the thread that
   opened them ended, for example a ``ThreadPoolExecutor`` thread after
   ``shutdown()``. Reads returned truncated data without an error, and writes
