@@ -9,6 +9,10 @@ Changelog
 
 version 1.10.0-dev
 ------------------
++ Fix ``igzip_lib.IgzipDecompressor.decompress()`` losing input when one call
+  gets more than 4 GiB of data and the output reaches ``max_length``. Later
+  calls returned only part of the data, and ``needs_input`` became ``True``
+  before the end of the stream.
 + Make ``isal_zlib.Compress.flush()`` return ``b""`` for ``Z_SYNC_FLUSH``
   right after a sync or full flush, and for ``Z_FULL_FLUSH`` right after a
   full flush, as zlib does. It wrote an empty block of 6 bytes, or 117 bytes
